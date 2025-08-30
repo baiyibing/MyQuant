@@ -11,6 +11,11 @@ from matplotlib.dates import DateFormatter
 import mplfinance as mpf
 from matplotlib.ticker import MultipleLocator
 
+
+from timeit import default_timer as timer
+
+start = timer()
+
 # 证券代码兼容多种格式 通达信，同花顺，聚宽
 # sh000001 (000001.XSHG)    sz399006 (399006.XSHE)   sh600519 ( 600519.XSHG ) 
 
@@ -27,67 +32,95 @@ dataset = pq.ParquetDataset(
     filesystem=None            # 自动识别 HDFS/S3，或显式指定 fs 对象
 )
 table = dataset.read()          # 读取为 Arrow Table
+
+print(u'读取为 Arrow Table', timer() - start)
+
 all_df = table.to_pandas()          # 转为 Pandas DataFrame（可选）
+
+print(u'转为 Pandas DataFrame', timer() - start)
 
 all_df['date']=pd.to_datetime(all_df['date'])
 # all_df.set_index(['date'], inplace=True)
 # all_df.index.name=''
 
+print(u' Pandas 转 to_datetime', timer() - start)
+
 now = datetime.today()
 normalized_today = now.replace(hour=0, minute=0, second=0, microsecond=0) # 当前日期（去除时间部分）
-start_date = normalized_today - timedelta(days=120)  # 120 天前的日期[1,6](@ref)
-
+start_date = normalized_today - timedelta(days=365)  # 120 天前的日期[1,6](@ref)
 # start_date = start_date.strftime("%Y-%m-%d")
 
 # filtered_df = df[df['Age'] > 28]
-df = all_df[all_df['symbol'].isin(['001965.SZ'])]
+
 # filtered_df = df[(df['date'] >= start_date) & (df['date'] <= today)]
-df = df[(df['date'] >= start_date)]
+all_df = all_df[(all_df['date'] >= start_date)]
 # TypeError: '>=' not supported between instances of 'str' and 'datetime.datetime'
 
+print(u' df 按时间过滤 ', timer() - start)
+
 # 在 Pandas 中将某列（如 date）设置为索引后，该列名会从列名列表（columns）中移除，转而作为索引（index）存在。这是 Pandas 的默认设计逻辑
-df.set_index(['date'], inplace=True)
-df.index.name=''
+all_df.set_index(['date'], inplace=True)
+all_df.index.name=''
 
-#-------有数据了，下面开始正题 -------------
-CLOSE=df.close.values
-OPEN=df.open.values           #基础数据定义，只要传入的是序列都可以  Close=df.close.values
-HIGH=df.high.values
-LOW=df.low.values             #例如  CLOSE=list(df.close) 都是一样
+print(u' df 设置index ', timer() - start)
 
-MA5=MA(CLOSE,5)                             #获取5日均线序列
-MA10=MA(CLOSE,10)                           #获取10日均线序列
-up,mid,lower=BOLL(CLOSE)                        #获取布林带指标数据
+unique_column = all_df['symbol'].drop_duplicates()
+unique_values = unique_column.values
 
-epsilon = 1e-8                                  #计算价格标准化位置（添加epsilon防止除零）
+loop_start = timer()
 
-L1=COST(CLOSE,0.01/100)                         #最低1%成本位
-L2=COST(CLOSE,99.99/100)                        #最高99.99%成本位
-L3=(CLOSE-L1)/(L2-L1+epsilon)*100;              #价格标准化位置
-K=SMA(L3,3,1) #COLORWHITE;                  L3的3日指数加权平均
-D=SMA(K,3,1) #COLORYELLOW;                  K的3日指数加权平均
-J=3*K-2*D #COLORFF00FF;                             动量指标
-MAIRU=CROSS(J,K) & (J<80)                     #J线上穿K线且J值低于80
+print(u' df 取得排重后的股票代码，准备进入循环 ', loop_start - start)
 
-df['MAIRU'] = MAIRU
-
-buy_signals = df[df['MAIRU']]
-for index, row in buy_signals.iterrows():
-    print(f"日期: {index.strftime('%Y-%m-%d')} | "
-          f"代码: {row['symbol']} | "
-          f"开: {row['open']:.2f} | "
-          f"高: {row['high']:.2f} | "
-          f"低: {row['low']:.2f} | "
-          f"收: {row['close']:.2f} | "
-          f"量: {row['volume']:,.0f}股 | "
-          f"额: {row['amount']:,.0f}元")
+for item in unique_values:
+    df = all_df[all_df['symbol'].isin([item])].copy()
 
 
+    #-------有数据了，下面开始正题 -------------
+    CLOSE=df.close.values
+    OPEN=df.open.values           #基础数据定义，只要传入的是序列都可以  Close=df.close.values
+    HIGH=df.high.values
+    LOW=df.low.values             #例如  CLOSE=list(df.close) 都是一样
 
-# DRAWICON(CROSS(J,K) AND J<80,J,1);
+    MA5=MA(CLOSE,5)                             #获取5日均线序列
+    MA10=MA(CLOSE,10)                           #获取10日均线序列
+    up,mid,lower=BOLL(CLOSE)                        #获取布林带指标数据
 
+    epsilon = 1e-8                                  #计算价格标准化位置（添加epsilon防止除零）
 
+    L1=COST(CLOSE,0.01/100)                         #最低1%成本位
+    L2=COST(CLOSE,99.99/100)                        #最高99.99%成本位
+    L3=(CLOSE-L1)/(L2-L1+epsilon)*100;              #价格标准化位置
+    K=SMA(L3,3,1) #COLORWHITE;                  L3的3日指数加权平均
+    D=SMA(K,3,1) #COLORYELLOW;                  K的3日指数加权平均
+    J=3*K-2*D #COLORFF00FF;                             动量指标
+    MAIRU=CROSS(J,K) & (J<80)                     #J线上穿K线且J值低于80
+
+    # df['MAIRU'] = MAIRU
+    # SettingWithCopyWarning:
+    # A value is trying to be set on a copy of a slice from a DataFrame.
+    # Try using .loc[row_indexer,col_indexer] = value instead
+    df.loc[:, 'MAIRU'] = MAIRU
+
+    buy_signals = df[df['MAIRU']]
+    for index, row in buy_signals.iterrows():
+        if abs(normalized_today-index) < timedelta(days=3):
+            print(f"日期: {index.strftime('%Y-%m-%d')} | "
+                  f"代码: {row['symbol']} | "
+                  f"开: {row['open']:.2f} | "
+                  f"高: {row['high']:.2f} | "
+                  f"低: {row['low']:.2f} | "
+                  f"收: {row['close']:.2f} | "
+                  f"量: {row['volume']:,.0f}股 | "
+                  f"额: {row['amount']:,.0f}元")
+
+    a_end = timer()
+    # print(item, a_end - loop_start)
+    loop_start = a_end
+    # DRAWICON(CROSS(J,K) AND J<80,J,1);
+
+print(u' 程序执行完毕 ', timer() - start)
 #-----------------------------------------------------作图显示-----------------------------------------------------------
+"""
 
 # plt.rcParams 是 Matplotlib 中的一个字典对象，用于管理全局配置设置。通过操作这个字典，你可以自定义和调整 Matplotlib 绘制图形时的各种参数和属性。
 # 确保参数名称的准确性，可以通过 plt.rcParams.keys() 查看所有可用的配置参数。
@@ -182,7 +215,7 @@ plt.tight_layout()
 plt.subplots_adjust(top=0.94)
 plt.show()
 
-"""
+
 
 请将以下通达信公式的计算结果使用matplotlib绘制出图形
 L1:=COST(0.01);                             计算股票成本分布的最低1%分位点（支撑位）      
@@ -195,4 +228,15 @@ J:3*K-2*D,COLORFF00FF;                      震荡加速线，增强灵敏度
 MAIRU:=CROSS(J,K) AND J<80;                 当J上穿K且J < 80时标记买入信号（DRAWICON绘制箭头
 DRAWICON(CROSS(J,K) AND J<80,J,1);
 
+
+
+L1:=COST(0.01);                              
+L2:=COST(99.99);                            
+L3:=(C-L1)/(L2-L1)*100;                     
+                                           
+K:SMA(L3,3,1),COLORWHITE;                   
+D:SMA(K,3,1),COLORYELLOW;                  
+J:3*K-2*D,COLORFF00FF;                      
+MAIRU:=CROSS(J,K) AND J<80;                 
+DRAWICON(CROSS(J,K) AND J<80,J,1);
 """
