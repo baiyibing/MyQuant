@@ -5,6 +5,7 @@ import glob
 import os
 import pyarrow.parquet as pq
 from datetime import datetime, timedelta
+
 # 证券代码兼容多种格式 通达信，同花顺，聚宽
 # sh000001 (000001.XSHG)    sz399006 (399006.XSHE)   sh600519 ( 600519.XSHG ) 
 
@@ -25,7 +26,7 @@ all_df = table.to_pandas()          # 转为 Pandas DataFrame（可选）
 
 now = datetime.today()
 normalized_today = now.replace(hour=0, minute=0, second=0, microsecond=0) # 当前日期（去除时间部分）
-start_date = normalized_today - timedelta(days=120)  # 30 天前的日期[1,6](@ref)
+start_date = normalized_today - timedelta(days=120)  # 120 天前的日期[1,6](@ref)
 
 start_date = start_date.strftime("%Y-%m-%d")
 
@@ -35,28 +36,17 @@ df = all_df[all_df['symbol'].isin(['001965.SZ'])]
 df = df[(df['date'] >= start_date)]
 # TypeError: '>=' not supported between instances of 'str' and 'datetime.datetime'
 
-#-------有数据了，下面开始正题 -------------
-CLOSE=df.close.values;
-OPEN=df.open.values           #基础数据定义，只要传入的是序列都可以  Close=df.close.values
-HIGH=df.high.values;
-LOW=df.low.values             #例如  CLOSE=list(df.close) 都是一样
 
-MA5=MA(CLOSE,5)                                #获取5日均线序列
-MA10=MA(CLOSE,10)                              #获取10日均线序列
-up,mid,lower=BOLL(CLOSE)                            #获取布林带指标数据
+# 基础数据定义，只要传入的是序列都可以
+CLOSE = df.close.values
+OPEN = df.open.values
+HIGH = df.high.values
+LOW = df.low.values
 
-#-------------------------作图显示-----------------------------------------------------------------
-import matplotlib.pyplot as plt ;
-from matplotlib.ticker import MultipleLocator
-plt.figure(figsize=(15,8))  
-plt.plot(CLOSE,label='SHZS');
-plt.plot(up,label='UP');           #画图显示
-plt.plot(mid,label='MID');
-plt.plot(lower,label='LOW');
-plt.plot(MA10,label='MA10',linewidth=0.5,alpha=0.7);
-plt.legend();
-plt.grid(linewidth=0.5,alpha=0.7);
-plt.gcf().autofmt_xdate(rotation=45);
-plt.gca().xaxis.set_major_locator(MultipleLocator(len(CLOSE)/30))    #日期最多显示30个
-plt.title('SH-INDEX   &   BOLL SHOW',fontsize=20);
-plt.show()
+MA5 = MA(CLOSE, 5)  # 获取 5 日均线序列
+MA10 = MA(CLOSE, 10)  # 获取 10 日均线序列
+
+print('BTC5 日均线', MA5[-1])  # 只取最后一个数
+print('BTC10 日均线', RET(MA10))  # RET(MA10) == MA10[-1]
+print('今天 5 日线是否上穿 10 日线', RET(CROSS(MA5, MA10)))
+print('最近 5 天收盘价全都大于 10 日线吗？', EVERY(CLOSE > MA10, 5))
