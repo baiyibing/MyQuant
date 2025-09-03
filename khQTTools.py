@@ -93,6 +93,7 @@ def process_row(row, stock_codes, stock_names):
                 (stock_code.startswith(('000', '001', '002', '300', '301')) and stock_code.endswith('.SZ')) or  # 深圳所有板块
                 (stock_code.startswith(('51', '58')) and stock_code.endswith('.SH')) or  # 上海ETF
                 (stock_code.startswith('15') and stock_code.endswith('.SZ')) or  # 深圳ETF
+                (stock_code.startswith(('43', '83', '87', '920')) and stock_code.endswith('.BJ')) or  # 北交所
                 # 增加对指数的支持
                 (stock_code.startswith(('000', '399')) and stock_code.endswith(('.SH', '.SZ')))):  # 主要指数
                 stock_codes.append(stock_code)
