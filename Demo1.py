@@ -26,7 +26,7 @@ def resample_weekly(daily_df):
         # daily_df['volume'].fillna(0, inplace=True)
         daily_df.fillna({'volume': 0}, inplace=True)
     # 然后再进行正常的周重采样
-    return daily_df.resample('W-MON').agg({
+    return daily_df.resample('W').agg({
         'open': 'first',
         'high': 'max',
         'low': 'min',
@@ -44,6 +44,7 @@ def MAIRU(df):
 
     MA5 = MA(CLOSE, 5)  # 获取5日均线序列
     MA10 = MA(CLOSE, 10)  # 获取10日均线序列
+    MA20 = MA(CLOSE, 20)  # 获取20日均线序列
     up, mid, lower = BOLL(CLOSE)  # 获取布林带指标数据
 
     epsilon = 1e-8  # 计算价格标准化位置（添加epsilon防止除零）
@@ -54,7 +55,7 @@ def MAIRU(df):
     K = SMA(L3, 3, 1)  # COLORWHITE;                  L3的3日指数加权平均
     D = SMA(K, 3, 1)  # COLORYELLOW;                  K的3日指数加权平均
     J = 3 * K - 2 * D  # COLORFF00FF;                             动量指标
-    MAIRU = CROSS(J, K) & (J < 80)  # J线上穿K线且J值低于80
+    MAIRU = CROSS(J, K) & (J < 80)  & (CLOSE >= MA20) # J线上穿K线且J值低于80,而且站上了20日均线
 
     # df['MAIRU'] = MAIRU
     # SettingWithCopyWarning:
@@ -244,6 +245,7 @@ print(u' df 取得排重后的股票代码，准备进入循环 ', loop_start - 
 for item in unique_values:
     a_end = timer()
 
+    # if item in ['920167.BJ']:
     df = all_df[all_df['symbol'].isin([item])].copy()
 
     daily_buy_signals = MAIRU(df)
