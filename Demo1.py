@@ -218,7 +218,7 @@ print(u' Pandas 转 to_datetime', timer() - start)
 
 now = datetime.today()
 normalized_today = now.replace(hour=0, minute=0, second=0, microsecond=0) # 当前日期（去除时间部分）
-start_date = normalized_today - timedelta(days=365)  # 120 天前的日期[1,6](@ref)
+start_date = normalized_today - timedelta(days=1000)  # 120 天前的日期[1,6](@ref)
 # start_date = start_date.strftime("%Y-%m-%d")
 
 # filtered_df = df[df['Age'] > 28]
@@ -257,7 +257,7 @@ for item in unique_values:
         weekly_show_symbol = False
 
         for index, row in daily_buy_signals.iterrows():
-            if abs(normalized_today - index) < timedelta(days=3):
+            if abs(normalized_today - index) < timedelta(days=100):
                 print(f"信号日K | "
                       f"日期: {index.strftime('%Y-%m-%d')} | "
                       f"代码: {row['symbol']} | "
@@ -274,7 +274,7 @@ for item in unique_values:
 
             weekly_buy_signals = MAIRU(weekly_df)
             for index, row in weekly_buy_signals.iterrows():
-                if abs(normalized_today - index) < timedelta(days=7):
+                if abs(normalized_today - index) < timedelta(days=100):
                     print(f"信号周K | "
                           f"日期: {index.strftime('%Y-%m-%d')} | "
                           f"代码: {row['symbol']} | "
