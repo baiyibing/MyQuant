@@ -58,3 +58,12 @@ name_filter = NameDFilter(name_rule_re='SH[0-9]{4}55')  # 筛选代码以SH开�
 filtered_instruments = D.instruments(market='csi300', filter_pipe=[name_filter])
 filtered_stocks = D.list_instruments(instruments=filtered_instruments, as_list=True)
 print(f"筛选后的股票: {filtered_stocks}")
+
+# NameDFilter 基于金融工具的名称进行过滤，例如筛选出所有沪市股票：
+filter = NameDFilter(pattern='^SH')
+filtered_instruments = D.instruments(market='all', filter_pipe=[name_filter])
+filtered_stocks = D.list_instruments(instruments=filtered_instruments, as_list=True)
+print(f"筛选出所有沪市股票: {filtered_stocks}")
+
+from qlib.data.filter import ExpressionDFilter
+filter = ExpressionDFilter(rule_expression='$close > $open')

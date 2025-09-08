@@ -11,13 +11,18 @@ from matplotlib.dates import DateFormatter
 import mplfinance as mpf
 from matplotlib.ticker import MultipleLocator
 from timeit import default_timer as timer
+from loguru import logger
 
+logger.remove(0)
+logger.add("out.log")
 
-def resample_weekly(daily_df):
+def resample_weekly(daily_df,end_date=None):
     # 方法2：先填充缺失的交易日（使用前向填充），然后再重采样
     # 生成一个完整的日期索引以确保连续性
     all_dates = pd.date_range(start=daily_df.index.min(), end=daily_df.index.max(), freq='D')
     daily_df = daily_df.reindex(all_dates)
+    # daily_df = daily_df[daily_df.index < end_date] 所有索引日期早于 specific_date的数据
+    daily_df = daily_df.truncate(after=end_date) # 截取 daily_df中所有在指定日期 specific_date之前的数据（不包含该日期本身），并将结果赋值给 data_before
     # 对OHLC等价格数据，通常使用前向填充（ffill）来填充非交易日的值
     with pd.option_context("future.no_silent_downcasting", True):
         daily_df = daily_df.ffill().infer_objects(copy=False)
@@ -55,7 +60,7 @@ def MAIRU(df):
     K = SMA(L3, 3, 1)  # COLORWHITE;                  L3的3日指数加权平均
     D = SMA(K, 3, 1)  # COLORYELLOW;                  K的3日指数加权平均
     J = 3 * K - 2 * D  # COLORFF00FF;                             动量指标
-    MAIRU = CROSS(J, K) & (J < 80)  & (CLOSE >= MA20) # J线上穿K线且J值低于80,而且站上了20日均线
+    MAIRU = CROSS(J, K) & (J < 80)   # J线上穿K线且J值低于80,而且站上了20日均线 & (CLOSE >= MA20)
 
     # df['MAIRU'] = MAIRU
     # SettingWithCopyWarning:
@@ -245,7 +250,6 @@ print(u' df 取得排重后的股票代码，准备进入循环 ', loop_start - 
 for item in unique_values:
     a_end = timer()
 
-    # if item in ['920167.BJ']:
     df = all_df[all_df['symbol'].isin([item])].copy()
 
     daily_buy_signals = MAIRU(df)
@@ -256,27 +260,28 @@ for item in unique_values:
         daily_show_symbol = False
         weekly_show_symbol = False
 
-        for index, row in daily_buy_signals.iterrows():
-            if abs(normalized_today - index) < timedelta(days=100):
-                print(f"信号日K | "
-                      f"日期: {index.strftime('%Y-%m-%d')} | "
-                      f"代码: {row['symbol']} | "
-                      f"开: {row['open']:.2f} | "
-                      f"高: {row['high']:.2f} | "
-                      f"低: {row['low']:.2f} | "
-                      f"收: {row['close']:.2f} | "
-                      f"量: {row['volume']:,.0f}股 | "
-                      f"额: {row['amount']:,.0f}元")
-                daily_show_symbol = True
+        for index_daily, row in daily_buy_signals.iterrows():
+            if abs(normalized_today - index_daily) < timedelta(days=200):
+                weekly_df = resample_weekly(df,index_daily)
+                weekly_buy_signals = MAIRU(weekly_df)
+                for index_weekly, row in weekly_buy_signals.iterrows():
+                    if abs(index_daily - index_weekly) < timedelta(days=7):
+                        msg = (f"信号周K | "
+                              f"日期: {index_weekly.strftime('%Y-%m-%d')} | "
+                              f"代码: {row['symbol']} | "
+                              f"开: {row['open']:.2f} | "
+                              f"高: {row['high']:.2f} | "
+                              f"低: {row['low']:.2f} | "
+                              f"收: {row['close']:.2f} | "
+                              f"量: {row['volume']:,.0f}股 | "
+                              f"额: {row['amount']:,.0f}元")
+                        print(msg)
+                        logger.info(msg)
+                        weekly_show_symbol = True
 
-        if daily_show_symbol:
-            weekly_df = resample_weekly(df)
-
-            weekly_buy_signals = MAIRU(weekly_df)
-            for index, row in weekly_buy_signals.iterrows():
-                if abs(normalized_today - index) < timedelta(days=100):
-                    print(f"信号周K | "
-                          f"日期: {index.strftime('%Y-%m-%d')} | "
+                if weekly_show_symbol:
+                    msg = (f"信号日K | "
+                          f"日期: {index_daily.strftime('%Y-%m-%d')} | "
                           f"代码: {row['symbol']} | "
                           f"开: {row['open']:.2f} | "
                           f"高: {row['high']:.2f} | "
@@ -284,10 +289,11 @@ for item in unique_values:
                           f"收: {row['close']:.2f} | "
                           f"量: {row['volume']:,.0f}股 | "
                           f"额: {row['amount']:,.0f}元")
-                    weekly_show_symbol = True
-
-        if daily_show_symbol and weekly_show_symbol:
-            print(f"---------------代码: {item} ----------------")
+                    print(msg)
+                    logger.info(msg)
+                    print(f"---------------代码: {item} ----------------")
+                    logger.info(f"---------------代码: {item} ----------------")
+                    weekly_show_symbol = False
 
     loop_start = a_end
 

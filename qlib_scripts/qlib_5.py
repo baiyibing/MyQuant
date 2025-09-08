@@ -1,17 +1,21 @@
 # https://www.wuzao.com/qlib/tutorial/introduction
 import multiprocessing
 import qlib
-
+import logging
 from qlib.data import D
 from qlib.data.filter import NameDFilter
 from qlib.constant import REG_CN    # 中国市场
-import logging
+
 # python scripts/get_data.py qlib_data --target_dir ~/.qlib/qlib_data/cn_data --region cn
 # 下载会报错，元宝建议从https://github.com/chenditc/investment_data/releases/latest/download/qlib_bin.tar.gz下载解压到~/.qlib/qlib_data/cn_data
 
 # qlib.init(provider_uri='~/.qlib/qlib_data/cn_data', region=REG_CN)    ~ 表示当前用户的“home”目录
 
 # qlib.init(provider_uri='./.qlib/qlib_data/cn_data', region=REG_CN)
+
+# 初始化完成后，可以通过以下方式验证是否成功：如果能够成功输出交易日历和股票列表，说明初始化成功。
+
+# ... 导入其他需要的模块
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
@@ -45,19 +49,38 @@ if __name__ == '__main__':
         #     "db": 1
         # }
     )
+    # 首先需要确认你当前安装的 qlib版本中，qlib.data模块是否确实提供了 get_price函数。
+    import qlib.data
+    print(dir(qlib.data))   # 查看qlib.data模块所有可用的属性
+    # 在输出列表中仔细查找是否有 get_price。如果找不到，说明该函数在当前版本的 qlib.data模块中可能不存在或已更名
+    # from qlib.data import get_price
+    # # 获取沪深 300 指数成分股的行情数据
+    # df = get_price(
+    #     instruments='csi300',
+    #     start_time='2010-01-01',
+    #     end_time='2020-12-31',
+    #     fields=['open', 'close', 'high', 'low', 'volume'],
+    #     freq='day'
+    # )
+    # print(df.head())
 
-    # 初始化完成后，可以通过以下方式验证是否成功：如果能够成功输出交易日历和股票列表，说明初始化成功。
+    # 使用 D.features()等官方提供的方法来获取数据
+    features = D.features(
+        instruments=D.instruments(market='csi300'),
+        fields=['$open', '$close', '$high', '$low', '$volume'],
+        start_time='2020-01-01',
+        end_time='2020-12-31',
+        freq='day'
+    )
 
-    from qlib.data import D
-    from qlib.data.ops import Feature, ExpressionOps
+    print(f"特征数据形状: {features.shape}")
+    print(features.head())
 
-    # 使用表达式构造特征
-    f1 = Feature('high') / Feature('close')  # 最高价/收盘价
-    f2 = Feature('open') / Feature('close')  # 开盘价/收盘价
-    f3 = f1 + f2  # (最高价+开盘价)/收盘价
-    f4 = f3 * f3 / f3  # 简化为f3
+    from qlib.data.ops import EMA, RSI
 
-    # 加载自定义特征
-    data = D.features(["SH600519"], [f4], start_time="2020-01-01", end_time="2020-01-10")
-    print(data.head())
+    # 计算 12 日和 26 日指数移动平均线
+    ema12 = EMA($close, 12)
+    ema26 = EMA($close, 26)
 
+    # 计算 RSI 指标
+    rsi = RSI($close, 14)
