@@ -49,38 +49,37 @@ if __name__ == '__main__':
         #     "db": 1
         # }
     )
-    # 首先需要确认你当前安装的 qlib版本中，qlib.data模块是否确实提供了 get_price函数。
-    import qlib.data
-    print(dir(qlib.data))   # 查看qlib.data模块所有可用的属性
-    # 在输出列表中仔细查找是否有 get_price。如果找不到，说明该函数在当前版本的 qlib.data模块中可能不存在或已更名
-    # from qlib.data import get_price
-    # # 获取沪深 300 指数成分股的行情数据
-    # df = get_price(
-    #     instruments='csi300',
-    #     start_time='2010-01-01',
-    #     end_time='2020-12-31',
-    #     fields=['open', 'close', 'high', 'low', 'volume'],
-    #     freq='day'
-    # )
-    # print(df.head())
 
-    # 使用 D.features()等官方提供的方法来获取数据
-    features = D.features(
-        instruments=D.instruments(market='csi300'),
-        fields=['$open', '$close', '$high', '$low', '$volume'],
-        start_time='2020-01-01',
-        end_time='2020-12-31',
-        freq='day'
-    )
-
-    print(f"特征数据形状: {features.shape}")
-    print(features.head())
-
-    # from qlib.data.ops import EMA, RSI
+    # from qlib.data import D
+    # from qlib.constant import REG_CN
     #
-    # # 计算 12 日和 26 日指数移动平均线
-    # ema12 = EMA($close, 12)
-    # ema26 = EMA($close, 26)
-    #
-    # # 计算 RSI 指标
-    # rsi = RSI($close, 14)
+    # # 初始化Qlib数据环境
+    # qlib.init(provider_uri="~/.qlib/qlib_data/cn_data", region=REG_CN)
+
+
+    # 数据准备与预处理
+    # 首先需要准备CSI300成分股的历史数据，包括价格、成交量、财务指标等。Qlib提供了标准化的数据接口：
+
+    # 获取CSI300成分股数据
+    csi300_instruments = D.instruments("csi300")
+    price_data = D.features(csi300_instruments, ["$close", "$open", "$high", "$low", "$volume"])
+
+
+    # 特征工程与Alpha因子
+    # Qlib内置了丰富的Alpha因子库，如Alpha158和Alpha360，包含158个和360个技术因子：
+    from qlib.contrib.data.handler import Alpha158
+    from qlib.contrib.data.handler import Alpha360
+
+    # 配置Alpha158因子处理器
+    data_handler_config = {
+        "instruments": "csi300",
+        "start_time": "2010-01-01",
+        "end_time": "2023-12-31",
+        "fit_start_time": "2010-01-01",
+        "fit_end_time": "2018-12-31"
+    }
+
+    handler = Alpha158(**data_handler_config)
+
+    # 机器学习模型训练
+    # 使用LightGBM模型对CSI300成分股进行收益预测：

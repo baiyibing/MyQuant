@@ -57,6 +57,7 @@ if __name__ == '__main__':
     benchmark = "SH000300"
 
     # 定义数据处理配置
+    # 配置Alpha158因子处理器
     data_handler_config = {
         "start_time": "2008-01-01",
         "end_time": "2020-08-01",
@@ -66,6 +67,7 @@ if __name__ == '__main__':
     }
 
     # 定义任务配置
+    # 机器学习模型训练,使用LightGBM模型对CSI300成分股进行收益预测
     task = {
         "model": {
             "class": "LGBModel",
@@ -121,6 +123,8 @@ if __name__ == '__main__':
                 "generate_portfolio_metrics": True,
             },
         },
+        # 投资组合优化策略
+        # 对于CSI300指数增强策略，Qlib提供了EnhancedIndexingStrategy
         "strategy": {
             "class": "TopkDropoutStrategy",
             "module_path": "qlib.contrib.strategy.signal_strategy",

@@ -49,38 +49,24 @@ if __name__ == '__main__':
         #     "db": 1
         # }
     )
-    # 首先需要确认你当前安装的 qlib版本中，qlib.data模块是否确实提供了 get_price函数。
-    import qlib.data
-    print(dir(qlib.data))   # 查看qlib.data模块所有可用的属性
-    # 在输出列表中仔细查找是否有 get_price。如果找不到，说明该函数在当前版本的 qlib.data模块中可能不存在或已更名
-    # from qlib.data import get_price
-    # # 获取沪深 300 指数成分股的行情数据
-    # df = get_price(
-    #     instruments='csi300',
-    #     start_time='2010-01-01',
-    #     end_time='2020-12-31',
-    #     fields=['open', 'close', 'high', 'low', 'volume'],
-    #     freq='day'
-    # )
-    # print(df.head())
 
-    # 使用 D.features()等官方提供的方法来获取数据
-    features = D.features(
-        instruments=D.instruments(market='csi300'),
-        fields=['$open', '$close', '$high', '$low', '$volume'],
-        start_time='2020-01-01',
-        end_time='2020-12-31',
-        freq='day'
-    )
+    from qlib.data.dataset.loader import QlibDataLoader
 
-    print(f"特征数据形状: {features.shape}")
-    print(features.head())
+    # 定义要加载的字段
+    fields = ['$open', '$close', '$high', '$low', '$volume']
+    # loader = QlibDataLoader(fields=fields)
 
-    # from qlib.data.ops import EMA, RSI
-    #
-    # # 计算 12 日和 26 日指数移动平均线
-    # ema12 = EMA($close, 12)
-    # ema26 = EMA($close, 26)
-    #
-    # # 计算 RSI 指标
-    # rsi = RSI($close, 14)
+    data_loader_config = {
+        "feature": (fields),
+        # (表达式列表, 列名列表)
+        # "label": (['$close'], ['CLOSE'])  # (表达式列表, 列名列表)
+    }
+
+    # 创建数据加载器
+    loader = QlibDataLoader(data_loader_config)
+
+    # 加载数据
+    data = loader.load(instruments='csi300', start_time='2010-01-01', end_time='2020-12-31')
+
+    print(f"特征数据形状: {data.shape}")
+    print(data.head())

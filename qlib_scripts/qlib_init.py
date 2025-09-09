@@ -82,3 +82,89 @@ print(f"2020年交易日数: {len(custom_calendar)}")
 all_instruments = D.instruments(market='all')
 all_stocks = D.list_instruments(instruments=all_instruments, as_list=True)
 print(f"所有股票数量: {len(all_stocks)}")
+
+# 目前qlib使用的三方维护的qlib数据，数据每日更新，修改地址中的日期即可获取最新数据，有兴趣可以看一下investment_data这个开源项目
+# https://github.com/chenditc/investment_data
+
+# Qlib 是做什么的？
+# 想象一下构建一个量化策略的完整流程：
+#   数据获取与处理：获取股票的量价数据、财务数据等，并进行清洗、对齐、标准化。
+#   因子挖掘 (Alpha Seeking)：利用数据构建各种因子（features），比如计算 5 日均线、动量指标等，希望能找到对未来股价有预测能力的信号（Alpha）。
+#   模型训练：使用机器学习或深度学习模型（如 LightGBM, LSTM）来学习因子和未来收益率之间的关系，从而得到一个预测模型。
+#   组合构建：根据模型的预测分数，决定买入哪些股票、卖出哪些股票，以及各自的仓位。
+#   回测与分析：在历史数据上模拟交易过程，评估策略的夏普比率、最大回撤、年化收益等指标。
+# Qlib 的目标就是将这整个流程 标准化、自动化、可复现。它提供了一整套工具链，覆盖了从数据到回测的每一个环节。
+
+
+# 1 Qlib的模型架构
+# Qlib框架将模型架构分为几个层次，从数据接口开始，到特征工程，最后是模型训练与评估。这种分层设计的目的是将数据处理和模型开发解耦，使得开发者能够专注于特定层次的开发，而不必了解其他层次的细节。
+# 数据接口层：该层作为最底层，负责与外部数据源进行交互，加载和预处理数据，为上层的特征工程提供所需的数据。
+# 特征工程层：这一层是Qlib框架的核心之一，负责提取和构建有意义的特征来描述数据，对原始数据进行转换和增强。
+# 模型训练与评估层：在前两层的基础上，这一层关注的是将特征工程的成果应用到模型训练和评估中。它提供了一系列算法和工具，用于构建、训练、验证以及测试机器学习模型。
+
+# 2 Qlib中的数据处理流程
+# Qlib的数据处理流程是其设计思想的集中体现，它利用一系列预定义的数据管道来完成数据的清洗、标准化、归一化等操作。
+# 数据在经过处理后，将被加载到内存中供模型使用。这些数据管道是可配置的，并且易于扩展，使得Qlib能够适应不同的数据和模型需求。
+#   qlib.data数据加载：使用Qlib提供的数据接口组件，能够将数据从本地或远程数据源中加载到内存中。
+#   预处理：包括数据清洗、标准化、归一化等操作，是数据工程的重要一环。
+#   qlib.features特征工程：在预处理的基础上，对数据进行更深层次的特征提取和转换。
+#   模型应用：最后，将处理好的数据输入到qlib.modeling模型训练与qlib.workflow评估流程中进行最终的模型构建和评估。
+
+# 3 Qlib官方示例模型的主要功能涵盖了从数据预处理到模型训练，再到最终结果预测的整个流程。具体来说，这些模型通常包含以下功能：
+#   数据清洗与预处理：通过算法处理缺失值、异常值和数据标准化等问题。
+#   特征工程：挖掘并选取对预测模型最有用的特征变量。
+#   模型训练：利用历史数据训练模型，并进行交叉验证。
+#   模型评估：使用验证集评估模型性能，包括诸如准确率、召回率和F1分数等指标。
+#   预测与部署：将训练好的模型应用于新数据，进行未来市场走势的预测。
+
+# 4 源码模块讲解
+# qlib.data - 数据层,提供一个高效、统一的数据存储和访问接口。
+# qlib/data/data.py: 定义了核心的数据加载逻辑和 D 对象。
+# qlib/data/cache.py: 实现了表达式计算结果的缓存机制，是性能的关键。
+# qlib/data/dataset/handler.py: 处理数据预处理，如数据标准化、缺失值填充等。
+# 理解数据流：重点看数据是如何从 D.features() 流出，经过 DataHandler 处理，送入 Dataset，最后被模型使用的
+
+# qlib.workflow - 工作流管理,管理和记录整个量化实验流程，确保实验的 可复现性。
+# qlib/workflow/recorder.py: Recorder 类的实现，负责实验的启动、记录和结束。
+# qlib/workflow/exp.py: 实验管理器，用于管理多个 Recorder 实例。
+# R 是 workflow 模块的核心。当你运行一个实验时，Recorder 会自动记录下所有的配置、模型文件、预测结果和回测报告。每个实验都会有一个唯一的 ID，方便你日后回溯、比较不同实验的结果。
+# Qlib 强烈推荐使用 YAML 配置文件来定义整个工作流（用什么数据、什么模型、什么策略、回测参数等）。这使得实验设置一目了然，并且易于分享和修改。
+# qlib.workflow.Recorder 是如何根据 YAML 配置，一步步调用 task（模型训练）和 port_analysis_config（回测）的。
+
+# qlib.contrib -AI 模型和因子库,提供一个即插即用的模型库和因子库，降低用户的使用门槛。
+# qlib/contrib/model/: 存放了各种已经集成好的机器学习/深度学习模型。例如 lightgbm.py, gru.py, transformer.py 等。这些模型都遵循 Qlib 定义的统一接口，可以被工作流无缝调用。
+# qlib/contrib/meta/: 包含了一些高阶的应用，比如自动因子挖掘 (AutoML) 等。
+# qlib/contrib/evaluate.py: 包含了一些常用的因子评价函数，如计算 IC (Information Coefficient)、Rank IC 等。
+
+# qlib.strategy - 策略层 将模型的预测分数（Alpha）转化为实际的交易决策（仓位）
+# 定义了策略的基类 BaseStrategy。
+# qlib/strategy/strategy.py:提供了常见的策略实现，如 TopkDropoutStrategy（买入预测分数最高的 K 支股票，并控制换手率）。
+
+# qlib.backtest 回测引擎,模拟历史交易，评估策略表现。
+# qlib/backtest/backtest.py: 高层次的回测接口。
+# qlib/backtest/executor.py: 实际执行交易逻辑的执行器。
+# qlib/backtest/analyser.py: 用于分析回测结果并生成报告。
+
+# 5 qlib典型使用流程
+# 从 examples 开始不要直接扎进 qlib 核心代码。先找一个简单的例子，比如 examples/workflow_config_lightgbm_Alpha158.yaml，然后用调试器（如 VS Code 的 debugger）跟着 qrun 命令走一遍。
+# 5.1 准备数据
+# 运行 scripts/get_data.sh 脚本。
+# 这个脚本会下载 A 股市场的历史日线数据，并将其转换为 Qlib 高效的 .bin 格式。
+
+# 5.2 编写配置文件 (YAML)
+# 在 examples/ 目录下，你会找到很多 workflow_config_*.yaml 文件。这是一个典型的配置文件，定义了整个实验。
+# data_handler_config: 配置数据预处理，比如使用哪些因子、如何标准化、如何处理标签（label，即预测目标）。
+# task: 定义了模型和训练参数。
+# model: 指定使用哪个模型，例如 LightGBM。
+# dataset: 定义训练集、验证集、测试集的时间范围。
+# port_analysis_config: 配置投资组合分析（回测）。
+# strategy: 指定使用哪种交易策略，例如 TopkDropoutStrategy。
+# backtest: 配置回测参数，如交易成本。
+
+# 5.3 运行实验
+# 在终端运行命令：qrun examples/workflow_config_lightgbm_Alpha158.yaml
+# qrun 是 Qlib 提供的命令行工具。它会解析 YAML 文件，然后调用 qlib.workflow 启动一个 Recorder，依次执行数据处理、模型训练、预测和回测。
+
+# 5.4 分析结果
+# 实验结束后，所有的结果都被保存在 mlruns 目录中（这是 MLflow 的格式，Qlib 集成了它来做实验管理）。
+# 你可以查看生成的 recorder 对象，或者直接查看目录下的回测报告（portfolio_analysis.pkl）、模型文件（model.pkl）等。

@@ -49,38 +49,39 @@ if __name__ == '__main__':
         #     "db": 1
         # }
     )
-    # 首先需要确认你当前安装的 qlib版本中，qlib.data模块是否确实提供了 get_price函数。
-    import qlib.data
-    print(dir(qlib.data))   # 查看qlib.data模块所有可用的属性
-    # 在输出列表中仔细查找是否有 get_price。如果找不到，说明该函数在当前版本的 qlib.data模块中可能不存在或已更名
-    # from qlib.data import get_price
-    # # 获取沪深 300 指数成分股的行情数据
-    # df = get_price(
-    #     instruments='csi300',
-    #     start_time='2010-01-01',
-    #     end_time='2020-12-31',
-    #     fields=['open', 'close', 'high', 'low', 'volume'],
-    #     freq='day'
-    # )
-    # print(df.head())
 
-    # 使用 D.features()等官方提供的方法来获取数据
-    features = D.features(
-        instruments=D.instruments(market='csi300'),
-        fields=['$open', '$close', '$high', '$low', '$volume'],
+    from qlib.data.dataset.handler import DataHandlerLP
+    from qlib.contrib.data.handler import Alpha158
+
+
+    # 使用内置的 Alpha158 特征集
+    handler = Alpha158(
         start_time='2020-01-01',
         end_time='2020-12-31',
-        freq='day'
+        fit_start_time='2020-01-01',
+        fit_end_time='2020-12-31',
+        instruments='csi300'
     )
 
-    print(f"特征数据形状: {features.shape}")
-    print(features.head())
+    # 获取特征数据
+    features = handler.fetch(col_set='feature')
+    # 获取标签数据
+    labels = handler.fetch(col_set='label')
 
-    # from qlib.data.ops import EMA, RSI
-    #
-    # # 计算 12 日和 26 日指数移动平均线
-    # ema12 = EMA($close, 12)
-    # ema26 = EMA($close, 26)
-    #
-    # # 计算 RSI 指标
-    # rsi = RSI($close, 14)
+    print('特征数据形状:', features.shape)
+    print('标签数据形状:', labels.shape)
+
+    from qlib.data.ops import Latest, MinMaxNorm
+    from qlib.data.ops.features import Feature
+    # 获取数据集
+    dataset = Dataset('daily')  # 假设已经定义了一个名为 'daily' 的数据集
+    # 使用内置操作符Latest获取最新数据
+    latest_op = Latest()
+    # 使用MinMaxNorm对特征进行归一化
+    min_max_norm = MinMaxNorm(feature_range=(0, 1))
+    # 连续应用操作
+    dataset = latest_op(dataset)
+    dataset = min_max_norm(dataset)
+    # 添加新生成的特征
+    feature_op = Feature('price_close', Feature.BEHAVIOR.OBSERVATION)
+    dataset = feature_op(dataset)
