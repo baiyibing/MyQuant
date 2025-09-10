@@ -34,36 +34,15 @@ qlib.init(
     # }
 )
 
-# 获取默认时间段的日线日历
-calendar = D.calendar()
-print(f"总交易日数: {len(calendar)}")
-print(f"日期范围: {calendar[0]} 至 {calendar[-1]}")
+from qlib.data import D
+from qlib.data.ops import Feature, ExpressionOps
 
-# 获取指定时间段的日历
-custom_calendar = D.calendar(start_time='2020-01-01', end_time='2020-12-31')
-print(f"2020年交易日数: {len(custom_calendar)}")
+# 使用表达式构造特征
+f1 = Feature('high') / Feature('close')  # 最高价/收盘价
+f2 = Feature('open') / Feature('close')  # 开盘价/收盘价
+f3 = f1 + f2  # (最高价+开盘价)/收盘价
+f4 = f3 * f3 / f3  # 简化为f3
 
-# 获取所有股票
-all_instruments = D.instruments(market='all')
-all_stocks = D.list_instruments(instruments=all_instruments, as_list=True)
-print(f"所有股票数量: {len(all_stocks)}")
-
-# 获取CSI300成分股
-csi300_instruments = D.instruments(market='csi300')
-csi300_stocks = D.list_instruments(instruments=csi300_instruments, as_list=True)
-print(f"CSI300成分股数量: {len(csi300_stocks)}")
-
-# 按股票代码筛选
-name_filter = NameDFilter(name_rule_re='SH[0-9]{4}55')  # 筛选代码以SH开头且后四位为数字，第五位为5的股票
-filtered_instruments = D.instruments(market='csi300', filter_pipe=[name_filter])
-filtered_stocks = D.list_instruments(instruments=filtered_instruments, as_list=True)
-print(f"筛选后的股票: {filtered_stocks}")
-
-# NameDFilter 基于金融工具的名称进行过滤，例如筛选出所有沪市股票：
-filter = NameDFilter(pattern='^SH')
-filtered_instruments = D.instruments(market='all', filter_pipe=[name_filter])
-filtered_stocks = D.list_instruments(instruments=filtered_instruments, as_list=True)
-print(f"筛选出所有沪市股票: {filtered_stocks}")
-
-from qlib.data.filter import ExpressionDFilter
-filter = ExpressionDFilter(rule_expression='$close > $open')
+# 加载自定义特征
+data = D.features(["SH600519"], [f4], start_time="2020-01-01", end_time="2020-01-10")
+print(data.head())

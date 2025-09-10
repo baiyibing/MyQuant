@@ -50,24 +50,55 @@ if __name__ == '__main__':
         # }
     )
 
-    # 定义股票列表和特征
-    instruments = ['SH600000', 'SH600036', 'SH601318']
-    fields = [
-        '$close',  # 收盘价
-        '$volume',  # 成交量
-        'Ref($close, 1)',  # 前一日收盘价
-        'Mean($close, 5)',  # 5日平均收盘价
-        '$high - $low'  # 当日振幅
-    ]
+    from qlib.contrib.model.gbdt import LGBModel
+    from qlib.contrib.data.handler import Alpha158
+    from qlib.utils import init_instance_by_config
+    import pandas as pd
 
-    # 加载特征数据
-    features = D.features(
-        instruments=instruments,
-        fields=fields,
-        start_time='2020-01-01',
-        end_time='2020-12-31',
-        freq='day'
-    )
+    # 1. 数据处理器配置 (使用QLib的标准Handler)
+    data_handler_config = {
+        "start_time": "2010-01-01",
+        "end_time": "2020-12-31",
+        "fit_start_time": "2010-01-01",
+        "fit_end_time": "2015-12-31",
+        "instruments": "csi300",  # 沪深300成分股
+    }
 
-    print(f"特征数据形状: {features.shape}")
-    print(features.head())
+    handler = Alpha158(**data_handler_config)
+
+    # 2. 准备数据
+    df = handler.fetch()
+    features = df["feature"]  # 特征数据
+    labels = df["label"]  # 标签数据
+
+    # 3. 模型配置与训练
+    model_config = {
+        "class": "LGBModel",
+        "module_path": "qlib.contrib.model.gbdt",
+        "kwargs": {
+            "loss": "mse",
+            "colsample_bytree": 0.8879,
+            "learning_rate": 0.0421,
+            "subsample": 0.8789,
+            "lambda_l1": 205.6999,
+            "lambda_l2": 580.9768,
+            "max_depth": 8,
+            "num_leaves": 210,
+            "num_threads": 20,
+        }
+    }
+
+    model = init_instance_by_config(model_config)
+    model.fit(features, labels)
+
+    # 4. 特征重要性分析
+    feature_importance = model.feature_importance()
+    importance_series = pd.Series(feature_importance, index=features.columns)
+    importance_series = importance_series.sort_values(ascending=False)
+
+    # 5. 选择重要性最高的50个特征
+    selected_features = importance_series.head(50).index.tolist()
+    features_selected = features[selected_features]
+
+    print(f"Selected {len(selected_features)} features:")
+    print(selected_features)

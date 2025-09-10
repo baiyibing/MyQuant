@@ -17,7 +17,7 @@ from qlib.tests.config import CSI300_BENCH, CSI300_GBDT_TASK
 
 
 if __name__ == "__main__":
-    # use default data
+    # use default data 初始化数据提供路径和区域（中国市场）
     provider_uri = "~/.qlib/qlib_data/cn_data"  # target_dir
     # WARNING - Data already exists # 数据已存在，跳过下载
     GetData().qlib_data(target_dir=provider_uri, region=REG_CN, exists_skip=True)
@@ -28,10 +28,15 @@ if __name__ == "__main__":
     # - **原因**：你的环境没有安装`catboost`, `xgboost`, `pytorch`
     # - **影响**：代码会跳过这些模型，**但示例中实际使用的是LightGBM**（后续训练输出可见`LGBModel`）
     # - **建议**：如果不需要这些模型可忽略，需要时按之前指导安装
+
+    # 通过配置初始化模型和数据集
     model = init_instance_by_config(CSI300_GBDT_TASK["model"])
+    # 通过配置初始化模型和数据集
     dataset = init_instance_by_config(CSI300_GBDT_TASK["dataset"])
 
+    # 定义回测配置（执行器、策略、回测参数）
     port_analysis_config = {
+        # 执行器
         "executor": {
             "class": "SimulatorExecutor",
             "module_path": "qlib.backtest.executor",
@@ -40,6 +45,7 @@ if __name__ == "__main__":
                 "generate_portfolio_metrics": True,
             },
         },
+        # 策略
         "strategy": {
             "class": "TopkDropoutStrategy",
             "module_path": "qlib.contrib.strategy.signal_strategy",
@@ -49,6 +55,7 @@ if __name__ == "__main__":
                 "n_drop": 5,
             },
         },
+        # 回测参数
         "backtest": {
             "start_time": "2017-01-01",
             "end_time": "2020-08-01",
@@ -70,21 +77,22 @@ if __name__ == "__main__":
     example_df = dataset.prepare("train")
     print(example_df.head())
 
-    # start exp
+    # start exp 开启实验记录上下文
     with R.start(experiment_name="workflow"):
         R.log_params(**flatten_dict(CSI300_GBDT_TASK))
         model.fit(dataset)
         R.save_objects(**{"params.pkl": model})
 
-        # prediction
+        # prediction 生成模型预测信号记录
         recorder = R.get_recorder()
         sr = SignalRecord(model, dataset, recorder)
         sr.generate()
 
-        # Signal Analysis   #### 5. **信号分析**
+        # Signal Analysis   信号分析，评估预测信号质量
         sar = SigAnaRecord(recorder)
         sar.generate()
 
+        # 回测报告 组合分析，执行回测并生成绩效报告
         # backtest. If users want to use backtest based on their own prediction,
         # please refer to https://qlib.readthedocs.io/en/latest/component/recorder.html#record-template.
         par = PortAnaRecord(recorder, port_analysis_config, "day")

@@ -70,16 +70,41 @@ if __name__ == '__main__':
     from qlib.contrib.data.handler import Alpha158
     from qlib.contrib.data.handler import Alpha360
 
-    # 配置Alpha158因子处理器
-    data_handler_config = {
-        "instruments": "csi300",
-        "start_time": "2010-01-01",
-        "end_time": "2023-12-31",
-        "fit_start_time": "2010-01-01",
-        "fit_end_time": "2018-12-31"
-    }
-
-    handler = Alpha158(**data_handler_config)
-
     # 机器学习模型训练
     # 使用LightGBM模型对CSI300成分股进行收益预测：
+    from qlib.contrib.model.gbdt import LGBModel
+    from qlib.contrib.data.handler import Alpha158
+    from qlib.data.dataset import DatasetH
+    from qlib.contrib.strategy import TopkDropoutStrategy
+    from qlib.contrib.evaluate import backtest_daily, risk_analysis
+
+    # 初始化 Qlib
+    # qlib.init(provider_uri="~/.qlib/qlib_data/cn_data")
+
+    # 配置数据处理配置Alpha158因子处理器
+    data_handler_config = {
+        "start_time": "2008-01-01",
+        "end_time": "2020-08-01",
+        "fit_start_time": "2008-01-01",
+        "fit_end_time": "2014-12-31",
+        "instruments": "csi300",
+    }
+    handler = Alpha158(**data_handler_config)
+    dataset = DatasetH(handler=handler, segments={
+        "train": ("2008-01-01", "2014-12-31"),
+        "valid": ("2015-01-01", "2016-12-31"),
+        "test": ("2017-01-01", "2020-08-01"),
+    })
+
+    # 构建 LightGBM 模型
+    model = LGBModel(loss="mse", learning_rate=0.05, num_leaves=64)
+    model.fit(dataset)
+    pred_score = model.predict(dataset)
+
+    # 策略与回测
+    strategy_obj = TopkDropoutStrategy(topk=50, n_drop=5, signal=pred_score)
+    report, positions = backtest_daily(
+        start_time="2017-01-01", end_time="2020-08-01", strategy=strategy_obj
+    )
+    analysis = risk_analysis(report["return"] - report["bench"])
+    print(analysis)
