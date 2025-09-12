@@ -1,12 +1,9 @@
 import multiprocessing
 import qlib
 import logging
-from qlib.data import D
-from qlib.data.dataset.loader import QlibDataLoader
-from qlib.data.filter import NameDFilter
 from qlib.constant import REG_CN    # 中国市场
 
-# 自定义处理器
+# 自定义处理器（执行成功）
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
@@ -41,6 +38,9 @@ if __name__ == '__main__':
         # }
     )
 
+    from qlib.data import D
+    from qlib.data.dataset.loader import QlibDataLoader
+    from qlib.data.filter import NameDFilter
     # 自定义处理器示例
     from qlib.data.dataset.processor import Processor
     from qlib.data.dataset.handler import DataHandlerLP

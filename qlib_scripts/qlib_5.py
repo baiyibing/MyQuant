@@ -1,8 +1,6 @@
 import multiprocessing
 import qlib
 import logging
-from qlib.data import D
-from qlib.data.filter import NameDFilter
 from qlib.constant import REG_CN    # 中国市场
 
 # 过滤 API
@@ -40,7 +38,9 @@ if __name__ == '__main__':
         # }
     )
 
+    from qlib.data import D
     from qlib.data.filter import NameDFilter
+
     filter1 = NameDFilter(name_rule_re='^SH')
     filtered_instruments = D.instruments(market='csi300', filter_pipe=[filter1])
     filtered_stocks = D.list_instruments(instruments=filtered_instruments, as_list=True)

@@ -1,11 +1,9 @@
 import qlib
-print(qlib.__version__)  # 如果能够打印出版本号，说明安装成功
-from qlib.data import D
-from qlib.data.ops import Feature, ExpressionOps
-
 from qlib.constant import REG_CN    # 中国市场
 import logging
-from qlib.data.filter import NameDFilter
+
+print(qlib.__version__)  # 如果能够打印出版本号，说明安装成功
+
 qlib.init(
     # 数据存储路径
     provider_uri='E:/PycharmProjects/MyQuant/.qlib/qlib_data/cn_data',

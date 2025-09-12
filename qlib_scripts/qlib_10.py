@@ -1,11 +1,9 @@
 import multiprocessing
 import qlib
 import logging
-from qlib.data import D
-from qlib.data.filter import NameDFilter
 from qlib.constant import REG_CN    # 中国市场
 
-# 特征工程实践
+# 特征工程实践（执行成功）
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助

@@ -2,8 +2,11 @@ import multiprocessing
 import qlib
 import logging
 from qlib.constant import REG_CN    # 中国市场
-
-# 加载特征数据
+from qlib.data.cache import DiskExpressionCache  # 导入磁盘缓存类
+# 磁盘缓存（执行成功）
+"""
+为了提高数据处理效率，QLib 实现了完善的数据缓存机制。缓存机制可以避免重复计算，显著提高数据加载和处理的速度。
+"""
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
@@ -19,6 +22,9 @@ if __name__ == '__main__':
         redis_host='127.0.0.1',
         redis_port=6379,
         redis_password='123456',
+        # expression_cache=DiskExpressionCache,  # 使用磁盘表达式缓存 加上此句报错
+        # dataset_cache=DiskDatasetCache,      # 如需数据集缓存也可配置
+        # mem_cache_size=10,                  # 内存缓存大小 (GB)
         # 配置实验管理器，用于跟踪和管理实验结果
         exp_manager={
             "class": "MLflowExpManager",
@@ -37,27 +43,23 @@ if __name__ == '__main__':
         #     "db": 1
         # }
     )
-
     from qlib.data import D
 
-    # 定义股票列表和特征
-    instruments = ['SH600000', 'SH600036', 'SH601318']
-    fields = [
-        '$close',  # 收盘价
-        '$volume',  # 成交量
-        'Ref($close, 1)',  # 前一日收盘价
-        'Mean($close, 5)',  # 5日平均收盘价
-        '$high - $low'  # 当日振幅
-    ]
+    # 定义你要查询的股票池和表达式
+    instruments = ["csi300"]  # 例如沪深300成分股
+    fields = ["Mean($close, 5) - Mean($close, 10)"]  # 你的特征表达式
+    start_time = "2010-01-01"
+    end_time = "2020-12-31"
+    freq = "day"  # 数据频率
 
-    # 加载特征数据
-    features = D.features(
+    # 获取数据 - Qlib 会自动处理缓存（如果缓存不存在则计算并保存，存在则读取）
+    feature_df = D.features(
         instruments=instruments,
         fields=fields,
-        start_time='2020-01-01',
-        end_time='2020-12-31',
-        freq='day'
+        start_time=start_time,
+        end_time=end_time,
+        freq=freq,
+        disk_cache=1  # 使用磁盘缓存 (1: 如果不存在则生成; 2: 强制重新生成并缓存) [1](@ref)
     )
 
-    print(f"特征数据形状: {features.shape}")
-    print(features.head())
+    print(feature_df.head())

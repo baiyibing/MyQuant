@@ -1,11 +1,40 @@
 import multiprocessing
 import qlib
 import logging
-from qlib.data import D
-from qlib.data.filter import NameDFilter
 from qlib.constant import REG_CN    # 中国市场
 
-# 常用数据处理器
+# 常用数据处理器（执行不成功，需要进一步调试）
+
+"""
+[16540:MainThread](2025-09-12 14:11:04,613) ERROR - qlib.workflow - [utils.py:41] - An exception has been raised[KeyError: 'label'].
+  File "E:\PycharmProjects\MyQuant\qlib_scripts\qlib_7.py", line 110, in <module>
+    handler = DataHandlerLP(
+  File "D:\anaconda3\envs\vanna310\lib\site-packages\qlib\data\dataset\handler.py", line 509, in __init__
+    super().__init__(instruments, start_time, end_time, data_loader, **kwargs)
+  File "D:\anaconda3\envs\vanna310\lib\site-packages\qlib\data\dataset\handler.py", line 151, in __init__
+    self.setup_data()
+  File "D:\anaconda3\envs\vanna310\lib\site-packages\qlib\data\dataset\handler.py", line 660, in setup_data
+    self.fit_process_data()
+  File "D:\anaconda3\envs\vanna310\lib\site-packages\qlib\data\dataset\handler.py", line 528, in fit_process_data
+    self.process_data(with_fit=True)
+  File "D:\anaconda3\envs\vanna310\lib\site-packages\qlib\data\dataset\handler.py", line 608, in process_data
+    _learn_df = self._run_proc_l(_learn_df, self.learn_processors, with_fit=with_fit, check_for_infer=False)
+  File "D:\anaconda3\envs\vanna310\lib\site-packages\qlib\data\dataset\handler.py", line 540, in _run_proc_l
+    df = proc(df)
+  File "D:\anaconda3\envs\vanna310\lib\site-packages\qlib\data\dataset\processor.py", line 99, in __call__
+    return df.dropna(subset=get_group_columns(df, self.fields_group))
+  File "D:\anaconda3\envs\vanna310\lib\site-packages\qlib\data\dataset\processor.py", line 32, in get_group_columns
+    return df.columns[df.columns.get_loc(group)]
+  File "D:\anaconda3\envs\vanna310\lib\site-packages\pandas\core\indexes\multi.py", line 3040, in get_loc
+    loc = self._get_level_indexer(key, level=0)
+  File "D:\anaconda3\envs\vanna310\lib\site-packages\pandas\core\indexes\multi.py", line 3391, in _get_level_indexer
+    idx = self._get_loc_single_level_index(level_index, key)
+  File "D:\anaconda3\envs\vanna310\lib\site-packages\pandas\core\indexes\multi.py", line 2980, in _get_loc_single_level_index
+    return level_index.get_loc(key)
+  File "D:\anaconda3\envs\vanna310\lib\site-packages\pandas\core\indexes\base.py", line 3812, in get_loc
+    raise KeyError(key) from err
+KeyError: 'label'
+"""
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助

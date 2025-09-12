@@ -1,8 +1,6 @@
 import multiprocessing
 import qlib
 import logging
-from qlib.data import D
-from qlib.data.filter import NameDFilter
 from qlib.constant import REG_CN    # 中国市场
 
 # 数据加载器

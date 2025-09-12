@@ -1,8 +1,6 @@
 import multiprocessing
 import qlib
 import logging
-from qlib.data import D
-from qlib.data.filter import NameDFilter
 from qlib.constant import REG_CN    # 中国市场
 
 # 数据检索 API
@@ -39,6 +37,9 @@ if __name__ == '__main__':
         #     "db": 1
         # }
     )
+
+    from qlib.data import D
+    from qlib.data.filter import NameDFilter
     # 首先需要确认你当前安装的 qlib版本中，qlib.data模块是否确实提供了 get_price函数。
     import qlib.data
     print(dir(qlib.data))   # 查看qlib.data模块所有可用的属性
