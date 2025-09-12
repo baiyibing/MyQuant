@@ -1,4 +1,3 @@
-# https://www.wuzao.com/qlib/tutorial/introduction
 import multiprocessing
 import qlib
 import logging

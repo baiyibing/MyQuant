@@ -1,4 +1,3 @@
-# https://www.wuzao.com/qlib/tutorial/introduction
 import multiprocessing
 import qlib
 import logging
@@ -6,16 +5,7 @@ from qlib.data import D
 from qlib.data.filter import NameDFilter
 from qlib.constant import REG_CN    # 中国市场
 
-# python scripts/get_data.py qlib_data --target_dir ~/.qlib/qlib_data/cn_data --region cn
-# 下载会报错，元宝建议从https://github.com/chenditc/investment_data/releases/latest/download/qlib_bin.tar.gz下载解压到~/.qlib/qlib_data/cn_data
-
-# qlib.init(provider_uri='~/.qlib/qlib_data/cn_data', region=REG_CN)    ~ 表示当前用户的“home”目录
-
-# qlib.init(provider_uri='./.qlib/qlib_data/cn_data', region=REG_CN)
-
-# 初始化完成后，可以通过以下方式验证是否成功：如果能够成功输出交易日历和股票列表，说明初始化成功。
-
-# ... 导入其他需要的模块
+# 特征工程实践
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
@@ -53,15 +43,25 @@ if __name__ == '__main__':
     from qlib.data.dataset.handler import DataHandlerLP
     from qlib.contrib.data.handler import Alpha158
 
-
-    # 使用内置的 Alpha158 特征集
+    # 使用内置的Alpha158特征集 (新版API参数名称有变化)
     handler = Alpha158(
-        start_time='2020-01-01',
-        end_time='2020-12-31',
-        fit_start_time='2020-01-01',
-        fit_end_time='2020-12-31',
-        instruments='csi300'
+        instruments='csi300',  # 沪深300成分股
+        start_time='2010-01-01',  # 开始时间
+        end_time='2020-12-31',  # 结束时间
+        fit_start_time='2010-01-01',  # 拟合处理器的时间范围开始
+        fit_end_time='2015-12-31',  # 拟合处理器的时间范围结束
+        # 处理器配置 (新版推荐显式配置)
+        infer_processors=[
+            {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature"}}
+        ],
+        learn_processors=[
+            {"class": "DropnaLabel"},
+            {"class": "CSZScoreNorm", "kwargs": {"fields_group": "label"}}
+        ]
     )
+
+    # 执行数据处理流程 (新版推荐先调用fit_process_data)
+    handler.fit_process_data()
 
     # 获取特征数据
     features = handler.fetch(col_set='feature')
@@ -71,17 +71,13 @@ if __name__ == '__main__':
     print('特征数据形状:', features.shape)
     print('标签数据形状:', labels.shape)
 
-    from qlib.data.ops import Latest, MinMaxNorm
-    from qlib.data.ops.features import Feature
-    # 获取数据集
-    dataset = Dataset('daily')  # 假设已经定义了一个名为 'daily' 的数据集
-    # 使用内置操作符Latest获取最新数据
-    latest_op = Latest()
-    # 使用MinMaxNorm对特征进行归一化
-    min_max_norm = MinMaxNorm(feature_range=(0, 1))
-    # 连续应用操作
-    dataset = latest_op(dataset)
-    dataset = min_max_norm(dataset)
-    # 添加新生成的特征
-    feature_op = Feature('price_close', Feature.BEHAVIOR.OBSERVATION)
-    dataset = feature_op(dataset)
+    # 额外信息：获取特征名称和示例数据
+    feature_names = handler.get_cols("feature")
+    print(f'特征数量: {len(feature_names)}')
+    print('前10个特征名称:', feature_names[:10])
+
+    # 查看数据示例
+    print("\n特征数据示例:")
+    print(features.head())
+    print("\n标签数据示例:")
+    print(labels.head())

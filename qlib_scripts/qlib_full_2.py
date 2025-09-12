@@ -85,3 +85,10 @@ if __name__ == '__main__':
     print("Does 'label' exist?", 'label' in pred_df.columns)  # 检查特定列是否存在
 
     analysis_position.score_ic_graph(pred_df, freq="day")
+    # 报错 ERROR - qlib.workflow - [utils.py:41] - An exception has been raised[KeyError: 'label'].
+    # QLib 采用分层的数据架构，主要包括以下几个层次：
+    #
+    # 原始数据层：存储最基础的行情数据，如开盘价、收盘价、最高价、最低价、成交量等
+    # 特征层：基于原始数据计算得到的各种技术指标和因子
+    # label 标签层：用于模型训练的目标变量，如未来收益率
+    # 这种分层架构使得数据的组织更加清晰，也方便了不同层次数据的管理和复用。

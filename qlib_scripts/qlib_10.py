@@ -1,4 +1,3 @@
-# https://www.wuzao.com/qlib/tutorial/introduction
 import multiprocessing
 import qlib
 import logging
@@ -6,16 +5,7 @@ from qlib.data import D
 from qlib.data.filter import NameDFilter
 from qlib.constant import REG_CN    # 中国市场
 
-# python scripts/get_data.py qlib_data --target_dir ~/.qlib/qlib_data/cn_data --region cn
-# 下载会报错，元宝建议从https://github.com/chenditc/investment_data/releases/latest/download/qlib_bin.tar.gz下载解压到~/.qlib/qlib_data/cn_data
-
-# qlib.init(provider_uri='~/.qlib/qlib_data/cn_data', region=REG_CN)    ~ 表示当前用户的“home”目录
-
-# qlib.init(provider_uri='./.qlib/qlib_data/cn_data', region=REG_CN)
-
-# 初始化完成后，可以通过以下方式验证是否成功：如果能够成功输出交易日历和股票列表，说明初始化成功。
-
-# ... 导入其他需要的模块
+# 特征工程实践
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
@@ -55,50 +45,35 @@ if __name__ == '__main__':
     from qlib.utils import init_instance_by_config
     import pandas as pd
 
-    # 1. 数据处理器配置 (使用QLib的标准Handler)
-    data_handler_config = {
-        "start_time": "2010-01-01",
-        "end_time": "2020-12-31",
-        "fit_start_time": "2010-01-01",
-        "fit_end_time": "2015-12-31",
-        "instruments": "csi300",  # 沪深300成分股
-    }
-
-    handler = Alpha158(**data_handler_config)
-
-    # 2. 准备数据
-    df = handler.fetch()
-    features = df["feature"]  # 特征数据
-    labels = df["label"]  # 标签数据
-
-    # 3. 模型配置与训练
-    model_config = {
-        "class": "LGBModel",
-        "module_path": "qlib.contrib.model.gbdt",
+    # 使用配置字典方式创建处理器（新版推荐）
+    handler_config = {
+        "class": "Alpha158",
+        "module_path": "qlib.contrib.data.handler",
         "kwargs": {
-            "loss": "mse",
-            "colsample_bytree": 0.8879,
-            "learning_rate": 0.0421,
-            "subsample": 0.8789,
-            "lambda_l1": 205.6999,
-            "lambda_l2": 580.9768,
-            "max_depth": 8,
-            "num_leaves": 210,
-            "num_threads": 20,
+            "instruments": "csi300",
+            "start_time": "2010-01-01",
+            "end_time": "2020-12-31",
+            "fit_start_time": "2010-01-01",
+            "fit_end_time": "2015-12-31",
+            "infer_processors": [
+                {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature"}}
+            ],
+            "learn_processors": [
+                {"class": "DropnaLabel"},
+                {"class": "CSZScoreNorm", "kwargs": {"fields_group": "label"}}
+            ]
         }
     }
 
-    model = init_instance_by_config(model_config)
-    model.fit(features, labels)
+    # 创建处理器实例
+    handler = init_instance_by_config(handler_config)
 
-    # 4. 特征重要性分析
-    feature_importance = model.feature_importance()
-    importance_series = pd.Series(feature_importance, index=features.columns)
-    importance_series = importance_series.sort_values(ascending=False)
+    # 执行数据处理
+    handler.fit_process_data()
 
-    # 5. 选择重要性最高的50个特征
-    selected_features = importance_series.head(50).index.tolist()
-    features_selected = features[selected_features]
+    # 获取数据
+    features = handler.fetch(col_set='feature')
+    labels = handler.fetch(col_set='label')
 
-    print(f"Selected {len(selected_features)} features:")
-    print(selected_features)
+    print('特征数据形状:', features.shape)
+    print('标签数据形状:', labels.shape)

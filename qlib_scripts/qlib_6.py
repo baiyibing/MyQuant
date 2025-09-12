@@ -1,4 +1,3 @@
-# https://www.wuzao.com/qlib/tutorial/introduction
 import multiprocessing
 import qlib
 import logging
@@ -6,16 +5,7 @@ from qlib.data import D
 from qlib.data.filter import NameDFilter
 from qlib.constant import REG_CN    # 中国市场
 
-# python scripts/get_data.py qlib_data --target_dir ~/.qlib/qlib_data/cn_data --region cn
-# 下载会报错，元宝建议从https://github.com/chenditc/investment_data/releases/latest/download/qlib_bin.tar.gz下载解压到~/.qlib/qlib_data/cn_data
-
-# qlib.init(provider_uri='~/.qlib/qlib_data/cn_data', region=REG_CN)    ~ 表示当前用户的“home”目录
-
-# qlib.init(provider_uri='./.qlib/qlib_data/cn_data', region=REG_CN)
-
-# 初始化完成后，可以通过以下方式验证是否成功：如果能够成功输出交易日历和股票列表，说明初始化成功。
-
-# ... 导入其他需要的模块
+# 数据加载器
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
@@ -49,6 +39,8 @@ if __name__ == '__main__':
         #     "db": 1
         # }
     )
+    # ------------------------------------------------------------------------------------------------------------------
+    # QlibDataLoader 是 QLib 的默认数据加载器，用于加载 QLib 格式的二进制数据。使用方法如下：
 
     from qlib.data.dataset.loader import QlibDataLoader
 
@@ -70,3 +62,33 @@ if __name__ == '__main__':
 
     print(f"特征数据形状: {data.shape}")
     print(data.head())
+
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # StaticDataLoader 允许用户从 pandas DataFrame 或 CSV 文件加载静态数据。这对于使用自定义数据或外部数据非常有用
+
+    from qlib.data.dataset.loader import StaticDataLoader
+    import pandas as pd
+
+    # 从 CSV 文件加载数据
+    df = pd.read_csv('custom_data.csv', index_col=0, parse_dates=True)
+
+    # 创建静态数据加载器
+    loader = StaticDataLoader(data=df)
+
+    # 加载数据
+    data = loader.load()
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # 如果内置的数据加载器不能满足需求，用户还可以通过继承 DataLoader 基类来实现自定义的数据加载器。自定义数据加载器需要实现 load 方法：
+
+    from qlib.data.dataset.loader import DataLoader
+
+    class CustomDataLoader(DataLoader):
+        def __init__(self, custom_param):
+            self.custom_param = custom_param
+            super().__init__()
+
+        def load(self, instruments=None, start_time=None, end_time=None):
+            # 实现自定义数据加载逻辑
+            pass

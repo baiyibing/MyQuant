@@ -1,21 +1,12 @@
-# https://www.wuzao.com/qlib/tutorial/introduction
 import multiprocessing
 import qlib
 import logging
 from qlib.data import D
+from qlib.data.dataset.loader import QlibDataLoader
 from qlib.data.filter import NameDFilter
 from qlib.constant import REG_CN    # 中国市场
 
-# python scripts/get_data.py qlib_data --target_dir ~/.qlib/qlib_data/cn_data --region cn
-# 下载会报错，元宝建议从https://github.com/chenditc/investment_data/releases/latest/download/qlib_bin.tar.gz下载解压到~/.qlib/qlib_data/cn_data
-
-# qlib.init(provider_uri='~/.qlib/qlib_data/cn_data', region=REG_CN)    ~ 表示当前用户的“home”目录
-
-# qlib.init(provider_uri='./.qlib/qlib_data/cn_data', region=REG_CN)
-
-# 初始化完成后，可以通过以下方式验证是否成功：如果能够成功输出交易日历和股票列表，说明初始化成功。
-
-# ... 导入其他需要的模块
+# 自定义处理器
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
@@ -50,39 +41,60 @@ if __name__ == '__main__':
         # }
     )
 
+    # 自定义处理器示例
+    from qlib.data.dataset.processor import Processor
     from qlib.data.dataset.handler import DataHandlerLP
-    from qlib.contrib.data.handler import Alpha158
-
-
-    # 使用内置的 Alpha158 特征集
-    handler = Alpha158(
-        start_time='2020-01-01',
-        end_time='2020-12-31',
-        fit_start_time='2020-01-01',
-        fit_end_time='2020-12-31',
-        instruments='csi300'
+    from qlib.data.dataset.processor import (
+        RobustZScoreNorm,
+        CSZScoreNorm, # 使用CSZScoreNorm(截面标准化)代替普通的ZscoreNorm，更适合横截面金融数据
+        Fillna,  # 引入内置的填充处理器
+        DropnaLabel,
+        TanhProcess # TanhProcess可限制极端值
     )
 
-    # 获取特征数据
-    features = handler.fetch(col_set='feature')
-    # 获取标签数据
-    labels = handler.fetch(col_set='label')
+    # 除了内置的处理器，用户还可以通过继承 Processor 基类来实现自定义的数据处理器。自定义处理器需要实现 fit 和 transform 方法：
+    class CustomProcessor(Processor):
+        """自定义处理器示例"""
 
-    print('特征数据形状:', features.shape)
-    print('标签数据形状:', labels.shape)
+        def __init__(self, threshold=3.0):
+            self.threshold = threshold
 
-    from qlib.contrib.model.gbdt import LGBModel
-    from qlib.model.selection import feature_importance
+        def fit(self, df):
+            # 计算每个特征的均值和标准差
+            self.mean_ = df.mean()
+            self.std_ = df.std()
+            return self
 
-    # 训练一个 LightGBM 模型
-    model = LGBModel()
-    model.fit(features, labels)
+        def transform(self, df):
+            # 应用自定义转换逻辑
+            return df.clip(
+                lower=self.mean_ - self.threshold * self.std_,
+                upper=self.mean_ + self.threshold * self.std_
+            )
 
-    # 计算特征重要性
-    importance = feature_importance(model, features, labels)
 
-    # 选择重要性最高的 50 个特征
-    selected_features = importance.head(50).index.tolist()
+    # 定义处理器，其中包含 Fillna
+    shared_processors = [
+        Fillna(fill_value=0),  # 使用 Fillna 处理器统一填充缺失值为0
+    ]
 
-    # 使用选择后的特征
-    features_selected = features[selected_features]
+    # 表达式引擎创建特征[7](@ref)
+    expression_handler = DataHandlerLP(
+        instruments='csi300',
+        start_time='2010-01-01',
+        end_time='2020-12-31',
+        data_loader=QlibDataLoader(config={
+            "feature": (
+                [
+                    "($high - $low) / $close",  # 日波动率
+                    "EMA($close, 10) / $close",  # 10日均线比率
+                    # "If(IsNull($turnover), 0, $turnover)"  # 处理缺失值
+                    "$turnover"  # 不再在表达式中处理缺失值，交由后续的Processor处理
+                ],
+                ["daily_vol", "ma_ratio", "turnover_adj"]
+            )
+        }),
+        shared_processors=shared_processors,  # 添加共享处理器
+        infer_processors=[],  # 根据你的需求添加推理处理器
+        learn_processors=[]   # 根据你的需求添加学习处理器
+    )
