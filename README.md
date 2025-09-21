@@ -83,8 +83,3 @@ CC BY-NC 4.0许可
 
 没有附加限制 - 你不得适用法律术语或技术措施，在法律上限制他人进行许可允许的任何使用。
 
-python -m qlib.run.get_data qlib_data --target_dir ~/.qlib/qlib_data/cn_data --region cn
-D:\anaconda3\envs\vanna310\python.exe: Error while finding module specification for 'qlib.run.get_data' (ModuleNotFoundError: No module named 'qlib.run')
-
-cd 
-

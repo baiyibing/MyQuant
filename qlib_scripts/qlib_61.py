@@ -279,6 +279,7 @@ if __name__ == '__main__':
 
     from qlib.contrib.evaluate import backtest_daily, risk_analysis
 
+    ba_rid = None
     # 开始一个名为"backtest_analysis"的实验工作流，用于组织回测分析过程
     with R.start(experiment_name="backtest_analysis"):
         # 从之前的"train_model"实验中获取记录器，并加载其中保存的已训练模型
@@ -298,24 +299,6 @@ if __name__ == '__main__':
         par = PortAnaRecord(recorder, port_analysis_config, "day")  # 传入记录器、回测配置和时间频率
         par.generate()  # 执行回测并生成分析报告
 
-    # 获取评估结果 (0.9.7版本结果存储位置)
-    try:
-        # 尝试加载回测报告
-        report = recorder.load_object('portfolio_analysis/report_normal_1day.pkl')
-        # report_normal_df = recorder.load_object("portfolio_analysis/report_normal_1day.pkl")
-
-        print(f"年化收益率: {report['annualized_return'].iloc[-1]:.4f}")
-        print(f"信息比率: {report['information_ratio'].iloc[-1]:.4f}")
-        print(f"最大回撤: {report['max_drawdown'].iloc[-1]:.4f}")
-
-    except KeyError:
-        # 备用加载方式
-        report = recorder.load_object('portfolio_analysis/report.pkl')
-        print(f"年化收益率: {report['annualized_return'].iloc[-1]:.4f}")
-        print(f"信息比率: {report['information_ratio'].iloc[-1]:.4f}")
-        print(f"最大回撤: {report['max_drawdown'].iloc[-1]:.4f}")
-
-
     # 运行诊断
     diagnose_data_issues(dataset, handler)
 
@@ -324,106 +307,12 @@ if __name__ == '__main__':
     from qlib.contrib.evaluate import indicator_analysis
     from qlib.data.dataset import DatasetH
 
-    # 获取测试集数据
-    # test_data = dataset.prepare("test")
-    test_data = dataset.prepare("test", col_set="label", data_key=DataHandlerLP.DK_I)
-
-    # 确保我们有预测结果和标签数据
-    if hasattr(test_data, 'label') and pred_df is not None:
-        # 对齐预测结果和标签数据的时间戳和股票代码
-        aligned_label = test_data['label'].reindex(pred_df.index)
-
-        # 计算基础性能指标 (新版API)
-        print("\n=== 模型性能指标 ===")
-
-        # 1. 风险调整后收益分析
-        perf_stats = risk_analysis(pred_df, aligned_label)
-        print("风险调整后指标:")
-        print(perf_stats)
-
-        # 2. 扩展指标分析 (新版API)
-        extended_metrics = indicator_analysis(pred_df, aligned_label)
-        print("\n扩展性能指标:")
-        print(extended_metrics)
-
-        # 3. 分位数分析 - 评估预测在不同分位的表现
-        from qlib.contrib.evaluate import calc_ic, create_long_short_report
-
-        # 计算信息系数(IC)
-        ic_results = calc_ic(pred_df, aligned_label)
-        print(f"\n信息系数(IC): {ic_results.get('IC', {}).mean():.4f}")
-        print(f"Rank IC: {ic_results.get('RankIC', {}).mean():.4f}")
-
-        # 4. 多空组合分析
-        long_short_report = create_long_short_report(
-            pred_df,
-            aligned_label,
-            quantiles=5  # 将股票分为5个分位
-        )
-        print("\n多空组合表现 (Top-Bottom):")
-        print(long_short_report)
-
-        # 5. 详细评估报告 (使用新版分析函数)
-        try:
-            from qlib.contrib.evaluate import comprehensive_analysis
-
-            detailed_analysis = comprehensive_analysis(
-                prediction=pred_df,
-                label=aligned_label,
-                report_quantiles=True,
-                include_metrics=['return', 'sharpe', 'max_drawdown', 'information_ratio']
-            )
-
-            print("\n=== 详细综合评估报告 ===")
-            for key, value in detailed_analysis.items():
-                if isinstance(value, dict):
-                    print(f"{key}:")
-                    for sub_key, sub_value in value.items():
-                        print(f"  {sub_key}: {sub_value:.6f}")
-                else:
-                    print(f"{key}: {value:.6f}")
-
-        except ImportError:
-            # 兼容旧版本
-            print("\n综合评估功能在当前版本不可用")
-
-        # 6. 可视化评估结果
-        try:
-            from qlib.contrib.evaluate import plot_analysis_report
-
-            # 生成评估图表
-            fig = plot_analysis_report(
-                prediction=pred_df,
-                label=aligned_label,
-                show_notebook=False
-            )
-
-            # 保存图表
-            fig.savefig("performance_evaluation.png", dpi=300, bbox_inches='tight')
-            print("\n评估图表已保存为 'performance_evaluation.png'")
-
-        except ImportError:
-            print("\n可视化功能在当前版本不可用")
-
-    else:
-        print("警告: 缺少预测结果或标签数据，无法进行性能评估")
-        if not hasattr(test_data, 'label'):
-            print(" - 测试数据缺少标签信息")
-        if pred_df is None:
-            print(" - 预测结果为空")
-
     # 性能评估指标计算
     from qlib.contrib.evaluate import risk_analysis
     from qlib.contrib.report import analysis_model
 
-    # 计算回归评估指标
-    eval_result = analysis_model.eval_regression(pred, dataset)
-    print(eval_result)
-
     # 获取测试集标签
     test_data = dataset.prepare("test", col_set="label", data_key=DataHandlerLP.DK_R)
-
-    # from qlib.contrib.evaluate import risk_analysis, indicator_analysis
 
     # 确保数据对齐
     aligned_label = test_data['label'].reindex(pred_df.index)
