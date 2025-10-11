@@ -13,7 +13,7 @@ from qlib.utils import init_instance_by_config, flatten_dict  # 导入根据配�
 from qlib.workflow import R  # 导入工作流管理模块，用于实验记录和管理
 from qlib.workflow.record_temp import SignalRecord, PortAnaRecord  # 导入生成信号和组合分析记录的工具类
 
-from tdx_ops import SMA
+from custom_ops import SMA
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
