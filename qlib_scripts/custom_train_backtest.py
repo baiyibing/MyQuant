@@ -52,7 +52,7 @@ if __name__ == '__main__':
         logging_level=logging.INFO
     )
 
-    start_time = "2018-01-01"
+    start_time = "2020-01-01"
     end_time = "2023-12-31"
 
     # 定义策略相关的市场和分析基准
@@ -65,8 +65,13 @@ if __name__ == '__main__':
     data_handler_config = {
         "start_time": start_time,  # 整体数据开始时间
         "end_time": end_time,  # 整体数据结束时间
-        "fit_start_time": "2008-01-01",  # 特征计算起始时间（通常与start_time一致）
-        "fit_end_time": "2014-12-31",  # 特征计算结束时间（训练集截止时间）
+        "fit_start_time": start_time,  # 特征计算起始时间（通常与start_time一致）
+        "fit_end_time": "2020-12-31",  # 特征计算结束时间（训练集截止时间）
+        "cost_window": 250,  # 特征计算结束时间（训练集截止时间）
+        "include_alpha158": False,  # 特征计算结束时间（训练集截止时间）
+        "infer_processors": [
+                {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],  # 特征计算结束时间（训练集截止时间）
+        "learn_processors": [{"class": "DropnaLabel"}],  # 特征计算结束时间（训练集截止时间）
         "instruments": market,  # 投资标的，这里使用前面定义的market（csi300）
     }
 
@@ -97,9 +102,9 @@ if __name__ == '__main__':
                     "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
                 },
                 "segments": {  # 定义数据集的分段（训练集、验证集、测试集）
-                    "train": (start_time, "2014-12-31"),  # 训练集时间范围
-                    "valid": ("2015-01-01", "2016-12-31"),  # 验证集时间范围
-                    "test": ("2017-01-01", end_time),  # 测试集时间范围
+                    "train": (start_time, "2020-12-31"),  # 训练集时间范围
+                    "valid": ("2021-01-01", "2021-12-31"),  # 验证集时间范围
+                    "test": ("2022-01-01", end_time),  # 测试集时间范围
                 },
             },
         },
@@ -134,13 +139,12 @@ if __name__ == '__main__':
                 "model": model,  # 使用的预测模型
                 "dataset": dataset,  # 使用的数据集
                 "topk": 50,  # 选择信号最强的50只股票
-                "signal": signal,
                 "n_drop": 5,  # 每次调仓时丢弃排名最后5只股票
             },
         },
         "backtest": {  # 回测参数配置
-            "start_time": "2017-01-01",  # 回测开始时间（与测试集一致）
-            "end_time": "2020-08-01",  # 回测结束时间（与测试集一致）
+            "start_time": "2022-01-01",  # 回测开始时间（与测试集一致）
+            "end_time": end_time,  # 回测结束时间（与测试集一致）
             "account": 100000000,  # 初始资金金额（1亿元）
             "benchmark": benchmark,  # 业绩比较基准（沪深300指数）
             "exchange_kwargs": {  # 交易所模拟参数（交易规则）
@@ -156,16 +160,8 @@ if __name__ == '__main__':
 
     """
     支持两种策略模式：
-    模型驱动：用 COST_KDJ_J 作为特征训练 LGB
+    模型驱动：用 COST_J 作为特征训练 LGB
     信号驱动：直接用 MAIRU == 1 选股
-    如果你只想用 MAIRU 信号做策略（不训练模型）：并在 SignalRecord 中设置 signal=("COST_KDJ_MAIRU", "==", 1)。
-    # 在回测配置中替换 strategy：
-        strategy = TopkDropoutStrategy(
-            topk=50,
-            n_drop=0,
-            signal=("COST_KDJ_MAIRU", "==", 1),  # 仅买入 MAIRU=1 的股票
-            keep_hold=True,
-        )
     """
 
     b_start = timer()
@@ -173,8 +169,8 @@ if __name__ == '__main__':
     # 开始一个名为"backtest_analysis"的实验工作流，用于组织回测分析过程
     with R.start(experiment_name="backtest_analysis"):
         # 从之前的"train_model"实验中获取记录器，并加载其中保存的已训练模型
-        recorder = R.get_recorder(recorder_id=rid, experiment_name="train_model")  # 根据rid获取训练记录器
-        model = recorder.load_object("trained_model")  # 从记录器中加载名为"trained_model"的模型对象
+        recorder = R.get_recorder(recorder_id=rid, experiment_name=exp_name)  # 根据rid获取训练记录器
+        model = recorder.load_object(exp_name)  # 从记录器中加载名为"trained_model"的模型对象
 
         # 获取当前回测实验的记录器及其ID
         recorder = R.get_recorder()

@@ -63,18 +63,7 @@ class AlphaSimpleOpen(Alpha158):
     def get_label_config(self):
         return (["Ref($open, -6)/Ref($open, -1) - 1"], ["LABEL0"])
 
-"""
- 优化以下python代码，这些python代码
- 请使用0.9.7版本qlib,继承Alpha158修改get_feature_config方法，实现以下通达信计算：
-     L1:=COST(0.01); 
-     L2:=COST(99.99); 
-     L3:=(C-L1)/(L2-L1)*100; 
-     K:SMA(L3,3,1),COLORWHITE; 
-     D:SMA(K,3,1),COLORYELLOW; 
-     J:3K-2D,COLORFF00FF; 
-     MAIRU:=CROSS(J,K) AND J<80;
- 将其集成到 Qlib 的 策略回测框架，不使用YAML ，MAIRU作为信号因子
-"""
+
 # （如 SigAnaRecord 或 PortfolioStrategy）
 class Alpha158CostKDJ(Alpha158):
     """

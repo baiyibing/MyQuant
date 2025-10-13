@@ -144,13 +144,14 @@ if __name__ == '__main__':
         logger.info(f"预测分数形状: {pred_score.shape}")
 
         """
-        segments：指定要准备的数据时间段
-        col_set：选择需要处理的数据列，默认为None，表示选择全部数据列
-        data_key：控制返回数据的类型，该参数与Data Handler配合使用，决定返回原始数据还是处理后的数据
-            常见取值：
-            DataHandlerLP.DK_R：返回原始数据（未处理）
-            DataHandlerLP.DK_I：返回经过infer_processors处理的数据（这些处理器会基于历史数据学习参数，并应用于未来数据）
-            DataHandlerLP.DK_L：返回经过learn_processors处理的数据（这些处理器通常不依赖历史数据拟合，直接进行处理）
+        dataset.prepare的参数说明
+            segments：指定要准备的数据时间段
+            col_set：选择需要处理的数据列，默认为None，表示选择全部数据列
+            data_key：控制返回数据的类型，该参数与Data Handler配合使用，决定返回原始数据还是处理后的数据
+                常见取值：
+                DataHandlerLP.DK_R：返回原始数据（未处理）
+                DataHandlerLP.DK_I：返回经过infer_processors处理的数据（这些处理器会基于历史数据学习参数，并应用于未来数据）
+                DataHandlerLP.DK_L：返回经过learn_processors处理的数据（这些处理器通常不依赖历史数据拟合，直接进行处理）
 
         
         支持两种策略模式：
