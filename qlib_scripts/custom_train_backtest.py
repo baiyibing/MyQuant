@@ -57,7 +57,7 @@ if __name__ == '__main__':
     end_time = "2023-12-31"
 
     # 定义策略相关的市场和分析基准
-    market = "all"  # 设置股票池为沪深300指数成分股
+    market = "csi300"
     benchmark = "SH000300"  # 设置业绩比较基准为沪深300指数代码
 
     exp_name = "alpha158_cost_kdj_lgb"
@@ -176,62 +176,33 @@ if __name__ == '__main__':
         par = PortAnaRecord(recorder, port_analysis_config, "day")  # 传入记录器、回测配置和时间频率
         par.generate()
 
-    # Step 8: 查看结果
-    report_graph(R.get_recorder().get_uri())
+        pred_df = recorder.load_object("pred.pkl")  # 预测结果
+        report_normal_df = recorder.load_object("portfolio_analysis/report_normal_1day.pkl")  # 普通报告
+        positions = recorder.load_object("portfolio_analysis/positions_normal_1day.pkl")  # 持仓记录
+        analysis_df = recorder.load_object("portfolio_analysis/port_analysis_1day.pkl")  # 分析报告
+
+        figures = analysis_position.report_graph(report_normal_df, show_notebook=False)
+        print(
+            "展示回测净值可视化结果(不扣费、扣费和基准净值；不扣费净值最大回撤；扣费净值最大回撤；不扣费和扣费超额收益净值；换手率；不扣费超额收益最大回撤；扣费超额收益最大回撤)",
+            timer() - start)
+        for i, fig in enumerate(figures):
+            fig.show()
+
+        figures = analysis_position.risk_analysis_graph(analysis_df, report_normal_df, show_notebook=False)
+        print("生成风险分析图表可视化结果(年化收益率\波动率\信息比率\最大回撤)", timer() - start)
+        for i, fig in enumerate(figures):
+            fig.show()
+
+        label_df = dataset.prepare("test", col_set="label")
+        label_df.columns = ['label']
+        pred_label = pd.concat([label_df, pred_df], axis=1, sort=True).reindex(label_df.index)
+        figures = analysis_position.score_ic_graph(pred_label, show_notebook=False)
+        print("AI模型预测个股收益的IC和Rank IC值可视化结果", timer() - start)
+        for i, fig in enumerate(figures):
+            # 如果你在支持 Plotly 的环境中（如 Dash 或某些 IDE），也可以直接显示
+            fig.show()
 
     # 打印完成信息
     print("策略回测完成！", rid, timer() - r_start)
-
-    b_start = timer()
-    ba_rid = None
-    # 开始一个名为"backtest_analysis"的实验工作流，用于组织回测分析过程
-    with R.start(experiment_name="backtest_analysis"):
-        # 从之前的"train_model"实验中获取记录器，并加载其中保存的已训练模型
-        recorder = R.get_recorder(recorder_id=rid, experiment_name=exp_name)  # 根据rid获取训练记录器
-        model = recorder.load_object(exp_name)  # 从记录器中加载名为"trained_model"的模型对象
-
-        # 获取当前回测实验的记录器及其ID 如果接着上个with R.start() model.fit(dataset) 就直接使用recorder = R.get_recorder()
-        # recorder = R.get_recorder()
-        ba_rid = recorder.id
-        print("策略回测开始！", ba_rid)
-
-        # 创建SignalRecord实例用于生成交易信号，并生成信号[6](@ref)
-        sr = SignalRecord(model, dataset, recorder)  # 传入模型、数据集和记录器
-        sr.generate()  # 在测试集上生成模型的预测信号
-
-        # 创建PortAnaRecord实例用于执行投资组合回测和分析，并生成回测结果[6](@ref)
-        par = PortAnaRecord(recorder, port_analysis_config, "day")  # 传入记录器、回测配置和时间频率
-        par.generate()  # 执行回测并生成分析报告
-
-    # 打印完成信息
-    print("策略回测完成！", ba_rid, timer() - b_start)
-
-    # 获取记录器
-    recorder = R.get_recorder(recorder_id=ba_rid, experiment_name="backtest_analysis")
-    pred_df = recorder.load_object("pred.pkl")  # 预测结果
-    report_normal_df = recorder.load_object("portfolio_analysis/report_normal_1day.pkl")  # 普通报告
-    positions = recorder.load_object("portfolio_analysis/positions_normal_1day.pkl")  # 持仓记录
-    analysis_df = recorder.load_object("portfolio_analysis/port_analysis_1day.pkl")  # 分析报告
-
-    figures = analysis_position.report_graph(report_normal_df, show_notebook=False)
-    print(
-        "展示回测净值可视化结果(不扣费、扣费和基准净值；不扣费净值最大回撤；扣费净值最大回撤；不扣费和扣费超额收益净值；换手率；不扣费超额收益最大回撤；扣费超额收益最大回撤)",
-        timer() - start)
-    for i, fig in enumerate(figures):
-        fig.show()
-
-    figures = analysis_position.risk_analysis_graph(analysis_df, report_normal_df, show_notebook=False)
-    print("生成风险分析图表可视化结果(年化收益率\波动率\信息比率\最大回撤)", timer() - start)
-    for i, fig in enumerate(figures):
-        fig.show()
-
-    label_df = dataset.prepare("test", col_set="label")
-    label_df.columns = ['label']
-    pred_label = pd.concat([label_df, pred_df], axis=1, sort=True).reindex(label_df.index)
-    figures = analysis_position.score_ic_graph(pred_label, show_notebook=False)
-    print("AI模型预测个股收益的IC和Rank IC值可视化结果", timer() - start)
-    for i, fig in enumerate(figures):
-        # 如果你在支持 Plotly 的环境中（如 Dash 或某些 IDE），也可以直接显示
-        fig.show()
 
     print("✅ 训练与回测完成！")
