@@ -7,6 +7,7 @@ import pandas as pd  # 导入pandas库进行数据处理
 import qlib
 from qlib.config import REG_CN
 from qlib.contrib.model import LGBModel
+from qlib.contrib.report.analysis_position import report_graph
 from qlib.utils import init_instance_by_config, flatten_dict
 from qlib.workflow import R
 from qlib.data.dataset import DatasetH
@@ -68,11 +69,11 @@ if __name__ == '__main__':
         "fit_start_time": start_time,  # 特征计算起始时间（通常与start_time一致）
         "fit_end_time": "2020-12-31",  # 特征计算结束时间（训练集截止时间）
         "cost_window": 250,  # 特征计算结束时间（训练集截止时间）
-        "include_alpha158": False,  # 特征计算结束时间（训练集截止时间）
         "infer_processors": [
                 {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],  # 特征计算结束时间（训练集截止时间）
         "learn_processors": [{"class": "DropnaLabel"}],  # 特征计算结束时间（训练集截止时间）
         "instruments": market,  # 投资标的，这里使用前面定义的market（csi300）
+        "include_alpha158": False,  # 若仅需自定义因子，可设为 False 以加速
     }
 
     # 定义任务配置字典，包含模型和数据集的详细配置
@@ -90,6 +91,7 @@ if __name__ == '__main__':
                 "max_depth": 8,  # 树的最大深度
                 "num_leaves": 210,  # 树的叶子数
                 "num_threads": 20,  # 并行线程数
+                # "features": ["COST_J"],
             },
         },
         "dataset": {  # 数据集配置部分
@@ -114,13 +116,6 @@ if __name__ == '__main__':
     print(u'根据model配置创建模型实例', timer() - start)
     dataset = init_instance_by_config(task["dataset"])  # 根据dataset配置创建数据集实例
     print(u'根据dataset配置创建数据集实例', timer() - start)
-
-    rid = None
-    with R.start(experiment_name=exp_name):
-        R.log_params(**flatten_dict(task))  # 将任务配置参数扁平化后记录到实验中，便于追踪
-        model.fit(dataset)  # 在训练集上训练模型，并在验证集上进行验证
-        R.save_objects(trained_model=model)  # 将训练好的模型保存到当前实验记录中
-        rid = R.get_recorder().id  # 获取当前实验记录器的ID，用于后续检索
 
     # 定义投资组合分析（回测）的配置
     port_analysis_config = {
@@ -164,6 +159,29 @@ if __name__ == '__main__':
     信号驱动：直接用 MAIRU == 1 选股
     """
 
+    r_start = timer()
+    rid = None
+    with R.start(experiment_name=exp_name):
+        R.log_params(**flatten_dict(task))  # 将任务配置参数扁平化后记录到实验中，便于追踪
+        model.fit(dataset)  # 在训练集上训练模型，并在验证集上进行验证
+        R.save_objects(trained_model=model)  # 将训练好的模型保存到当前实验记录中
+        rid = R.get_recorder().id  # 获取当前实验记录器的ID，用于后续检索
+
+        # 生成预测信号
+        recorder = R.get_recorder()
+        sr = SignalRecord(model, dataset, recorder)
+        sr.generate()
+
+        # 执行回测并生成分析报告
+        par = PortAnaRecord(recorder, port_analysis_config, "day")  # 传入记录器、回测配置和时间频率
+        par.generate()
+
+    # Step 8: 查看结果
+    report_graph(R.get_recorder().get_uri())
+
+    # 打印完成信息
+    print("策略回测完成！", rid, timer() - r_start)
+
     b_start = timer()
     ba_rid = None
     # 开始一个名为"backtest_analysis"的实验工作流，用于组织回测分析过程
@@ -172,8 +190,8 @@ if __name__ == '__main__':
         recorder = R.get_recorder(recorder_id=rid, experiment_name=exp_name)  # 根据rid获取训练记录器
         model = recorder.load_object(exp_name)  # 从记录器中加载名为"trained_model"的模型对象
 
-        # 获取当前回测实验的记录器及其ID
-        recorder = R.get_recorder()
+        # 获取当前回测实验的记录器及其ID 如果接着上个with R.start() model.fit(dataset) 就直接使用recorder = R.get_recorder()
+        # recorder = R.get_recorder()
         ba_rid = recorder.id
         print("策略回测开始！", ba_rid)
 
@@ -187,7 +205,6 @@ if __name__ == '__main__':
 
     # 打印完成信息
     print("策略回测完成！", ba_rid, timer() - b_start)
-
 
     # 获取记录器
     recorder = R.get_recorder(recorder_id=ba_rid, experiment_name="backtest_analysis")

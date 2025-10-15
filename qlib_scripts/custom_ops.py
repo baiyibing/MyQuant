@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from datetime import datetime
 
+# from qlib.contrib.online.operator import Operator
 from qlib.data.cache import H
 from qlib.data.data import Cal
 from qlib.data.ops import ElemOperator, PairOperator, Rolling

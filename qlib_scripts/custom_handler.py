@@ -6,7 +6,10 @@ from qlib.data.dataset import DataHandlerLP
 from qlib.data.ops import EMA, Sub, Div
 from qlib.strategy.base import BaseStrategy
 
-from custom_ops import SMA
+from qlib.data import D
+
+
+# from custom_ops import SMA,TDX_SMA
 
 # 先将AlphaSimpleCustom类保存在以下路径:
 #     C:/Users/Kang/anaconda3/Library/site-packages/pyqlib-0.6.1.dev0-py3.7-win-amd64.egg/
@@ -97,12 +100,14 @@ class Alpha158CostKDJ(Alpha158):
         # === 3. K = SMA(L3, 3, 1) → 使用简单移动平均（Ts_Mean）===
         # K_expr = f"SMA({L3_expr}, 3, 1)"
         # 使用QLib内置函数替代自定义SMA[5]使用EMA近似SMA(3,1)，性能更好
-        K_expr = f"EMA({L3_expr}, 3)"
+        # K_expr = f"EMA({L3_expr}, 3)"
+        K_expr = f"SMA({L3_expr}, 3, 1)"
 
         # === 4. D = SMA(K, 3, 1) ===
         # D_expr = f"SMA({K_expr}, 3, 1)"
         # 使用QLib内置函数替代自定义SMA[5]使用EMA近似SMA(3,1)，性能更好
-        D_expr = f"EMA({K_expr}, 3)"
+        # D_expr = f"EMA({K_expr}, 3)"
+        D_expr = f"SMA({K_expr}, 3, 1)"
 
         # === 5. J = 3*K - 2*D ===
         J_expr = f"3*({K_expr}) - 2*({D_expr})"
@@ -186,3 +191,5 @@ class CostKDJSignalHandler(DataHandlerLP):
         # 添加信号列
         df["MAIRU"] = MAIRU
         return df
+
+

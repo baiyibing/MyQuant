@@ -73,7 +73,7 @@ if __name__ == '__main__':
         # 然后直接赋值给 feature= 参数即可。
 
         handler = Alpha158CostKDJ(
-            instruments="all",
+            instruments="csi300",
             start_time=start_time,    # 整体数据开始时间
             end_time=end_time,      # 整体数据结束时间
             fit_start_time=start_time,# 处理器拟合开始（与train对齐）
@@ -83,7 +83,7 @@ if __name__ == '__main__':
             infer_processors=[
                 {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],
             learn_processors=[{"class": "DropnaLabel"}],
-            include_alpha158=False,  # 若仅需信号，可设为 False 以加速
+            include_alpha158=False,  # 若仅需自定义因子，可设为 False 以加速
         )
 
         # 验证数据加载
