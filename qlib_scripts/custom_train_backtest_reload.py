@@ -2,17 +2,21 @@ import multiprocessing
 import logging
 
 from timeit import default_timer as timer
-
-from astropy.extern.ply.ctokens import t_STRING
 from loguru import logger
-
-import qlib  # 导入Qlib核心库
 import pandas as pd  # 导入pandas库进行数据处理
-from qlib.constant import REG_CN  # 导入中国区域常量
-from qlib.utils import init_instance_by_config, flatten_dict  # 导入根据配置初始化实例和扁平化字典的工具函数
-from qlib.workflow import R  # 导入工作流管理模块，用于实验记录和管理
-from qlib.workflow.record_temp import SignalRecord, PortAnaRecord  # 导入生成信号和组合分析记录的工具类
-
+import qlib
+from qlib.config import REG_CN
+from qlib.contrib.model import LGBModel
+from qlib.contrib.report.analysis_position import report_graph
+from qlib.utils import init_instance_by_config, flatten_dict
+from qlib.workflow import R
+from qlib.data.dataset import DatasetH
+from qlib.contrib.strategy import TopkDropoutStrategy
+from qlib.workflow.record_temp import SignalRecord, SigAnaRecord, PortAnaRecord
+from qlib.contrib.report import analysis_model, analysis_position
+from qlib.data import D  # 导入数据模块
+from custom_handler import Alpha158CostKDJ
+from custom_ops import SMA
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
@@ -34,6 +38,7 @@ if __name__ == '__main__':
         redis_port=6379,
         redis_password='123456',
         redis_task_db=1,  # Redis 数据库编号
+        custom_ops=[SMA],
         # 配置实验管理器，用于跟踪和管理实验结果
         exp_manager={
             "class": "MLflowExpManager",
@@ -44,25 +49,31 @@ if __name__ == '__main__':
             }
         },
         # 设置日志级别，控制输出信息的详细程度：常用的日志级别有 DEBUG、INFO、WARNING、ERROR，级别从低到高，级别越低输出信息越详细。
+        # logging_level=logging.DEBUG
         logging_level=logging.INFO
     )
 
-    print(u'qlib.init', timer() - start)
-
-    start_time = "2019-01-01"
-    end_time = "2021-12-31"
+    start_time = "2020-01-01"
+    end_time = "2023-12-31"
 
     # 定义策略相关的市场和分析基准
-    market = "csi300"  # 设置股票池为沪深300指数成分股
+    market = "csi300"
     benchmark = "SH000300"  # 设置业绩比较基准为沪深300指数代码
+
+    exp_name = "alpha158_cost_kdj_lgb"
 
     # 定义数据处理器配置，指定数据获取的时间范围、训练集时间区间和投资标的
     data_handler_config = {
         "start_time": start_time,  # 整体数据开始时间
         "end_time": end_time,  # 整体数据结束时间
-        "fit_start_time": "2019-01-01",  # 特征计算起始时间（通常与start_time一致）
-        "fit_end_time": "2019-12-31",  # 特征计算结束时间（训练集截止时间）
+        "fit_start_time": start_time,  # 特征计算起始时间（通常与start_time一致）
+        "fit_end_time": "2020-12-31",  # 特征计算结束时间（训练集截止时间）
+        "cost_window": 250,  # 特征计算结束时间（训练集截止时间）
+        "infer_processors": [
+                {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],  # 特征计算结束时间（训练集截止时间）
+        "learn_processors": [{"class": "DropnaLabel"}],  # 特征计算结束时间（训练集截止时间）
         "instruments": market,  # 投资标的，这里使用前面定义的market（csi300）
+        "include_alpha158": False,  # 若仅需自定义因子，可设为 False 以加速
     }
 
     # 定义任务配置字典，包含模型和数据集的详细配置
@@ -80,6 +91,7 @@ if __name__ == '__main__':
                 "max_depth": 8,  # 树的最大深度
                 "num_leaves": 210,  # 树的叶子数
                 "num_threads": 20,  # 并行线程数
+                # "features": ["COST_J"],
             },
         },
         "dataset": {  # 数据集配置部分
@@ -87,39 +99,23 @@ if __name__ == '__main__':
             "module_path": "qlib.data.dataset",  # 数据集所在的模块路径
             "kwargs": {  # 传递给数据集构造函数的参数
                 "handler": {  # 数据处理器配置
-                    "class": "Alpha158",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
-                    "module_path": "qlib.contrib.data.handler",  # 数据处理器所在模块路径
+                    "class": "Alpha158CostKDJ",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
+                    "module_path": "custom_handler",  # 数据处理器所在模块路径
                     "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
                 },
                 "segments": {  # 定义数据集的分段（训练集、验证集、测试集）
-                    "train": (start_time, "2019-12-31"),  # 训练集时间范围
-                    "valid": ("2020-01-01", "2020-12-31"),  # 验证集时间范围
-                    "test": ("2021-01-01", end_time),  # 测试集时间范围
+                    "train": (start_time, "2020-12-31"),  # 训练集时间范围
+                    "valid": ("2021-01-01", "2021-12-31"),  # 验证集时间范围
+                    "test": ("2022-01-01", end_time),  # 测试集时间范围
                 },
             },
         },
     }
 
-    # 通过配置动态初始化模型和数据集实例
-    # QLib 采用了基于配置的设计理念，几乎所有组件都可以通过配置字典来定义。init_instance_by_config() 函数则负责将这些配置字典转换为实际的对象实例：
-    # 这种设计有几个好处：首先，它使得组件的定义更加灵活，可以通过修改配置而不是代码来改变组件行为；其次，它便于序列化和存储实验配置，有利于实验的可复现性。
     model = init_instance_by_config(task["model"])  # 根据model配置创建模型实例
     print(u'根据model配置创建模型实例', timer() - start)
     dataset = init_instance_by_config(task["dataset"])  # 根据dataset配置创建数据集实例
     print(u'根据dataset配置创建数据集实例', timer() - start)
-
-    t_start = timer()
-
-    rid = None
-
-    # 开始一个名为"train_model"的实验工作流，用于组织模型训练过程[6](@ref)
-    with R.start(experiment_name="train_model"):
-        R.log_params(**flatten_dict(task))  # 将任务配置参数扁平化后记录到实验中，便于追踪
-        model.fit(dataset)  # 在训练集上训练模型，并在验证集上进行验证
-        R.save_objects(trained_model=model)  # 将训练好的模型保存到当前实验记录中
-        rid = R.get_recorder().id  # 获取当前实验记录器的ID，用于后续检索
-
-    print(u'模型训练完成', rid,timer() - t_start)
 
     # 定义投资组合分析（回测）的配置
     port_analysis_config = {
@@ -142,8 +138,8 @@ if __name__ == '__main__':
             },
         },
         "backtest": {  # 回测参数配置
-            "start_time": "2021-01-01",  # 回测开始时间（与测试集一致）
-            "end_time": "2021-12-01",  # 回测结束时间（与测试集一致）
+            "start_time": "2022-01-01",  # 回测开始时间（与测试集一致）
+            "end_time": end_time,  # 回测结束时间（与测试集一致）
             "account": 100000000,  # 初始资金金额（1亿元）
             "benchmark": benchmark,  # 业绩比较基准（沪深300指数）
             "exchange_kwargs": {  # 交易所模拟参数（交易规则）
@@ -157,20 +153,35 @@ if __name__ == '__main__':
         },
     }
 
+    """
+    支持两种策略模式：
+    模型驱动：用 COST_J 作为特征训练 LGB
+    信号驱动：直接用 MAIRU == 1 选股
+    """
+
+    r_start = timer()
+    rid = None
+    with R.start(experiment_name=exp_name):
+        R.log_params(**flatten_dict(task))  # 将任务配置参数扁平化后记录到实验中，便于追踪
+        model.fit(dataset)  # 在训练集上训练模型，并在验证集上进行验证
+        R.save_objects(trained_model=model)  # 将训练好的模型保存到当前实验记录中
+        rid = R.get_recorder().id  # 获取当前实验记录器的ID，用于后续检索
+
+    # 打印完成信息
+    print("策略回测完成！", rid, timer() - r_start)
+
     b_start = timer()
-
     ba_rid = None
-
     # 开始一个名为"backtest_analysis"的实验工作流，用于组织回测分析过程
     with R.start(experiment_name="backtest_analysis"):
         # 从之前的"train_model"实验中获取记录器，并加载其中保存的已训练模型
-        recorder = R.get_recorder(recorder_id=rid, experiment_name="train_model")  # 根据rid获取训练记录器
-        model = recorder.load_object("trained_model")  # 从记录器中加载名为"trained_model"的模型对象
-
-        # 获取当前回测实验的记录器及其ID
-        recorder = R.get_recorder()
+        recorder = R.get_recorder(recorder_id=rid, experiment_name=exp_name)  # 根据rid获取训练记录器
+        # 获取当前回测实验的记录器及其ID 如果接着上个with R.start() model.fit(dataset) 就直接使用recorder = R.get_recorder()
+        # recorder = R.get_recorder()
         ba_rid = recorder.id
-        print("策略回测开始！",ba_rid)
+        print("策略回测开始！", ba_rid)
+
+        model = recorder.load_object(exp_name)  # 从记录器中加载名为"trained_model"的模型对象
 
         # 创建SignalRecord实例用于生成交易信号，并生成信号[6](@ref)
         sr = SignalRecord(model, dataset, recorder)  # 传入模型、数据集和记录器
@@ -181,24 +192,24 @@ if __name__ == '__main__':
         par.generate()  # 执行回测并生成分析报告
 
     # 打印完成信息
-    print("策略回测完成！",ba_rid, timer() - b_start)
-
-    from qlib.contrib.report import analysis_model, analysis_position
-    from qlib.data import D  # 导入数据模块
+    print("策略回测完成！", ba_rid, timer() - b_start)
 
     # 获取记录器
-    recorder = R.get_recorder(recorder_id=ba_rid, experiment_name="backtest_analysis")
+    # recorder = R.get_recorder(recorder_id=ba_rid, experiment_name="backtest_analysis")
+    recorder = R.get_recorder(recorder_id=rid, experiment_name=exp_name)
     pred_df = recorder.load_object("pred.pkl")  # 预测结果
     report_normal_df = recorder.load_object("portfolio_analysis/report_normal_1day.pkl")  # 普通报告
     positions = recorder.load_object("portfolio_analysis/positions_normal_1day.pkl")  # 持仓记录
     analysis_df = recorder.load_object("portfolio_analysis/port_analysis_1day.pkl")  # 分析报告
 
-    figures = analysis_position.report_graph(report_normal_df,show_notebook=False)
-    print("展示回测净值可视化结果(不扣费、扣费和基准净值；不扣费净值最大回撤；扣费净值最大回撤；不扣费和扣费超额收益净值；换手率；不扣费超额收益最大回撤；扣费超额收益最大回撤)", timer() - start)
+    figures = analysis_position.report_graph(report_normal_df, show_notebook=False)
+    print(
+        "展示回测净值可视化结果(不扣费、扣费和基准净值；不扣费净值最大回撤；扣费净值最大回撤；不扣费和扣费超额收益净值；换手率；不扣费超额收益最大回撤；扣费超额收益最大回撤)",
+        timer() - start)
     for i, fig in enumerate(figures):
         fig.show()
 
-    figures = analysis_position.risk_analysis_graph(analysis_df, report_normal_df,show_notebook=False)
+    figures = analysis_position.risk_analysis_graph(analysis_df, report_normal_df, show_notebook=False)
     print("生成风险分析图表可视化结果(年化收益率\波动率\信息比率\最大回撤)", timer() - start)
     for i, fig in enumerate(figures):
         fig.show()
@@ -206,9 +217,10 @@ if __name__ == '__main__':
     label_df = dataset.prepare("test", col_set="label")
     label_df.columns = ['label']
     pred_label = pd.concat([label_df, pred_df], axis=1, sort=True).reindex(label_df.index)
-    figures = analysis_position.score_ic_graph(pred_label,show_notebook=False)
+    figures = analysis_position.score_ic_graph(pred_label, show_notebook=False)
     print("AI模型预测个股收益的IC和Rank IC值可视化结果", timer() - start)
     for i, fig in enumerate(figures):
         # 如果你在支持 Plotly 的环境中（如 Dash 或某些 IDE），也可以直接显示
         fig.show()
 
+    print("✅ 训练与回测完成！")

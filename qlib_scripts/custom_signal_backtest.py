@@ -19,6 +19,8 @@ from qlib.contrib.report import analysis_position, analysis_model
 from custom_handler import CostKDJSignalHandler,Alpha158CostKDJ
 from custom_ops import SMA
 
+from custom_utils import pprint_position_report, analyze_position_by_date, generate_position_report
+
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
 
@@ -54,8 +56,11 @@ if __name__ == '__main__':
         logging_level=logging.INFO
     )
 
-    start_time = "2020-01-01"
-    end_time = "2023-12-31"
+    # start_time = "2020-01-01"
+    # end_time = "2022-12-31"
+
+    start_time = "2019-01-01"
+    end_time = "2021-12-31"
 
     # 定义策略相关的市场和分析基准
     market = "all"  # 设置股票池为沪深300指数成分股
@@ -82,7 +87,7 @@ if __name__ == '__main__':
             start_time=start_time,    # 整体数据开始时间
             end_time=end_time,      # 整体数据结束时间
             fit_start_time=start_time,# 处理器拟合开始（与train对齐）
-            fit_end_time="2020-12-31",  # 处理器拟合结束（与train对齐）
+            fit_end_time="2019-12-31",  # 处理器拟合结束（与train对齐）
             # freq="day",
             cost_window=250,
             infer_processors=[
@@ -113,9 +118,9 @@ if __name__ == '__main__':
         dataset = DatasetH(
             handler=handler,
             segments={
-            "train": (start_time, "2020-12-31"), # 与fit时间段一致
-            "valid": ("2021-01-01", "2021-12-31"),
-            "test": ("2022-01-01", end_time)
+            "train": (start_time, "2019-12-31"), # 与fit时间段一致
+            "valid": ("2020-01-01", "2020-12-31"),
+            "test": ("2021-01-01", end_time)
             },
             process_type="append",  # 必须设置！否则 get_extended_data 不会调用
             memory_reuse = True
@@ -145,8 +150,11 @@ if __name__ == '__main__':
         feature_df = data_df['feature']
         label_df = data_df['label']
         print(feature_df.head(10))
+        feature_df.to_excel('feature_df.xlsx')
+
         pred_score = feature_df["MAIRU_SIGNAL"].rename("score").to_frame()  # 将MAIRU列重命名为score（策略要求）
         logger.info(f"预测分数形状: {pred_score.shape}")
+
 
         """
         dataset.prepare的参数说明
@@ -179,7 +187,7 @@ if __name__ == '__main__':
         # === 2. 策略：仅交易 MAIRU == 1 的股票 ===
         strategy = TopkDropoutStrategy(
             topk=50,
-            n_drop=0,
+            n_drop=5,
             signal = pred_score,  # MAIRU信号作为预测分数
             risk_degree = 0.95,  # 95%资金用于投资
             hold_thresh = 1  # 最小持有1天
@@ -187,7 +195,7 @@ if __name__ == '__main__':
 
         # === 4. 执行回测 ===
         report, positions = backtest_daily(
-            start_time="2022-01-01",
+            start_time="2020-01-01",
             end_time=end_time,
             strategy=strategy,
             account=100000000,  # 初始资金1亿
@@ -202,6 +210,13 @@ if __name__ == '__main__':
             }
         )
 
+        # 分析最近交易日的持仓
+        pprint_position_report(positions)
+        # 分析最近交易日的持仓
+        analyze_position_by_date(positions)
+        # 生成报告
+        generate_position_report(positions)
+
         # Qlib 提供了两个重要的分析记录器（Record）用于可视化：
         #
         # AnalysisRecord（对应 analysis_model）：分析模型预测与实际收益的关系（如 IC、IR 等）
@@ -212,7 +227,7 @@ if __name__ == '__main__':
         benchmark_returns = report["bench"]
 
         # 风险分析
-        analysis_result = risk_analysis(returns)
+        analysis_result =  (returns)
         print("MAIRU策略回测结果:")
         print("=== 风险绩效分析结果 ===")
         for k, v in analysis_result.items():
