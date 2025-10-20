@@ -6,6 +6,7 @@ from loguru import logger
 import pandas as pd  # 导入pandas库进行数据处理
 import qlib
 from qlib.config import REG_CN
+from qlib.contrib.data.handler import Alpha158
 from qlib.contrib.evaluate import risk_analysis
 from qlib.contrib.model import LGBModel
 from qlib.contrib.report.analysis_position import report_graph
@@ -20,7 +21,8 @@ from custom_handler import Alpha158CostKDJ
 from custom_ops import SMA
 
 from pprint import pprint
-from custom_utils import pprint_position_report, analyze_position_by_date, generate_position_report
+from custom_utils import pprint_position_report, analyze_position_by_date, generate_position_report, \
+    pprint_risk_analysis
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
@@ -74,15 +76,16 @@ if __name__ == '__main__':
         "end_time": end_time,  # 整体数据结束时间
         "fit_start_time": start_time,  # 特征计算起始时间（通常与start_time一致）
         "fit_end_time": "2023-12-31",  # 特征计算结束时间（训练集截止时间）
-        "cost_window": 250,  # 特征计算结束时间（训练集截止时间）
+        # "cost_window": 250,  # 特征计算结束时间（训练集截止时间）
         "infer_processors": [
                 {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],  # 特征计算结束时间（训练集截止时间）
         "learn_processors": [{"class": "DropnaLabel"}],  # 特征计算结束时间（训练集截止时间）
         "instruments": market,  # 投资标的，这里使用前面定义的market（csi300）
-        "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
+        # "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
     }
 
-    handler = Alpha158CostKDJ(**data_handler_config)
+    # handler = Alpha158CostKDJ(**data_handler_config)
+    handler = Alpha158(**data_handler_config)
 
     # 定义任务配置字典，包含模型和数据集的详细配置
     task = {
@@ -207,22 +210,13 @@ if __name__ == '__main__':
 
         # 风险分析
         analysis_result = risk_analysis(returns)
-        print("158策略回测结果:")
         print("=== 风险绩效分析结果 ===")
-        for k, v in analysis_result.items():
-            if isinstance(v, float):
-                print(f"{k}: {v:.4f}")
-            else:
-                print(f"{k}: {v}")
+        pprint_risk_analysis(analysis_result)
 
-        # 风险分析
+        # benchmark风险分析
         analysis_result = risk_analysis(benchmark_returns)
         print("=== benchmark风险绩效分析结果 ===")
-        for k, v in analysis_result.items():
-            if isinstance(v, float):
-                print(f"{k}: {v:.4f}")
-            else:
-                print(f"{k}: {v}")
+        pprint_risk_analysis(analysis_result)
 
         positions_dict = recorder.load_object("portfolio_analysis/positions_normal_1day.pkl")  # 持仓记录
         print("持仓记录")

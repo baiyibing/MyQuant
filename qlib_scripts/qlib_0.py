@@ -12,7 +12,7 @@ if __name__ == '__main__':
 
     qlib.init(
         # 数据存储路径
-        provider_uri='E:/PycharmProjects/MyQuant/.qlib/qlib_data/cn_data',
+        provider_uri='~/.qlib/qlib_data/cn_data',
         # 中国市场
         region=REG_CN,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。
@@ -41,7 +41,7 @@ if __name__ == '__main__':
     from qlib.data import D
 
     # 定义股票列表和特征
-    instruments = ['SH600000', 'SH600036', 'SH601318']
+    instruments = ['SH600000']
     fields = [
         '$close',  # 收盘价
         '$volume',  # 成交量
@@ -54,10 +54,18 @@ if __name__ == '__main__':
     features = D.features(
         instruments=instruments,
         fields=fields,
-        start_time='2020-01-01',
-        end_time='2020-12-31',
+        start_time='2025-01-01',
+        end_time='2025-01-02',
         freq='day'
     )
 
     print(f"特征数据形状: {features.shape}")
     print(features.head())
+
+    # 以 AKShare 为例的示例代码
+    import akshare as ak
+
+    # 获取后复权数据 - 需注意接口字段可能随版本更新而变化
+    stock_zh_a_hist_df = ak.stock_zh_a_hist(symbol="600000", period="daily", start_date="20250102", end_date="20250102",
+                                            adjust="hfq")
+    print(stock_zh_a_hist_df)

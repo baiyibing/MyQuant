@@ -1,9 +1,10 @@
+import json
 import multiprocessing
 import logging
 
 from timeit import default_timer as timer
 from loguru import logger
-
+import pandas as pd
 import qlib
 from qlib.config import REG_CN
 from qlib.contrib.data.handler import Alpha158
@@ -18,11 +19,15 @@ from qlib.contrib.report import analysis_position, analysis_model
 
 from custom_handler import CostKDJSignalHandler,Alpha158CostKDJ
 from custom_ops import SMA
+from pprint import pprint, pformat, PrettyPrinter
 
-from custom_utils import pprint_position_report, analyze_position_by_date, generate_position_report
+from custom_utils import pprint_position_report, analyze_position_by_date, generate_position_report, \
+    pprint_risk_analysis, analyze_and_visualize_positions
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
+    # Python 中用于支持将多进程程序打包为 Windows 可执行文件（如通过 PyInstaller、cx_Freeze 等工具）的特殊函数，
+    # 需在 if __name__ == '__main__':块内首先调用，以避免打包后运行时出现子进程无限递归或崩溃问题。其核心作用与 Windows 系统的进程创建机制相关。
 
     print(qlib.__version__)  # 如果能够打印出版本号，说明安装成功
 
@@ -88,12 +93,12 @@ if __name__ == '__main__':
             end_time=end_time,      # 整体数据结束时间
             fit_start_time=start_time,# 处理器拟合开始（与train对齐）
             fit_end_time="2019-12-31",  # 处理器拟合结束（与train对齐）
-            # freq="day",
-            cost_window=250,
             infer_processors=[
                 {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],
             learn_processors=[{"class": "DropnaLabel"}],
+            cost_window=250,
             include_alpha158=False,  # 若仅需自定义因子，可设为 False 以加速
+            include_signal=True
         )
 
         # 验证数据加载
@@ -118,9 +123,9 @@ if __name__ == '__main__':
         dataset = DatasetH(
             handler=handler,
             segments={
-            "train": (start_time, "2019-12-31"), # 与fit时间段一致
-            "valid": ("2020-01-01", "2020-12-31"),
-            "test": ("2021-01-01", end_time)
+            "train": (start_time, "2019-12-31"),    # 与fit时间段一致
+            "valid": ("2020-01-01", "2020-12-31"),  # 验证集，不用于最终回测，虽然也属于模型开发阶段的“样本外”数据，但其主要作用在于模型开发流程内部（如超参数优化）
+            "test": ("2021-01-01", end_time)        # 测试集，投资组合回测配置：明确指定回测使用测试集的时间
             },
             process_type="append",  # 必须设置！否则 get_extended_data 不会调用
             memory_reuse = True
@@ -186,17 +191,22 @@ if __name__ == '__main__':
         """
         # === 2. 策略：仅交易 MAIRU == 1 的股票 ===
         strategy = TopkDropoutStrategy(
-            topk=50,
-            n_drop=5,
+            topk=10,
+            n_drop=3,
             signal = pred_score,  # MAIRU信号作为预测分数
             risk_degree = 0.95,  # 95%资金用于投资
             hold_thresh = 1  # 最小持有1天
         )
 
+        # Qlib 提供了两个重要的分析记录器（Record）用于可视化：
+        #
+        # AnalysisRecord（对应 analysis_model）：分析模型预测与实际收益的关系（如 IC、IR 等）
+        # PositionRecord（对应 analysis_position）：分析持仓、换手率、行业暴露等
+        # 但注意：你当前的 backtest_daily 只返回了 report_df 和 positions，并未包含模型预测信号（score）
         # === 4. 执行回测 ===
-        report, positions = backtest_daily(
-            start_time="2020-01-01",
-            end_time=end_time,
+        report_df, positions = backtest_daily(
+            start_time="2021-01-01",    # 与测试集的开始时间一致
+            end_time=end_time,          # 与测试集的结束时间一致
             strategy=strategy,
             account=100000000,  # 初始资金1亿
             benchmark=benchmark,  # 沪深300基准
@@ -210,46 +220,129 @@ if __name__ == '__main__':
             }
         )
 
+        # 显示所有行
+        pd.set_option('display.max_rows', None)
+        # 显示所有列
+        pd.set_option('display.max_columns', None)
+        # 设置列宽，确保长文本完整显示
+        pd.set_option('display.max_colwidth', None)
+        # 设置显示宽度，防止自动换行
+        pd.set_option('display.width', None)
+
+        # 从2021-01-01至2021-12-31，backtest_daily的start_time至end_time,DataFrame
+        print(report_df)
+        # account：账户总价值，即投资组合的总资产（持仓市值+现金）
+        # return：投资组合的单日收益率，反映当日账户价值相对于前一日的变化比例
+        # total_turnover：总换手率，衡量投资组合的交易活跃程度
+        # turnover：换手率，可能与total_turnover含义相同或略有差异，具体取决于qlib版本
+        # total_cost：总交易成本，包括所有交易产生的费用和成本
+        # cost：单日交易成本，指当日产生的交易费用
+        # value：持仓市值，即投资组合中所有持仓的当前市场价值
+        # cash：现金余额，账户中剩余的可用现金
+        # bench：基准收益率，用于比较的基准指数（如沪深300）的当日收益率
+
+        #                  account        return  total_turnover  turnover    total_cost      cost         value          cash     bench
+        # datetime
+        # 2021-01-04  1.000000e+08  0.000000e+00    0.000000e+00  0.000000  0.000000e+00  0.000000  0.000000e+00  1.000000e+08  0.010828
+        # 2021-01-05  9.995251e+07  6.912160e-18    9.498056e+07  0.949806  4.749028e+04  0.000475  9.498056e+07  4.971954e+06  0.019132
+        # 2021-01-06  1.018981e+08  1.988128e-02    1.384478e+08  0.434879  8.910869e+04  0.000416  1.006655e+08  1.232591e+06  0.009159
+        # 2021-01-07  1.021438e+08  2.960938e-03    1.943103e+08  0.548219  1.451089e+05  0.000550  1.006918e+08  1.451956e+06  0.017718
+        # 2021-01-08  1.040115e+08  1.895535e-02    2.625986e+08  0.668551  2.135980e+05  0.000671  1.022264e+08  1.785079e+06 -0.003306
+
+        # 2021-12-27  1.124363e+08 -1.415215e-02    1.182544e+10  0.433459  1.178199e+07  0.000433  1.111319e+08  1.304365e+06 -0.000410
+        # 2021-12-28  1.122715e+08 -1.031063e-03    1.187426e+10  0.434186  1.183081e+07  0.000434  1.109976e+08  1.273874e+06  0.007448
+        # 2021-12-29  1.103502e+08 -1.667956e-02    1.192295e+10  0.433686  1.187953e+07  0.000434  1.090751e+08  1.275081e+06 -0.014625
+        # 2021-12-30  1.115607e+08  1.141607e-02    1.197219e+10  0.446223  1.192880e+07  0.000446  1.102769e+08  1.283748e+06  0.007787
+        # 2021-12-31  1.123785e+08  7.769501e-03    1.202110e+10  0.438427  1.197773e+07  0.000439  1.111029e+08  1.275633e+06  0.003832
+
+        returns = report_df["return"]
+        benchmark_returns = report_df["bench"]
+
+        # 风险分析
+        analysis_result = risk_analysis(returns)
+        print("=== 风险绩效分析结果 ===")
+        pprint_risk_analysis(analysis_result)
+
+        # benchmark风险分析
+        analysis_result = risk_analysis(benchmark_returns)
+        print("=== benchmark风险绩效分析结果 ===")
+        pprint_risk_analysis(analysis_result)
+
+        # 计算超额收益的风险指标
+        analysis_result = risk_analysis(report_df["return"] - report_df["bench"])
+        print("=== 超额收益的风险指标 ===")
+        pprint_risk_analysis(analysis_result)
+
+        # 累计收益与基准对比
+        figures = analysis_position.report_graph(report_df, show_notebook=False)
+        for i, fig in enumerate(figures):
+            fig.show()
+
+        print(type(positions)) # <class 'dict'>
+        print(dir(positions))
+
+        with open("positions.txt", "w", encoding='utf-8') as file:
+            # 创建PrettyPrinter实例，并指定输出流为文件对象
+            printer = PrettyPrinter(stream=file, indent=4, sort_dicts=False, compact=False)
+            printer.pprint(positions)  # 直接输出到文件，无需调用write方法
+
+        # 获取一个 Position 对象
+        date0 = sorted(positions.keys())[100]
+        print("key类型:", type(date0)) # <class 'pandas._libs.tslibs.timestamps.Timestamp'>
+        pos0 = positions[date0]
+        print("item类型:", type(pos0)) # <class 'qlib.backtest.position.Position'>
+        pprint(pos0)
+        # init_cash:        回测策略的初始资金。这是策略开始运行时投入的总本金。
+        # cash:             当前时刻，投资组合中剩余的可用现金。这部分资金可用于购买新的资产或应对赎回。
+        # now_account_value:当前时刻的总账户价值​（或称净资产）。其计算公式通常为：总账户价值 = 所有持仓股票的当前市值 + 现金。这是衡量投资组合规模的核心指标。
+        #   amount:             持有该只股票的总市值。其计算公式为：持仓市值 = 持仓数量 × 当前市价。
+        #   price:              该股票的平均持仓成本。即建立该头寸的平均买入价格。
+        #   weight:             该股票在当前整个投资组合中的权重。其计算公式为：权重 = 该股票持仓市值 / 当前总账户价值。所有权重之和应等于1（100%）。
+        #   count_day:          该头寸已经持有的交易天数。这个信息对于需要判断持仓周期（例如，是否超过某个最小持有期）的策略非常有用。
+        # {'_settle_type': 'None', 'position': {'cash': 100000000, 'now_account_value': 100000000.0}, 'init_cash': 100000000}
+        # {'_settle_type': 'None',
+        # 'position': {
+        #   'cash': np.float64(7877925.992530895),
+        #   'now_account_value': np.float64(97485183.74514942),
+        #   'SH600010': {'amount': np.float64(4511249.621682248), 'price': np.float64(2.9330453872680664), 'weight': np.float64(0.13573036830171947), 'count_day': 100},
+        #   'SH600011': {'amount': np.float64(6747337.020940266), 'price': np.float64(1.324849247932434), 'weight': np.float64(0.0916980820501779), 'count_day': 100},
+        #   'SH600000': {'amount': np.float64(640049.8140541812), 'price': np.float64(12.793843269348145), 'weight': np.float64(0.08399940063704361), 'count_day': 99},
+        #   'SH600004': {'amount': np.float64(1924131.3789502233), 'price': np.float64(3.497685194015503), 'weight': np.float64(0.0690361917262088), 'count_day': 99},
+        #   'SH600009': {'amount': np.float64(1752442.0547387858), 'price': np.float64(4.942648887634277), 'weight': np.float64(0.08885150993962371), 'count_day': 93},
+        #   'SH600015': {'amount': np.float64(1795791.6638856505), 'price': np.float64(5.597679138183594), 'weight': np.float64(0.10311582896264358), 'count_day': 39},
+        #   'SH600196': {'amount': np.float64(265916.42417387536), 'price': np.float64(37.25113296508789), 'weight': np.float64(0.10161224192178457), 'count_day': 7},
+        #   'SH600018': {'amount': np.float64(5586233.65207548), 'price': np.float64(1.8073878288269043), 'weight': np.float64(0.10356948947379772), 'count_day': 3},
+        #   'SH601669': {'amount': np.float64(7738423.138459998), 'price': np.float64(0.8899430632591248), 'weight': np.float64(0.07064412999046171), 'count_day': 2},
+        #   'SH601238': {'amount': np.float64(3212911.487739786), 'price': np.float64(2.1521739959716797), 'weight': np.float64(0.07093123580039729), 'count_day': 2}
+        #  },
+        #  'init_cash': 100000000}
+
+        """qlib.backtest.position.Position
+
+        current state of position
+        a typical example is :{
+          <instrument_id>: {
+            'count': <how many days the security has been hold>,
+            'amount': <the amount of the security>,
+            'price': <the close price of security in the last trading day>,
+            'weight': <the security weight of total position value>,
+          },
+        }
+        """
+
+        # 打印关键结果
+        print("===== 持仓分析报告 =====")
         # 分析最近交易日的持仓
         pprint_position_report(positions)
         # 分析最近交易日的持仓
         analyze_position_by_date(positions)
+
+        # 将key Timestamp转为str
+        position_dict = {str(key): value for key, value in positions.items()}
+        # with open('positions.json', 'w', encoding='utf-8') as f:
+        #     json.dump(position_dict, f, ensure_ascii=False, indent=4)   # TypeError: Object of type Position is not JSON serializable
         # 生成报告
-        generate_position_report(positions)
-
-        # Qlib 提供了两个重要的分析记录器（Record）用于可视化：
-        #
-        # AnalysisRecord（对应 analysis_model）：分析模型预测与实际收益的关系（如 IC、IR 等）
-        # PositionRecord（对应 analysis_position）：分析持仓、换手率、行业暴露等
-        # 但注意：你当前的 backtest_daily 只返回了 report 和 positions，并未包含模型预测信号（score）
-
-        returns = report["return"]
-        benchmark_returns = report["bench"]
-
-        # 风险分析
-        analysis_result =  (returns)
-        print("MAIRU策略回测结果:")
-        print("=== 风险绩效分析结果 ===")
-        for k, v in analysis_result.items():
-            if isinstance(v, float):
-                print(f"{k}: {v:.4f}")
-            else:
-                print(f"{k}: {v}")
-
-        # 风险分析
-        analysis_result = risk_analysis(benchmark_returns)
-        print("=== benchmark风险绩效分析结果 ===")
-        for k, v in analysis_result.items():
-            if isinstance(v, float):
-                print(f"{k}: {v:.4f}")
-            else:
-                print(f"{k}: {v}")
-
-        # 累计收益与基准对比
-        figures = analysis_position.report_graph(report, show_notebook=False)
-        for i, fig in enumerate(figures):
-            fig.show()
-
+        generate_position_report(position_dict)
 
         """
         analysis_position.report_graph是 Qlib 量化平台中用于生成投资组合综合表现报告的核心可视化函数。

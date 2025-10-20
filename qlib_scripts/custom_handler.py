@@ -74,9 +74,10 @@ class Alpha158CostKDJ(Alpha158):
     并在 get_extended_data 中计算 MAIRU 信号（不用于训练，仅用于回测）。
     """
 
-    def __init__(self, *args, cost_window=250, include_alpha158=False, **kwargs):
+    def __init__(self, *args, cost_window=250, include_alpha158=False,include_signal=False, **kwargs):
         self.cost_window = cost_window
         self.include_alpha158 = include_alpha158
+        self.include_signal = include_signal
         super().__init__(*args, **kwargs)
 
     def get_feature_config(self):
@@ -112,18 +113,21 @@ class Alpha158CostKDJ(Alpha158):
         # === 5. J = 3*K - 2*D ===
         J_expr = f"3*({K_expr}) - 2*({D_expr})"
 
-        # 股票价格同时站上20日线和20周线的qlib表达式
-        # Qlib 默认使用日频数据，没有“周线”概念，因此通常将5周均线近似为 25日均线。如果你有真正的周线数据，需先聚合，但一般实盘/回测中用25日均线代替5周均线是行业惯例。
-        K20_expr = "($close > Mean($close, 20)) & ($close > Mean($close, 100))"
+        new_fields = None
+        new_names = None
+        if self.include_signal:
+            # 股票价格同时站上20日线和20周线的qlib表达式
+            # Qlib 默认使用日频数据，没有“周线”概念，因此通常将5周均线近似为 25日均线。如果你有真正的周线数据，需先聚合，但一般实盘/回测中用25日均线代替5周均线是行业惯例。
+            K20_expr = "($close > Mean($close, 20)) & ($close > Mean($close, 100))"
 
-        MAIRU_expr = f"If(({J_expr} > {K_expr}) & (Ref({J_expr}, 1) <= Ref({K_expr}, 1)) & ({J_expr} < 80) & {K20_expr}, 2, 0)"
+            MAIRU_expr = f"If(({J_expr} > {K_expr}) & (Ref({J_expr}, 1) <= Ref({K_expr}, 1)) & ({J_expr} < 80) & {K20_expr}, 2, 0)"
 
-        # === 添加所有中间变量为 Alpha 因子 ===
-        new_fields = [K_expr, D_expr, J_expr, MAIRU_expr]
-        new_names = ["COST_K", "COST_D", "COST_J", "MAIRU_SIGNAL"]
-
-        # new_fields = [K_expr, D_expr, J_expr]
-        # new_names = ["COST_K", "COST_D", "COST_J"]
+            # === 添加所有中间变量为 Alpha 因子 ===
+            new_fields = [K_expr, D_expr, J_expr, MAIRU_expr]
+            new_names = ["COST_K", "COST_D", "COST_J", "MAIRU_SIGNAL"]
+        else:
+            new_fields = [K_expr, D_expr, J_expr]
+            new_names = ["COST_K", "COST_D", "COST_J"]
 
         if self.include_alpha158:
             fields.extend(new_fields)
