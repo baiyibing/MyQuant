@@ -79,13 +79,10 @@ if __name__ == '__main__':
 
     # 显示所有行
     pd.set_option('display.max_rows', None)
-
     # 显示所有列
     pd.set_option('display.max_columns', None)
-
     # 设置列宽，确保长文本完整显示
     pd.set_option('display.max_colwidth', None)
-
     # 设置显示宽度，防止自动换行
     pd.set_option('display.width', None)
 

@@ -59,6 +59,15 @@ if __name__ == '__main__':
         logging_level=logging.INFO
     )
 
+    # # 显示所有行
+    # pd.set_option('display.max_rows', None)
+    # # 显示所有列
+    # pd.set_option('display.max_columns', None)
+    # # 设置列宽，确保长文本完整显示
+    # pd.set_option('display.max_colwidth', None)
+    # # 设置显示宽度，防止自动换行
+    # pd.set_option('display.width', None)
+
     start_time = "2023-01-01"
     end_time = "2025-07-31"
 
@@ -68,7 +77,7 @@ if __name__ == '__main__':
 
     exp_name = "alpha158_cost_kdj_lgb"
 
-    signal_cols = ["COST_K", "COST_D", "COST_J"]
+    signal_cols = ["COST_K", "COST_D", "COST_J", "MAIRU_SIGNAL"]
 
     # 定义数据处理器配置，指定数据获取的时间范围、训练集时间区间和投资标的
     data_handler_config = {
@@ -76,16 +85,17 @@ if __name__ == '__main__':
         "end_time": end_time,  # 整体数据结束时间
         "fit_start_time": start_time,  # 特征计算起始时间（通常与start_time一致）
         "fit_end_time": "2023-12-31",  # 特征计算结束时间（训练集截止时间）
-        # "cost_window": 250,  # 特征计算结束时间（训练集截止时间）
+        "cost_window": 250,  # 特征计算结束时间（训练集截止时间）
         "infer_processors": [
                 {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],  # 特征计算结束时间（训练集截止时间）
         "learn_processors": [{"class": "DropnaLabel"}],  # 特征计算结束时间（训练集截止时间）
         "instruments": market,  # 投资标的，这里使用前面定义的market（csi300）
-        # "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
+        "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
+        "include_signal": False
     }
 
-    # handler = Alpha158CostKDJ(**data_handler_config)
-    handler = Alpha158(**data_handler_config)
+    handler = Alpha158CostKDJ(**data_handler_config)
+    # handler = Alpha158(**data_handler_config) #  **运算符将字典展开为关键字参数
 
     # 定义任务配置字典，包含模型和数据集的详细配置
     task = {
@@ -128,9 +138,33 @@ if __name__ == '__main__':
     # 验证数据加载
     data = handler.fetch(col_set="feature")
     print(data.head(10))
+    #                            KMID      KLEN  ...    COST_D    COST_J
+    # datetime   instrument                      ...
+    # 2023-01-03 SH600000   -0.298624 -0.706633  ... -0.085372 -0.023536
+    #            SH600009   -1.546573  0.264609  ...       NaN       NaN
+    #            SH600010    0.475908 -0.207787  ... -0.688093 -0.629647
+    #            SH600011    2.071525  3.000000  ... -0.203372  0.317179
+    #            SH600015    0.238334 -1.020868  ...  0.510582  0.613794
+    #            SH600016   -0.318746 -1.018924  ... -0.211149 -0.147461
+    #            SH600018    0.099265 -0.398185  ... -0.363264 -0.186470
+    #            SH600019    0.358459 -0.619303  ... -0.132547 -0.161108
+    #            SH600025    1.410132  0.216171  ...  0.223375  0.598955
+    #            SH600028    0.429478 -0.831903  ...  1.067183  1.107931
+    #
+    # [10 rows x 161 columns]
     available_cols = [col for col in signal_cols if col in data.columns]
     logger.info(f"可用信号列: {available_cols}")
     print(data[available_cols].head(10))
+    # 2023-01-03 SH600000   -0.066754 -0.085372 -0.023536
+    #            SH600009         NaN       NaN       NaN
+    #            SH600010   -0.671162 -0.688093 -0.629647
+    #            SH600011   -0.030015 -0.203372  0.317179
+    #            SH600015    0.543704  0.510582  0.613794
+    #            SH600016   -0.192020 -0.211149 -0.147461
+    #            SH600018   -0.306091 -0.363264 -0.186470
+    #            SH600019   -0.144487 -0.132547 -0.161108
+    #            SH600025    0.348180  0.223375  0.598955
+    #            SH600028    1.079720  1.067183  1.107931
 
     model = init_instance_by_config(task["model"])  # 根据model配置创建模型实例
     print(u'根据model配置创建模型实例', timer() - start)
@@ -183,8 +217,9 @@ if __name__ == '__main__':
     rid = None
     with R.start(experiment_name=exp_name):
         R.log_params(**flatten_dict(task))  # 将任务配置参数扁平化后记录到实验中，便于追踪
-        model.fit(dataset)  # 在训练集上训练模型，并在验证集上进行验证
+        model.fit(dataset)  # 方法根据数据集对模型进行训练，这个过程会生成模型参数和训练指标 在训练集上训练模型，并在验证集上进行验证
         R.save_objects(trained_model=model)  # 将训练好的模型保存到当前实验记录中
+        # 保存的模型可以通过 recorder.load_object("trained_model")在后续流程（如回测阶段）中重新加载使用，确保模型的一致性和可复用性
 
         rid = R.get_recorder().id  # 获取当前实验记录器的ID，用于后续检索
 
@@ -192,19 +227,105 @@ if __name__ == '__main__':
         recorder = R.get_recorder()
         sr = SignalRecord(model, dataset, recorder)
         sr.generate()
-
-        # 执行回测并生成分析报告
-        par = PortAnaRecord(recorder, port_analysis_config, "day")  # 传入记录器、回测配置和时间频率
-        par.generate()
+        # 执行 sr.generate()后，生成的预测信号会保存到记录器的工件（artifacts）中，主要包括：
+        #   预测分数文件：保存每个股票在每个时间点的预测分数
+        #   信号质量指标：如IC（信息系数）、ICIR等模型预测能力指标
+        # [record_temp.py:198] - Signal record 'pred.pkl' has been saved as the artifact of the Experiment 963122733822150836
+        # 'The following are prediction results of the LGBModel model.'
+        #                           score
+        # datetime   instrument
+        # 2025-01-02 SH600000   -0.000373
+        #            SH600009   -0.000373
+        #            SH600010   -0.000373
+        #            SH600011   -0.000373
+        #            SH600015   -0.000373
 
         pred_df = recorder.load_object("pred.pkl")  # 预测结果
         print("预测结果")
         print(pred_df.head(10))
+        # 预测结果
+        #                           score
+        # datetime   instrument
+        # 2025-01-02 SH600000   -0.000373
+        #            SH600009   -0.000373
+        #            SH600010   -0.000373
+        #            SH600011   -0.000373
+        #            SH600015   -0.000373
+        #            SH600016   -0.000373
+        #            SH600018   -0.000373
+        #            SH600019   -0.000373
+        #            SH600023   -0.000373
+        #            SH600025   -0.000373
+
+        # 查看信号分析报告 LoadObjectError: No such file or directory
+        # signal_metrics = recorder.load_object("sig_analysis.pkl")
+        # print("信号分析报告")
+        # print(signal_metrics.head(10))
+
+        # 执行回测并生成分析报告
+        # PortAnaRecord 是 QLib 工作流中的组合分析记录器，它通过三个关键参数初始化：
+        #   recorder 是之前实验记录器的实例，用于获取已训练的模型model和数据集dataset；
+        #   port_analysis_config 是包含策略、执行器和回测参数的配置字典；
+        #   day则指定了回测的频率为日级别
+        par = PortAnaRecord(recorder, port_analysis_config, "day")  # 传入记录器、回测配置和时间频率
+        par.generate()  # 系统会基于配置启动完整的回测流程，包括初始化投资组合、模拟每日交易、计算持仓价值，并最终生成包含收益曲线、夏普比率和最大回撤等指标的分析报告
+        # 'The following are analysis results of benchmark return(1day).'
+        #                        risk
+        # mean               0.000297
+        # std                0.009591
+        # annualized_return  0.070800
+        # information_ratio  0.478475
+        # max_drawdown      -0.108001
+        # 'The following are analysis results of the excess return without cost(1day).'
+        #                        risk
+        # mean               0.000512
+        # std                0.007390
+        # annualized_return  0.121823
+        # information_ratio  1.068579
+        # max_drawdown      -0.049597
+        # 'The following are analysis results of the excess return with cost(1day).'
+        #                        risk
+        # mean               0.000329
+        # std                0.007401
+        # annualized_return  0.078281
+        # information_ratio  0.685570
+        # max_drawdown      -0.057426
+        # 'The following are analysis results of indicators(1day).'
+        #      value
+        # ffr    1.0
+        # pa     0.0
+        # pos    0.0
+        """
+        在 Qlib 中，调用 par.generate()生成的回测分析报告默认会保存到本地，主要通过 Qlib 的工作流记录系统进行管理
+        报告保存位置与内容
+        回测完成后，生成的分析报告和相关数据会以 Python pickle 文件（.pkl格式）的形式，保存在您当前运行的“实验”所对应的记录器中。您可以通过以下步骤获取这些报告：
+        获取记录器：首先需要获取执行回测的那个记录器对象。
+        加载报告文件：使用记录器的 load_object方法加载特定的报告文件。
+        以下是生成的主要分析报告文件及其含义：
+        report_normal_1day.pkl：这是核心的每日组合表现报告。它是一个 DataFrame，包含了投资组合每天的关键指标，例如：
+            return：投资组合的日收益率
+            cost：交易成本
+            bench：基准（如沪深300）的日收益率
+            turnover：换手率
+        positions_normal_1day.pkl：此文件保存了每日详细的持仓信息，包括现金、每个持仓的股票代码、数量、市值、权重等。
+        port_analysis_1day.pkl：此文件包含风险分析结果，如计算出的夏普比率、最大回撤等风险指标
+        """
 
         report_normal_df = recorder.load_object("portfolio_analysis/report_normal_1day.pkl")  # 普通报告
         print("普通报告")
         print(report_normal_df.head(10))
-
+        #                  account        return  total_turnover  turnover     total_cost      cost         value          cash     bench
+        # datetime
+        # 2025-01-02  1.000000e+08  0.000000e+00    0.000000e+00  0.000000       0.000000  0.000000  0.000000e+00  1.000000e+08 -0.029101
+        # 2025-01-03  9.995250e+07 -6.184564e-17    9.499240e+07  0.949924   47496.200661  0.000475  9.499240e+07  4.960102e+06 -0.011842
+        # 2025-01-06  9.977200e+07 -1.599917e-03    1.177013e+08  0.227197   68087.926556  0.000206  9.906677e+07  7.052291e+05 -0.001640
+        # 2025-01-07  9.963182e+07 -1.132319e-03    1.448909e+08  0.272517   95293.228832  0.000273  9.892239e+07  7.094250e+05  0.007201
+        # 2025-01-08  9.962876e+07  2.424084e-04    1.720861e+08  0.272957  122502.487049  0.000273  9.891853e+07  7.102330e+05 -0.001815
+        # 2025-01-09  9.825507e+07 -1.351865e-02    1.989188e+08  0.269327  149344.902865  0.000269  9.755221e+07  7.028590e+05 -0.002465
+        # 2025-01-10  9.710504e+07 -1.143511e-02    2.253884e+08  0.269397  175822.280388  0.000269  9.641307e+07  6.919667e+05 -0.012540
+        # 2025-01-13  9.683369e+07 -2.517667e-03    2.522351e+08  0.276471  202686.771864  0.000277  9.613312e+07  7.005769e+05 -0.002671
+        # 2025-01-14  9.919015e+07  2.462459e-02    2.802384e+08  0.289189  230718.374729  0.000289  9.846085e+07  7.293065e+05  0.026334
+        # 2025-01-15  9.939273e+07  2.323229e-03    3.080876e+08  0.280766  258580.614262  0.000281  9.866534e+07  7.273911e+05 -0.006415
         returns = report_normal_df["return"]
         benchmark_returns = report_normal_df["bench"]
 
@@ -212,54 +333,154 @@ if __name__ == '__main__':
         analysis_result = risk_analysis(returns)
         print("=== 风险绩效分析结果 ===")
         pprint_risk_analysis(analysis_result)
+        # === 风险绩效分析结果 ===
+        # risk: mean                 0.000809
+        # std                  0.009135
+        # annualized_return    0.192622
+        # information_ratio    1.366866
+        # max_drawdown        -0.071131
+        # Name: risk, dtype: float64
 
         # benchmark风险分析
         analysis_result = risk_analysis(benchmark_returns)
         print("=== benchmark风险绩效分析结果 ===")
         pprint_risk_analysis(analysis_result)
-
-        positions_dict = recorder.load_object("portfolio_analysis/positions_normal_1day.pkl")  # 持仓记录
+        # === benchmark风险绩效分析结果 ===
+        # risk: mean                 0.000297
+        # std                  0.009591
+        # annualized_return    0.070800
+        # information_ratio    0.478475
+        # max_drawdown        -0.108001
+        # Name: risk, dtype: float64
+        # 计算超额收益的风险指标
+        analysis_result = risk_analysis(report_normal_df["return"] - report_normal_df["bench"])
+        print("=== 超额收益的风险指标 ===")
+        pprint_risk_analysis(analysis_result)
+        # === 超额收益的风险指标 ===
+        # risk: mean                 0.000512
+        # std                  0.007390
+        # annualized_return    0.121823
+        # information_ratio    1.068579
+        # max_drawdown        -0.049597
+        # Name: risk, dtype: float64
+        positions = recorder.load_object("portfolio_analysis/positions_normal_1day.pkl")  # 持仓记录
         print("持仓记录")
         # 分析最近交易日的持仓
-        pprint_position_report(positions_dict)
+        pprint_position_report(positions)
         # 分析最近交易日的持仓
-        analyze_position_by_date(positions_dict)
+        analyze_position_by_date(positions)
         # 生成报告
-        generate_position_report(positions_dict)
+        position_dict = {str(key): value for key, value in positions.items()}
+        generate_position_report(position_dict)
 
         analysis_df = recorder.load_object("portfolio_analysis/port_analysis_1day.pkl")  # 分析报告
         print("分析报告")
         print(analysis_df.head(10))
-
-        figures = analysis_position.report_graph(report_normal_df, show_notebook=False)
+        #                                                   risk
+        # excess_return_without_cost mean               0.000512
+        #                            std                0.007390
+        #                            annualized_return  0.121823
+        #                            information_ratio  1.068579
+        #                            max_drawdown      -0.049597
+        # excess_return_with_cost    mean               0.000329
+        #                            std                0.007401
+        #                            annualized_return  0.078281
+        #                            information_ratio  0.685570
+        #                            max_drawdown      -0.057426
+        figures = analysis_position.report_graph(report_df=report_normal_df, show_notebook=False)
         print(
             "展示回测净值可视化结果(不扣费、扣费和基准净值；不扣费净值最大回撤；扣费净值最大回撤；不扣费和扣费超额收益净值；换手率；不扣费超额收益最大回撤；扣费超额收益最大回撤)",
             timer() - start)
         for i, fig in enumerate(figures):
             fig.show()
 
-        figures = analysis_position.risk_analysis_graph(analysis_df, report_normal_df, show_notebook=False)
+        figures = analysis_position.risk_analysis_graph(analysis_df=analysis_df, report_normal_df=report_normal_df, show_notebook=False)
         print("生成风险分析图表可视化结果(年化收益率\波动率\信息比率\最大回撤)", timer() - start)
         for i, fig in enumerate(figures):
             fig.show()
 
         data_df = dataset.prepare(segments='test', col_set=['feature', 'label'])
         print(data_df.head(10))
+        #                         feature            ...               label
+        #                            KMID      KLEN  ...    COST_J    LABEL0
+        # datetime   instrument                      ...
+        # 2025-01-02 SH600000   -1.094309  1.112157  ...  1.419466  0.008949
+        #            SH600009   -1.885474  1.238996  ...       NaN  0.000000
+        #            SH600010   -1.844725  1.732232  ...  0.256333  0.011371
+        #            SH600011   -2.143927  1.458528  ... -0.898165 -0.002981
+        #            SH600015   -2.509159  1.886665  ...  1.472711  0.001351
+        #            SH600016   -2.171542  1.984429  ...  1.141696  0.004983
+        #            SH600018   -1.323347  0.981285  ...  0.583204 -0.006141
+        #            SH600019   -0.624932 -0.027884  ...  1.010373  0.004384
+        #            SH600023   -2.076626  1.375968  ...  0.017027 -0.011719
+        #            SH600025   -1.655245  1.014867  ... -0.275800 -0.001794
+        #
+        # [10 rows x 162 columns]
         feature_df = data_df['feature']
         label_df = data_df['label']
+
         print("feature_df结果head")
         print(feature_df.head(10))
+        #                            KMID      KLEN  ...    COST_D    COST_J
+        # datetime   instrument                      ...
+        # 2025-01-02 SH600000   -1.094309  1.112157  ...  1.337797  1.419466
+        #            SH600009   -1.885474  1.238996  ...       NaN       NaN
+        #            SH600010   -1.844725  1.732232  ...  0.529145  0.256333
+        #            SH600011   -2.143927  1.458528  ... -0.687459 -0.898165
+        #            SH600015   -2.509159  1.886665  ...  1.588773  1.472711
+        #            SH600016   -2.171542  1.984429  ...  1.224480  1.141696
+        #            SH600018   -1.323347  0.981285  ...  0.534174  0.583204
+        #            SH600019   -0.624932 -0.027884  ...  1.044818  1.010373
+        #            SH600023   -2.076626  1.375968  ...  0.207711  0.017027
+        #            SH600025   -1.655245  1.014867  ... -0.070628 -0.275800
+        #
+        # [10 rows x 161 columns]
         print("label_df结果head")
         print(label_df.head(10))
+        #                          LABEL0
+        # datetime   instrument
+        # 2025-01-02 SH600000    0.008949
+        #            SH600009    0.000000
+        #            SH600010    0.011371
+        #            SH600011   -0.002981
+        #            SH600015    0.001351
+        #            SH600016    0.004983
+        #            SH600018   -0.006141
+        #            SH600019    0.004384
+        #            SH600023   -0.011719
+        #            SH600025   -0.001794
         print("pred_df结果head")
         print(pred_df.head(10))
-
+        # pred_df结果head
+        #                           score
+        # datetime   instrument
+        # 2025-01-02 SH600000   -0.000373
+        #            SH600009   -0.000373
+        #            SH600010   -0.000373
+        #            SH600011   -0.000373
+        #            SH600015   -0.000373
+        #            SH600016   -0.000373
+        #            SH600018   -0.000373
+        #            SH600019   -0.000373
+        #            SH600023   -0.000373
+        #            SH600025   -0.000373
         label_df = dataset.prepare("test", col_set="label")
         label_df.columns = ['label']
         pred_label = pd.concat([label_df, pred_df], axis=1, sort=True).reindex(label_df.index)
         print("pred_label结果head")
         print(pred_label.head(10))
-
+        #                           label     score
+        # datetime   instrument
+        # 2025-01-02 SH600000    0.008949 -0.000373
+        #            SH600009    0.000000 -0.000373
+        #            SH600010    0.011371 -0.000373
+        #            SH600011   -0.002981 -0.000373
+        #            SH600015    0.001351 -0.000373
+        #            SH600016    0.004983 -0.000373
+        #            SH600018   -0.006141 -0.000373
+        #            SH600019    0.004384 -0.000373
+        #            SH600023   -0.011719 -0.000373
+        #            SH600025   -0.001794 -0.000373
         figures = analysis_position.score_ic_graph(pred_label, show_notebook=False)
         print("AI模型预测个股收益的IC和Rank IC值可视化结果", timer() - start)
         for i, fig in enumerate(figures):
