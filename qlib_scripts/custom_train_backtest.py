@@ -69,7 +69,7 @@ if __name__ == '__main__':
     # pd.set_option('display.width', None)
 
     start_time = "2023-01-01"
-    end_time = "2025-07-31"
+    end_time = "2025-10-14"
 
     # 定义策略相关的市场和分析基准
     market = "csi300"
@@ -352,6 +352,7 @@ if __name__ == '__main__':
         # information_ratio    0.478475
         # max_drawdown        -0.108001
         # Name: risk, dtype: float64
+
         # 计算超额收益的风险指标
         analysis_result = risk_analysis(report_normal_df["return"] - report_normal_df["bench"])
         print("=== 超额收益的风险指标 ===")
@@ -363,6 +364,7 @@ if __name__ == '__main__':
         # information_ratio    1.068579
         # max_drawdown        -0.049597
         # Name: risk, dtype: float64
+
         positions = recorder.load_object("portfolio_analysis/positions_normal_1day.pkl")  # 持仓记录
         print("持仓记录")
         # 分析最近交易日的持仓
@@ -387,6 +389,7 @@ if __name__ == '__main__':
         #                            annualized_return  0.078281
         #                            information_ratio  0.685570
         #                            max_drawdown      -0.057426
+
         figures = analysis_position.report_graph(report_df=report_normal_df, show_notebook=False)
         print(
             "展示回测净值可视化结果(不扣费、扣费和基准净值；不扣费净值最大回撤；扣费净值最大回撤；不扣费和扣费超额收益净值；换手率；不扣费超额收益最大回撤；扣费超额收益最大回撤)",
@@ -481,6 +484,7 @@ if __name__ == '__main__':
         #            SH600019    0.004384 -0.000373
         #            SH600023   -0.011719 -0.000373
         #            SH600025   -0.001794 -0.000373
+
         figures = analysis_position.score_ic_graph(pred_label, show_notebook=False)
         print("AI模型预测个股收益的IC和Rank IC值可视化结果", timer() - start)
         for i, fig in enumerate(figures):

@@ -53,27 +53,30 @@ if __name__ == '__main__':
         logging_level=logging.INFO
     )
 
-    start_time = "2020-01-01"
-    end_time = "2023-12-31"
+    start_time = "2023-01-01"
+    end_time = "2025-10-14"
 
     # 定义策略相关的市场和分析基准
     market = "csi300"
     benchmark = "SH000300"  # 设置业绩比较基准为沪深300指数代码
 
-    exp_name = "alpha158_cost_kdj_lgb"
+    exp_name = "alpha158_cost_kdj_lgb_reload"
+
+    signal_cols = ["COST_K", "COST_D", "COST_J", "MAIRU_SIGNAL"]
 
     # 定义数据处理器配置，指定数据获取的时间范围、训练集时间区间和投资标的
     data_handler_config = {
         "start_time": start_time,  # 整体数据开始时间
         "end_time": end_time,  # 整体数据结束时间
         "fit_start_time": start_time,  # 特征计算起始时间（通常与start_time一致）
-        "fit_end_time": "2020-12-31",  # 特征计算结束时间（训练集截止时间）
+        "fit_end_time": "2023-12-31",  # 特征计算结束时间（训练集截止时间）
         "cost_window": 250,  # 特征计算结束时间（训练集截止时间）
         "infer_processors": [
                 {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],  # 特征计算结束时间（训练集截止时间）
         "learn_processors": [{"class": "DropnaLabel"}],  # 特征计算结束时间（训练集截止时间）
         "instruments": market,  # 投资标的，这里使用前面定义的market（csi300）
         "include_alpha158": False,  # 若仅需自定义因子，可设为 False 以加速
+        "include_signal": False
     }
 
     # 定义任务配置字典，包含模型和数据集的详细配置
@@ -104,9 +107,9 @@ if __name__ == '__main__':
                     "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
                 },
                 "segments": {  # 定义数据集的分段（训练集、验证集、测试集）
-                    "train": (start_time, "2020-12-31"),  # 训练集时间范围
-                    "valid": ("2021-01-01", "2021-12-31"),  # 验证集时间范围
-                    "test": ("2022-01-01", end_time),  # 测试集时间范围
+                    "train": (start_time, "2023-12-31"),  # 训练集时间范围
+                    "valid": ("2024-01-01", "2024-12-31"),  # 验证集时间范围
+                    "test": ("2025-01-01", end_time),  # 测试集时间范围
                 },
             },
         },
@@ -138,7 +141,7 @@ if __name__ == '__main__':
             },
         },
         "backtest": {  # 回测参数配置
-            "start_time": "2022-01-01",  # 回测开始时间（与测试集一致）
+            "start_time": "2025-01-01",  # 回测开始时间（与测试集一致）
             "end_time": end_time,  # 回测结束时间（与测试集一致）
             "account": 100000000,  # 初始资金金额（1亿元）
             "benchmark": benchmark,  # 业绩比较基准（沪深300指数）
@@ -168,7 +171,7 @@ if __name__ == '__main__':
         rid = R.get_recorder().id  # 获取当前实验记录器的ID，用于后续检索
 
     # 打印完成信息
-    print("策略回测完成！", rid, timer() - r_start)
+    print("模型训练完成！", rid, timer() - r_start)
 
     b_start = timer()
     ba_rid = None
@@ -181,7 +184,11 @@ if __name__ == '__main__':
         ba_rid = recorder.id
         print("策略回测开始！", ba_rid)
 
-        model = recorder.load_object(exp_name)  # 从记录器中加载名为"trained_model"的模型对象
+        recorder_x = R.get_recorder()
+        x_rid = recorder_x.id
+        print("策略回测开始2！", x_rid)
+
+        model = recorder.load_object('trained_model')  # 从记录器中加载名为"trained_model"的模型对象
 
         # 创建SignalRecord实例用于生成交易信号，并生成信号[6](@ref)
         sr = SignalRecord(model, dataset, recorder)  # 传入模型、数据集和记录器
@@ -194,9 +201,12 @@ if __name__ == '__main__':
     # 打印完成信息
     print("策略回测完成！", ba_rid, timer() - b_start)
 
-    # 获取记录器
+    # 获取记录器,下面两行效果一样
     # recorder = R.get_recorder(recorder_id=ba_rid, experiment_name="backtest_analysis")
     recorder = R.get_recorder(recorder_id=rid, experiment_name=exp_name)
+    bg_rid = recorder.id
+    print("报告分析开始！", bg_rid)
+
     pred_df = recorder.load_object("pred.pkl")  # 预测结果
     report_normal_df = recorder.load_object("portfolio_analysis/report_normal_1day.pkl")  # 普通报告
     positions = recorder.load_object("portfolio_analysis/positions_normal_1day.pkl")  # 持仓记录

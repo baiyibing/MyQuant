@@ -344,6 +344,8 @@ if __name__ == '__main__':
         # 生成报告
         generate_position_report(position_dict)
 
+
+
         """
         analysis_position.report_graph是 Qlib 量化平台中用于生成投资组合综合表现报告的核心可视化函数。
         它通过多维度图表直观展示策略的收益、风险、成本及换手率等关键指标，帮助用户全面评估策略性能
