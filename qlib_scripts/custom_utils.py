@@ -170,11 +170,11 @@ def generate_position_report(positions_dict, output_file='position_analysis.txt'
                     total_amount = position_data['amount'].sum()
                     f.write(f"  总持仓量: {total_amount}\n")
             elif isinstance(position_data, Position):
-                accont_value = position_data.calculate_value()
+                accont_value = position_data.calculate_value()  # 在股票市值基础上加入现金余额（包括结算中现金）
                 f.write(f"  总市值: {accont_value:.2f}\n")
                 cash = position_data.get_cash()
                 f.write(f"  现金: {cash:.2f}\n")
-                stock_value = position_data.calculate_stock_value()
+                stock_value = position_data.calculate_stock_value() # 遍历所有股票，计算总市值（数量 × 最新价格）。
                 f.write(f"  持仓标的总市值: {stock_value:.2f}\n")
                 stock_list = position_data.get_stock_list()
                 f.write(f"  持仓标的列表: {stock_list}\n")
@@ -183,11 +183,15 @@ def generate_position_report(positions_dict, output_file='position_analysis.txt'
                 all_data = []
                 for code in stock_list:
                     all_data.append({'标的': code,
-                                     '市值': position_data.get_stock_amount(code),
-                                     '成本': position_data.get_stock_price(code),
+                                     '持股数量': position_data.get_stock_amount(code),
+                                     '最新价格': position_data.get_stock_price(code),
+                                     '市值': position_data.get_stock_amount(code)*position_data.get_stock_price(code),
                                      '权重': position_data.get_stock_weight(code),
                                      '天数': position_data.get_stock_count(code,'day')})
-
+                #         'count': <how many days the security has been hold>,
+                #         'amount': <the amount of the security>,
+                #         'price': <the close price of security in the last trading day>,
+                #         'weight': <the security weight of total position value>,
                 stock_df = pd.DataFrame(all_data)
                 f.write(stock_df.to_csv(sep='\t', index=False))
             else:
@@ -263,3 +267,20 @@ if __name__ == "__main__":
         '2020-01-04': {'AAPL': 0.25, 'MSFT': 0.25, 'GOOG': 0.15, 'AMZN': 0.2, 'TSLA': 0.15},
         '2020-01-05': {'AAPL': 0.2, 'MSFT': 0.2, 'GOOG': 0.2, 'AMZN': 0.2, 'TSLA': 0.2},
     }
+
+"""
+    对site-packages\qlib\backtest\position.py的修改
+    def update_order(self, order: Order, trade_val: float, cost: float, trade_price: float) -> None:
+        # handle order, order is a order class, defined in exchange.py
+        formatted = pformat(order, indent=4, width=80)
+        if order.direction == Order.BUY:
+            # BUY
+            logger.info(f"股票交易记录-BUY:{formatted} 实际成交数量{trade_val / trade_price} 实际成交金额{trade_val} 实际成交价格{trade_price} 交易成本{cost}")
+            self._buy_stock(order.stock_id, trade_val, cost, trade_price)
+        elif order.direction == Order.SELL:
+            # SELL
+            logger.info(f"股票交易记录-SEL:{formatted} 实际成交数量{trade_val / trade_price} 实际成交金额{trade_val} 实际成交价格{trade_price} 交易成本{cost}")
+            self._sell_stock(order.stock_id, trade_val, cost, trade_price)
+        else:
+            raise NotImplementedError("do not support order direction {}".format(order.direction))
+"""

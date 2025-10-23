@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     qlib.init(
         # 数据存储路径
-        provider_uri='E:/PycharmProjects/MyQuant/.qlib/qlib_data/cn_data',
+        provider_uri='~/.qlib/qlib_data/cn_data',
         # 中国市场
         region=REG_CN,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。

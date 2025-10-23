@@ -41,7 +41,7 @@ if __name__ == '__main__':
     from qlib.data import D
 
     # 定义股票列表和特征
-    instruments = ['SH600000']
+    instruments = ['SH600548']
     fields = [
         '$close',  # 收盘价
         '$volume',  # 成交量
@@ -55,17 +55,20 @@ if __name__ == '__main__':
         instruments=instruments,
         fields=fields,
         start_time='2025-01-01',
-        end_time='2025-01-02',
+        end_time='2025-01-03',
         freq='day'
     )
 
     print(f"特征数据形状: {features.shape}")
     print(features.head())
 
-    # 以 AKShare 为例的示例代码
-    import akshare as ak
+    # # 以 AKShare 为例的示例代码
+    # import akshare as ak
+    #
+    # # 获取后复权数据 - 需注意接口字段可能随版本更新而变化
+    # stock_zh_a_hist_df = ak.stock_zh_a_hist(symbol="SH600548", period="daily", start_date="20250102", end_date="20250103",
+    #                                         adjust="hfq")
+    # print(stock_zh_a_hist_df)
 
-    # 获取后复权数据 - 需注意接口字段可能随版本更新而变化
-    stock_zh_a_hist_df = ak.stock_zh_a_hist(symbol="600000", period="daily", start_date="20250102", end_date="20250102",
-                                            adjust="hfq")
-    print(stock_zh_a_hist_df)
+
+

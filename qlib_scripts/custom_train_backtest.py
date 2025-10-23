@@ -32,7 +32,7 @@ if __name__ == '__main__':
     start = timer()
 
     logger.remove(0)
-    logger.add("ht.log")
+    logger.add("orders.log")
 
     qlib.init(
         # 数据存储路径
@@ -68,12 +68,26 @@ if __name__ == '__main__':
     # # 设置显示宽度，防止自动换行
     # pd.set_option('display.width', None)
 
-    start_time = "2023-01-01"
-    end_time = "2025-10-14"
+    # start_time = "2023-01-01"
+    # end_time = "2025-10-14"
 
     # 定义策略相关的市场和分析基准
+    # market = "all"
     market = "csi300"
     benchmark = "SH000300"  # 设置业绩比较基准为沪深300指数代码
+    # market = ['SH600000','SH600010','SH600028','SH600025','SH600019','SH600900','SH600941','SZ300059','SZ300124','SZ300274']
+
+    start_time="2023-01-01"
+    end_time="2025-10-09"
+
+    fit_start_time=start_time
+    fit_end_time="2023-12-31"
+
+    valid_start_time="2023-01-01"
+    valid_end_time="2023-12-31"
+
+    test_start_time="2023-01-01"
+    test_end_time=end_time
 
     exp_name = "alpha158_cost_kdj_lgb"
 
@@ -83,19 +97,19 @@ if __name__ == '__main__':
     data_handler_config = {
         "start_time": start_time,  # 整体数据开始时间
         "end_time": end_time,  # 整体数据结束时间
-        "fit_start_time": start_time,  # 特征计算起始时间（通常与start_time一致）
-        "fit_end_time": "2023-12-31",  # 特征计算结束时间（训练集截止时间）
-        "cost_window": 250,  # 特征计算结束时间（训练集截止时间）
-        "infer_processors": [
-                {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],  # 特征计算结束时间（训练集截止时间）
-        "learn_processors": [{"class": "DropnaLabel"}],  # 特征计算结束时间（训练集截止时间）
+        "fit_start_time": fit_start_time,  # 特征计算起始时间（通常与start_time一致）
+        "fit_end_time": fit_end_time,  # 特征计算结束时间（训练集截止时间）
+        # "cost_window": 250,  # 特征计算结束时间（训练集截止时间）
+        # "infer_processors": [
+        #         {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],  # 特征计算结束时间（训练集截止时间）
+        # "learn_processors": [{"class": "DropnaLabel"}],  # 特征计算结束时间（训练集截止时间）
         "instruments": market,  # 投资标的，这里使用前面定义的market（csi300）
-        "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
-        "include_signal": False
+        # "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
+        # "include_signal": False
     }
 
-    handler = Alpha158CostKDJ(**data_handler_config)
-    # handler = Alpha158(**data_handler_config) #  **运算符将字典展开为关键字参数
+    # handler = Alpha158CostKDJ(**data_handler_config)
+    handler = Alpha158(**data_handler_config) #  **运算符将字典展开为关键字参数
 
     # 定义任务配置字典，包含模型和数据集的详细配置
     task = {
@@ -119,17 +133,19 @@ if __name__ == '__main__':
             "class": "DatasetH",  # 使用DatasetH数据集类,负责将数据划分为训练集、验证集和测试集，并提供数据加载接口
             "module_path": "qlib.data.dataset",  # 数据集所在的模块路径
             "kwargs": {  # 传递给数据集构造函数的参数
-                "handler": handler
-                # {  # 数据处理器配置
-                #     "class": "Alpha158CostKDJ",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
-                #     "module_path": "custom_handler",  # 数据处理器所在模块路径
-                #     "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
-                # }
-                ,
+                "handler":
+                {  # 数据处理器配置
+                    # "class": "Alpha158CostKDJ",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
+                    # "module_path": "custom_handler",  # 数据处理器所在模块路径
+                    # "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
+                    "class": "Alpha158",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
+                    "module_path": "qlib.contrib.data.handler",  # 数据处理器所在模块路径
+                    "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
+                },
                 "segments": {  # 定义数据集的分段（训练集、验证集、测试集）
-                    "train": (start_time, "2023-12-31"),  # 训练集时间范围
-                    "valid": ("2024-01-01", "2024-12-31"),  # 验证集时间范围
-                    "test": ("2025-01-01", end_time),  # 测试集时间范围
+                    "train": (fit_start_time, fit_end_time),  # 训练集时间范围
+                    "valid": (valid_start_time, valid_end_time),  # 验证集时间范围
+                    "test": (test_start_time, test_end_time),  # 测试集时间范围
                 },
             },
         },
@@ -153,7 +169,7 @@ if __name__ == '__main__':
     #
     # [10 rows x 161 columns]
     available_cols = [col for col in signal_cols if col in data.columns]
-    logger.info(f"可用信号列: {available_cols}")
+    print(f"可用信号列: {available_cols}")
     print(data[available_cols].head(10))
     # 2023-01-03 SH600000   -0.066754 -0.085372 -0.023536
     #            SH600009         NaN       NaN       NaN
@@ -188,12 +204,13 @@ if __name__ == '__main__':
                 "model": model,  # 使用的预测模型
                 "dataset": dataset,  # 使用的数据集
                 "topk": 10,  # 选择信号最强的50只股票
-                "n_drop": 3,  # 每次调仓时丢弃排名最后5只股票
+                "n_drop": 2,  # 每次调仓时丢弃排名最后5只股票
+                "hold_thresh": 1  # 最小持有1天
             },
         },
         "backtest": {  # 回测参数配置
-            "start_time": "2025-01-01",  # 回测开始时间（与测试集一致）
-            "end_time": end_time,  # 回测结束时间（与测试集一致）
+            "start_time": test_start_time,  # 回测开始时间（与测试集一致）
+            "end_time": test_end_time,  # 回测结束时间（与测试集一致）
             "account": 100000000,  # 初始资金金额（1亿元）
             "benchmark": benchmark,  # 业绩比较基准（沪深300指数）
             "exchange_kwargs": {  # 交易所模拟参数（交易规则）
@@ -241,8 +258,10 @@ if __name__ == '__main__':
         #            SH600015   -0.000373
 
         pred_df = recorder.load_object("pred.pkl")  # 预测结果
-        print("预测结果")
+        print("预测结果head")
         print(pred_df.head(10))
+
+        pred_df.to_csv('20250829.csv', encoding='utf-8')
         # 预测结果
         #                           score
         # datetime   instrument
@@ -256,6 +275,8 @@ if __name__ == '__main__':
         #            SH600019   -0.000373
         #            SH600023   -0.000373
         #            SH600025   -0.000373
+        print("预测结果tail")
+        print(pred_df.tail(10))
 
         # 查看信号分析报告 LoadObjectError: No such file or directory
         # signal_metrics = recorder.load_object("sig_analysis.pkl")
@@ -267,8 +288,10 @@ if __name__ == '__main__':
         #   recorder 是之前实验记录器的实例，用于获取已训练的模型model和数据集dataset；
         #   port_analysis_config 是包含策略、执行器和回测参数的配置字典；
         #   day则指定了回测的频率为日级别
+
         par = PortAnaRecord(recorder, port_analysis_config, "day")  # 传入记录器、回测配置和时间频率
         par.generate()  # 系统会基于配置启动完整的回测流程，包括初始化投资组合、模拟每日交易、计算持仓价值，并最终生成包含收益曲线、夏普比率和最大回撤等指标的分析报告
+
         # 'The following are analysis results of benchmark return(1day).'
         #                        risk
         # mean               0.000297
@@ -397,7 +420,8 @@ if __name__ == '__main__':
         for i, fig in enumerate(figures):
             fig.show()
 
-        figures = analysis_position.risk_analysis_graph(analysis_df=analysis_df, report_normal_df=report_normal_df, show_notebook=False)
+        figures = analysis_position.risk_analysis_graph(analysis_df=analysis_df, report_normal_df=report_normal_df,
+                                                        show_notebook=False)
         print("生成风险分析图表可视化结果(年化收益率\波动率\信息比率\最大回撤)", timer() - start)
         for i, fig in enumerate(figures):
             fig.show()
@@ -491,35 +515,35 @@ if __name__ == '__main__':
             # 如果你在支持 Plotly 的环境中（如 Dash 或某些 IDE），也可以直接显示
             fig.show()
 
-    # 打印完成信息
-    print("策略回测完成！", rid, timer() - r_start)
+        # 打印完成信息
+        print("策略回测完成！", rid, timer() - r_start)
 
-    print("✅ 训练与回测完成！")
+        print("✅ 训练与回测完成！")
 
-    """
-    在Qlib中，pred.pkl文件保存了模型在测试集上生成的预测结果，其核心字段包括时间戳、股票代码以及模型给出的预测分数。这个文件是连接模型预测与后续回测分析的关键输出。
-    预测分数：这是文件中最核心的数值。模型会为每一个股票在每一个交易日期预测一个代表其未来潜力的分数。
-    一般而言，分数越高，表示模型认为该股票在未来时间段内的预期收益也越高。这个分数是后续构建投资组合（如买入高分股票、卖出低分股票）的直接依据
-    分数含义：预测分数的具体含义取决于模型训练时使用的标签（label）。如果标签是未来收益率，那么预测分数就直接与预期收益率相关
-    
-    在 Qlib 中，dataset.prepare(segments='test', col_set=['feature', 'label'])的 label表示机器学习模型要预测的目标变量。
-    具体到量化投资场景，label通常是未来某个时间段的收益率或其他能够衡量投资回报的指标。
-    
-    标签在量化投资中的具体含义
-    在 Qlib 的框架中，label是监督学习的核心组成部分，它代表了模型需要学习和预测的金融目标。
-    
-    常见的 label定义包括：
-    未来收益率：最常用的标签，计算为 (未来N日价格 - 当前价格) / 当前价格，模型的目标是预测股票未来的价格走势
-    涨跌分类：将未来收益率转化为分类问题，例如设定阈值将股票分为"上涨"和"下跌"两类
-    相对排名：根据未来收益率对股票进行排名，用于构建投资组合
-    
-    特征与标签的关系
-    在 Qlib 的数据集中，col_set=['feature', 'label']表示同时获取特征和标签数据：
-    特征（feature）：描述股票当前状态的各种指标，如价格、成交量、技术指标等，作为模型的输入变量
-    标签（label）：基于未来数据计算的目标值，作为模型训练时的监督信号
-    
-    标签在模型训练中的作用
-    当使用 segments='test'参数时，Qlib 会准备测试集的数据，其中标签用于评估模型在未见数据上的表现。通过比较模型预测的标签值与真实的标签值，可以评估模型的预测准确性。
-    需要注意的是，在实际的量化策略中，标签的定义直接影响模型的学习目标和最终的交易性能，因此需要谨慎设计以避免未来函数和保证实际可交易性。
-    
-    """
+        """
+        在Qlib中，pred.pkl文件保存了模型在测试集上生成的预测结果，其核心字段包括时间戳、股票代码以及模型给出的预测分数。这个文件是连接模型预测与后续回测分析的关键输出。
+        预测分数：这是文件中最核心的数值。模型会为每一个股票在每一个交易日期预测一个代表其未来潜力的分数。
+        一般而言，分数越高，表示模型认为该股票在未来时间段内的预期收益也越高。这个分数是后续构建投资组合（如买入高分股票、卖出低分股票）的直接依据
+        分数含义：预测分数的具体含义取决于模型训练时使用的标签（label）。如果标签是未来收益率，那么预测分数就直接与预期收益率相关
+        
+        在 Qlib 中，dataset.prepare(segments='test', col_set=['feature', 'label'])的 label表示机器学习模型要预测的目标变量。
+        具体到量化投资场景，label通常是未来某个时间段的收益率或其他能够衡量投资回报的指标。
+        
+        标签在量化投资中的具体含义
+        在 Qlib 的框架中，label是监督学习的核心组成部分，它代表了模型需要学习和预测的金融目标。
+        
+        常见的 label定义包括：
+        未来收益率：最常用的标签，计算为 (未来N日价格 - 当前价格) / 当前价格，模型的目标是预测股票未来的价格走势
+        涨跌分类：将未来收益率转化为分类问题，例如设定阈值将股票分为"上涨"和"下跌"两类
+        相对排名：根据未来收益率对股票进行排名，用于构建投资组合
+        
+        特征与标签的关系
+        在 Qlib 的数据集中，col_set=['feature', 'label']表示同时获取特征和标签数据：
+        特征（feature）：描述股票当前状态的各种指标，如价格、成交量、技术指标等，作为模型的输入变量
+        标签（label）：基于未来数据计算的目标值，作为模型训练时的监督信号
+        
+        标签在模型训练中的作用
+        当使用 segments='test'参数时，Qlib 会准备测试集的数据，其中标签用于评估模型在未见数据上的表现。通过比较模型预测的标签值与真实的标签值，可以评估模型的预测准确性。
+        需要注意的是，在实际的量化策略中，标签的定义直接影响模型的学习目标和最终的交易性能，因此需要谨慎设计以避免未来函数和保证实际可交易性。
+        
+        """

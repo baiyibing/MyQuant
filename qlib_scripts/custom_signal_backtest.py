@@ -61,11 +61,17 @@ if __name__ == '__main__':
         logging_level=logging.INFO
     )
 
-    # start_time = "2020-01-01"
-    # end_time = "2022-12-31"
+    start_time="2023-01-01"
+    end_time="2025-10-09"
 
-    start_time = "2019-01-01"
-    end_time = "2021-12-31"
+    fit_start_time=start_time
+    fit_end_time="2023-12-31"
+
+    valid_start_time="2023-01-01"
+    valid_end_time="2023-12-31"
+
+    test_start_time="2023-01-01"
+    test_end_time=end_time
 
     # 定义策略相关的市场和分析基准
     market = "all"  # 设置股票池为沪深300指数成分股
@@ -91,8 +97,8 @@ if __name__ == '__main__':
             instruments=market,
             start_time=start_time,    # 整体数据开始时间
             end_time=end_time,      # 整体数据结束时间
-            fit_start_time=start_time,# 处理器拟合开始（与train对齐）
-            fit_end_time="2019-12-31",  # 处理器拟合结束（与train对齐）
+            fit_start_time=fit_start_time,# 处理器拟合开始（与train对齐）
+            fit_end_time=fit_end_time,  # 处理器拟合结束（与train对齐）
             infer_processors=[
                 {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],
             learn_processors=[{"class": "DropnaLabel"}],
@@ -104,7 +110,7 @@ if __name__ == '__main__':
         # 验证数据加载
         data = handler.fetch(col_set="feature")
         available_cols = [col for col in signal_cols if col in data.columns]
-        logger.info(f"可用信号列: {available_cols}")
+        print(f"可用信号列: {available_cols}")
         print(data[available_cols].head(10))
         #                          COST_K    COST_D    COST_J  MAIRU_SIGNAL
         # datetime   instrument
@@ -123,9 +129,9 @@ if __name__ == '__main__':
         dataset = DatasetH(
             handler=handler,
             segments={
-            "train": (start_time, "2019-12-31"),    # 与fit时间段一致
-            "valid": ("2020-01-01", "2020-12-31"),  # 验证集，不用于最终回测，虽然也属于模型开发阶段的“样本外”数据，但其主要作用在于模型开发流程内部（如超参数优化）
-            "test": ("2021-01-01", end_time)        # 测试集，投资组合回测配置：明确指定回测使用测试集的时间
+            "train": (fit_start_time, fit_end_time),    # 与fit时间段一致
+            "valid": (valid_start_time, valid_end_time),  # 验证集，不用于最终回测，虽然也属于模型开发阶段的“样本外”数据，但其主要作用在于模型开发流程内部（如超参数优化）
+            "test": (test_start_time, test_end_time)        # 测试集，投资组合回测配置：明确指定回测使用测试集的时间
             },
             process_type="append",  # 必须设置！否则 get_extended_data 不会调用
             memory_reuse = True
@@ -158,7 +164,7 @@ if __name__ == '__main__':
         feature_df.to_excel('feature_df.xlsx')
 
         pred_score = feature_df["MAIRU_SIGNAL"].rename("score").to_frame()  # 将MAIRU列重命名为score（策略要求）
-        logger.info(f"预测分数形状: {pred_score.shape}")
+        print(f"预测分数形状: {pred_score.shape}")
 
 
         """
@@ -205,8 +211,8 @@ if __name__ == '__main__':
         # 但注意：你当前的 backtest_daily 只返回了 report_df 和 positions，并未包含模型预测信号（score）
         # === 4. 执行回测 ===
         report_df, positions = backtest_daily(
-            start_time="2021-01-01",    # 与测试集的开始时间一致
-            end_time=end_time,          # 与测试集的结束时间一致
+            start_time=test_start_time,    # 与测试集的开始时间一致
+            end_time=test_end_time,          # 与测试集的结束时间一致
             strategy=strategy,
             account=100000000,  # 初始资金1亿
             benchmark=benchmark,  # 沪深300基准
