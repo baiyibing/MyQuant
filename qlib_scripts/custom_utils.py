@@ -230,7 +230,7 @@ def pprint_position_report(positions_dict):
         print("字典键:", list(positions_dict.keys()))
         print("字典大小:", len(positions_dict))
         # 基本美化输出
-        pprint(positions_dict)
+        # pprint(positions_dict)
 
         # 获取第一个日期键和对应的仓位信息
         sample_date = list(positions_dict.keys())[0]

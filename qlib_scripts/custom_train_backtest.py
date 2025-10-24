@@ -1,5 +1,6 @@
 import multiprocessing
 import logging
+import os
 
 from timeit import default_timer as timer
 from loguru import logger
@@ -143,9 +144,9 @@ if __name__ == '__main__':
                     "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
                 },
                 "segments": {  # 定义数据集的分段（训练集、验证集、测试集）
-                    "train": (fit_start_time, fit_end_time),  # 训练集时间范围
-                    "valid": (valid_start_time, valid_end_time),  # 验证集时间范围
-                    "test": (test_start_time, test_end_time),  # 测试集时间范围
+                    "train": (fit_start_time, fit_end_time),  # 训练集时间范围，用于模型训练。
+                    "valid": (valid_start_time, valid_end_time),  # 验证集时间范围，用于调参、早停等。
+                    "test": (test_start_time, test_end_time),  # 测试集时间范围，用于最终回测评估。
                 },
             },
         },
@@ -230,6 +231,7 @@ if __name__ == '__main__':
     信号驱动：直接用 MAIRU == 1 选股
     """
 
+    recorder_path = None
     r_start = timer()
     rid = None
     with R.start(experiment_name=exp_name):
@@ -242,11 +244,11 @@ if __name__ == '__main__':
 
         # 生成预测信号
         recorder = R.get_recorder()
+
         sr = SignalRecord(model, dataset, recorder)
         sr.generate()
         # 执行 sr.generate()后，生成的预测信号会保存到记录器的工件（artifacts）中，主要包括：
         #   预测分数文件：保存每个股票在每个时间点的预测分数
-        #   信号质量指标：如IC（信息系数）、ICIR等模型预测能力指标
         # [record_temp.py:198] - Signal record 'pred.pkl' has been saved as the artifact of the Experiment 963122733822150836
         # 'The following are prediction results of the LGBModel model.'
         #                           score
@@ -278,10 +280,29 @@ if __name__ == '__main__':
         print("预测结果tail")
         print(pred_df.tail(10))
 
+        # SigAnaRecord（信号分析记录器）专门用于评估预测信号的质量。
+        # 其工作原理是加载通过SignalRecord生成的预测结果（pred.pkl）和真实标签（label.pkl），然后计算一系列量化指标来评估预测信号的准确性和有效性。
+        # 该分析过程是量化研究中的标准步骤，帮助研究人员判断模型预测信号是否具有实际投资价值。
+        # 创建信号分析记录
+        sar = SigAnaRecord(recorder)
+        # 执行信号分析
+        sar.generate()
+        # 在 Qlib 中，sig_analysis.pkl文件是由 SigAnaRecord组件在您调用其 generate()方法后自动生成的，并默认保存在当前实验的 记录器（Recorder） 对应的目录下
+        # sig_analysis.pkl文件包含了 SigAnaRecord对模型预测信号进行分析后得出的关键量化指标。这些指标是评估策略预测有效性的核心。
+        # 通常，该文件会保存一个字典（Dictionary）形式的数据，其中可能包括：
+        # IC (Information Coefficient)：预测值与未来实际收益率的相关系数，衡量预测的线性相关性。
+        # ICIR (Information Coefficient Information Ratio)：IC的均值与标准差的比率，衡量IC的稳定性和显著性。
+        # Rank IC：预测值的排名与未来实际收益率排名的相关系数。
+        # 还可能包含其他分析结果，如各时间段的IC序列等。
+
         # 查看信号分析报告 LoadObjectError: No such file or directory
-        # signal_metrics = recorder.load_object("sig_analysis.pkl")
-        # print("信号分析报告")
-        # print(signal_metrics.head(10))
+        signal_ic_metrics = recorder.load_object("sig_analysis/ic.pkl")
+        signal_ric_metrics = recorder.load_object("sig_analysis/ric.pkl")
+        print("信号分析报告")
+        # 查看数据结构
+        pprint(signal_ic_metrics)
+        # 查看数据结构
+        pprint(signal_ric_metrics)
 
         # 执行回测并生成分析报告
         # PortAnaRecord 是 QLib 工作流中的组合分析记录器，它通过三个关键参数初始化：
@@ -290,7 +311,7 @@ if __name__ == '__main__':
         #   day则指定了回测的频率为日级别
 
         par = PortAnaRecord(recorder, port_analysis_config, "day")  # 传入记录器、回测配置和时间频率
-        par.generate()  # 系统会基于配置启动完整的回测流程，包括初始化投资组合、模拟每日交易、计算持仓价值，并最终生成包含收益曲线、夏普比率和最大回撤等指标的分析报告
+        par.generate()  # 系统会基于配置启动完整的回测流程，包括初始化投资组合、模拟每日交易、计算持仓价值，并最终生成收益率、波动率、夏普比率、最大回撤等指标的分析报告
 
         # 'The following are analysis results of benchmark return(1day).'
         #                        risk
@@ -509,6 +530,7 @@ if __name__ == '__main__':
         #            SH600023   -0.011719 -0.000373
         #            SH600025   -0.001794 -0.000373
 
+        # 假设 pred_label 是一个DataFrame，包含模型的预测得分（'score'）和真实收益率（'label'）
         figures = analysis_position.score_ic_graph(pred_label, show_notebook=False)
         print("AI模型预测个股收益的IC和Rank IC值可视化结果", timer() - start)
         for i, fig in enumerate(figures):
