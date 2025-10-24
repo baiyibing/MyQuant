@@ -73,8 +73,8 @@ if __name__ == '__main__':
     # end_time = "2025-10-14"
 
     # 定义策略相关的市场和分析基准
-    # market = "all"
-    market = "csi300"
+    market = "all"
+    # market = "csi300"
     benchmark = "SH000300"  # 设置业绩比较基准为沪深300指数代码
     # market = ['SH600000','SH600010','SH600028','SH600025','SH600019','SH600900','SH600941','SZ300059','SZ300124','SZ300274']
 
@@ -84,10 +84,10 @@ if __name__ == '__main__':
     fit_start_time=start_time
     fit_end_time="2023-12-31"
 
-    valid_start_time="2023-01-01"
-    valid_end_time="2023-12-31"
+    valid_start_time="2024-01-01"
+    valid_end_time="2024-12-31"
 
-    test_start_time="2023-01-01"
+    test_start_time="2025-01-01"
     test_end_time=end_time
 
     exp_name = "alpha158_cost_kdj_lgb"
@@ -204,8 +204,8 @@ if __name__ == '__main__':
             "kwargs": {  # 策略参数
                 "model": model,  # 使用的预测模型
                 "dataset": dataset,  # 使用的数据集
-                "topk": 10,  # 选择信号最强的50只股票
-                "n_drop": 2,  # 每次调仓时丢弃排名最后5只股票
+                "topk": 50,  # 选择信号最强的50只股票
+                "n_drop": 5,  # 每次调仓时丢弃排名最后5只股票
                 "hold_thresh": 1  # 最小持有1天
             },
         },
@@ -296,13 +296,13 @@ if __name__ == '__main__':
         # 还可能包含其他分析结果，如各时间段的IC序列等。
 
         # 查看信号分析报告 LoadObjectError: No such file or directory
-        signal_ic_metrics = recorder.load_object("sig_analysis/ic.pkl")
-        signal_ric_metrics = recorder.load_object("sig_analysis/ric.pkl")
+        # signal_ic_metrics = recorder.load_object("sig_analysis/ic.pkl")
+        # signal_ric_metrics = recorder.load_object("sig_analysis/ric.pkl")
         print("信号分析报告")
         # 查看数据结构
-        pprint(signal_ic_metrics)
+        # pprint(signal_ic_metrics)
         # 查看数据结构
-        pprint(signal_ric_metrics)
+        # pprint(signal_ric_metrics)
 
         # 执行回测并生成分析报告
         # PortAnaRecord 是 QLib 工作流中的组合分析记录器，它通过三个关键参数初始化：

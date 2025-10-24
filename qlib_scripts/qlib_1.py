@@ -88,16 +88,16 @@ if __name__ == '__main__':
 
     # 查询SZ300408在2025-10-日的OHLC数据
     data = D.features(
-        instruments=["SZ300408"],  # 股票代码
-        fields=["$open", "$high", "$low", "$close", "$adjclose", "$vwap", "$factor", "$change"],  # 字段：开盘、最高、最低、收盘价
-        start_time="2025-09-04",  # 查询开始日期
-        end_time="2025-09-05"     # 查询结束日期（与开始日期相同即可查询单日）
+        instruments=["SH605116"],  # 股票代码
+        fields=["$open", "$high", "$low", "$close", "$adjclose", "$vwap", "$factor", "$change","$close/$factor"],  # 字段：开盘、最高、最低、收盘价
+        start_time="2022-01-04",  # 查询开始日期
+        end_time="2022-01-06"     # 查询结束日期（与开始日期相同即可查询单日）
     )
 
     print(data)
 
 
 
-    data = D.features(["SH688399"], ["$open", "$high", "$low", "$close", "$adjclose", "$vwap", "$factor", "$change"], "2025-06-10", "2025-06-13")
-    print(data)
+    # data = D.features(["SH688399"], ["$open", "$high", "$low", "$close", "$adjclose", "$vwap", "$factor", "$change"], "2025-06-10", "2025-06-13")
+    # print(data)
 
