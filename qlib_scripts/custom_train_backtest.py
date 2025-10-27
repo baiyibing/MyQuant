@@ -37,7 +37,7 @@ if __name__ == '__main__':
 
     qlib.init(
         # 数据存储路径
-        provider_uri = "~/.qlib/qlib_data/cn_data",  # target_dir
+        provider_uri = "~/.qlib/qlib_data/my_data",  # target_dir
         # 中国市场
         region=REG_CN,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。
@@ -60,34 +60,34 @@ if __name__ == '__main__':
         logging_level=logging.INFO
     )
 
-    # # 显示所有行
-    # pd.set_option('display.max_rows', None)
-    # # 显示所有列
-    # pd.set_option('display.max_columns', None)
-    # # 设置列宽，确保长文本完整显示
-    # pd.set_option('display.max_colwidth', None)
-    # # 设置显示宽度，防止自动换行
-    # pd.set_option('display.width', None)
+    # 显示所有行
+    pd.set_option('display.max_rows', None)
+    # 显示所有列
+    pd.set_option('display.max_columns', None)
+    # 设置列宽，确保长文本完整显示
+    pd.set_option('display.max_colwidth', None)
+    # 设置显示宽度，防止自动换行
+    pd.set_option('display.width', None)
 
     # start_time = "2023-01-01"
     # end_time = "2025-10-14"
 
     # 定义策略相关的市场和分析基准
-    market = "all"
-    # market = "csi300"
-    benchmark = "SH000300"  # 设置业绩比较基准为沪深300指数代码
+    # market = "all"
+    market = "csi300"
+    benchmark = "SZ000001"  # 设置业绩比较基准为沪深300指数代码
     # market = ['SH600000','SH600010','SH600028','SH600025','SH600019','SH600900','SH600941','SZ300059','SZ300124','SZ300274']
 
-    start_time="2023-01-01"
-    end_time="2025-10-09"
+    start_time="2023-01-20"
+    end_time="2023-12-31"
 
     fit_start_time=start_time
-    fit_end_time="2023-12-31"
+    fit_end_time="2023-04-30"
 
-    valid_start_time="2024-01-01"
-    valid_end_time="2024-12-31"
+    valid_start_time="2023-05-01"
+    valid_end_time="2023-08-31"
 
-    test_start_time="2025-01-01"
+    test_start_time="2023-09-01"
     test_end_time=end_time
 
     exp_name = "alpha158_cost_kdj_lgb"
@@ -154,6 +154,7 @@ if __name__ == '__main__':
 
     # 验证数据加载
     data = handler.fetch(col_set="feature")
+
     print(data.head(10))
     #                            KMID      KLEN  ...    COST_D    COST_J
     # datetime   instrument                      ...
@@ -169,6 +170,7 @@ if __name__ == '__main__':
     #            SH600028    0.429478 -0.831903  ...  1.067183  1.107931
     #
     # [10 rows x 161 columns]
+    print(f"所有feature列: {data.columns}")
     available_cols = [col for col in signal_cols if col in data.columns]
     print(f"可用信号列: {available_cols}")
     print(data[available_cols].head(10))
