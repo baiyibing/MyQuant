@@ -37,9 +37,10 @@ if __name__ == '__main__':
 
     qlib.init(
         # 数据存储路径
-        provider_uri = "~/.qlib/qlib_data/my_data",  # target_dir
+        provider_uri = "~/.qlib/qlib_data/cn_data",  # target_dir
         # 中国市场
         region=REG_CN,
+        kernels=16,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。
         redis_host='127.0.0.1',
         redis_port=6379,
@@ -73,9 +74,9 @@ if __name__ == '__main__':
     # end_time = "2025-10-14"
 
     # 定义策略相关的市场和分析基准
-    # market = "all"
-    market = "csi300"
-    benchmark = "SZ000001"  # 设置业绩比较基准为沪深300指数代码
+    market = "all"
+    # market = "csi300"
+    benchmark = "SH000300"  # 设置业绩比较基准为沪深300指数代码
     # market = ['SH600000','SH600010','SH600028','SH600025','SH600019','SH600900','SH600941','SZ300059','SZ300124','SZ300274']
 
     start_time="2023-01-20"
