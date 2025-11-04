@@ -75,19 +75,19 @@ if __name__ == '__main__':
     # 定义策略相关的市场和分析基准
     # market = "all"
     market = "csi300"
-    benchmark = "SZ000001"  # 设置业绩比较基准为沪深300指数代码
+    benchmark = "SH601727"  # 设置业绩比较基准为沪深300指数代码
     # market = ['SH600000','SH600010','SH600028','SH600025','SH600019','SH600900','SH600941','SZ300059','SZ300124','SZ300274']
 
-    start_time="2023-01-20"
-    end_time="2023-12-31"
+    start_time="2020-01-01"
+    end_time="2025-10-09"
 
     fit_start_time=start_time
-    fit_end_time="2023-04-30"
+    fit_end_time="2023-12-31"
 
-    valid_start_time="2023-05-01"
-    valid_end_time="2023-08-31"
+    valid_start_time="2024-01-01"
+    valid_end_time="2024-12-31"
 
-    test_start_time="2023-09-01"
+    test_start_time="2025-01-01"
     test_end_time=end_time
 
     exp_name = "alpha158_cost_kdj_lgb"
@@ -105,12 +105,13 @@ if __name__ == '__main__':
         #         {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],  # 特征计算结束时间（训练集截止时间）
         # "learn_processors": [{"class": "DropnaLabel"}],  # 特征计算结束时间（训练集截止时间）
         "instruments": market,  # 投资标的，这里使用前面定义的market（csi300）
-        # "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
-        # "include_signal": False
+        "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
+        "include_signal": False,
+        "include_lz": True,
     }
 
-    # handler = Alpha158CostKDJ(**data_handler_config)
-    handler = Alpha158(**data_handler_config) #  **运算符将字典展开为关键字参数
+    handler = Alpha158CostKDJ(**data_handler_config)
+    # handler = Alpha158(**data_handler_config) #  **运算符将字典展开为关键字参数
 
     # 定义任务配置字典，包含模型和数据集的详细配置
     task = {
@@ -136,11 +137,11 @@ if __name__ == '__main__':
             "kwargs": {  # 传递给数据集构造函数的参数
                 "handler":
                 {  # 数据处理器配置
-                    # "class": "Alpha158CostKDJ",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
-                    # "module_path": "custom_handler",  # 数据处理器所在模块路径
+                    "class": "Alpha158CostKDJ",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
+                    "module_path": "custom_handler",  # 数据处理器所在模块路径
                     # "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
-                    "class": "Alpha158",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
-                    "module_path": "qlib.contrib.data.handler",  # 数据处理器所在模块路径
+                    # "class": "Alpha158",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
+                    # "module_path": "qlib.contrib.data.handler",  # 数据处理器所在模块路径
                     "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
                 },
                 "segments": {  # 定义数据集的分段（训练集、验证集、测试集）

@@ -10,6 +10,20 @@ Bigddx:  ma1,ma3,ma5,ma10
    BigddxRatio   Bigddx/csfree（1日、3日累计），std( Bigddx /csfree) 20日方差
 
 
+   Std(
+    Abs($close/Ref($close, 1)-1)*$volume, %d
+   )
+   /
+   (
+   Mean(
+    Abs(
+        $close/Ref($close, 1) -1
+    )
+    , %d
+   )
+   )
+
+
 
  优化以下python代码，这些python代码
  请使用0.9.7版本qlib,继承Alpha158修改get_feature_config方法，实现以下通达信计算：
@@ -66,4 +80,4 @@ python qlib_scripts/dump_bin.py dump_all ^
 --date_field_name date ^
 --include_fields open,close,high,low,volume,factor
 
-python qlib_scripts/dump_bin.py dump_all --data_path E:\qlibdata --qlib_dir C:\Users\Thinkpad\.qlib\qlib_data\my_data --freq day --date_field_name date --include_fields open,close,high,low,volume,factor,volddx,bigddx
+python qlib_scripts/dump_bin.py dump_all --data_path E:\qlibdata --qlib_dir C:\Users\Thinkpad\.qlib\qlib_data\my_data --freq day --date_field_name date --include_fields open,high,low,close,adjclose,volume,factor,volddx,bigddx,netcsfree,basiccurhold,adfadfbasiccurhold,amount,vwap,change

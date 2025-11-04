@@ -74,10 +74,11 @@ class Alpha158CostKDJ(Alpha158):
     并在 get_extended_data 中计算 MAIRU 信号（不用于训练，仅用于回测）。
     """
 
-    def __init__(self, *args, cost_window=250, include_alpha158=False,include_signal=False, **kwargs):
+    def __init__(self, *args, cost_window=250, include_alpha158=False, include_signal=False, include_lz=False, **kwargs):
         self.cost_window = cost_window
         self.include_alpha158 = include_alpha158
         self.include_signal = include_signal
+        self.include_lz = include_lz
         super().__init__(*args, **kwargs)
 
     def get_feature_config(self):
@@ -128,6 +129,42 @@ class Alpha158CostKDJ(Alpha158):
         else:
             new_fields = [K_expr, D_expr, J_expr]
             new_names = ["COST_K", "COST_D", "COST_J"]
+
+        if self.include_lz:
+            # ============ 滚动窗口技术指标因子 ============
+            windows = [5, 10, 20, 30, 60]  # 定义多个滚动窗口（5日至60日）
+            # 2. 移动平均因子（Moving Average, MA）
+            new_fields += ["Mean($volddx, %d)/($volddx+1e-12)" % d for d in windows]  # d期volddx均值与当前volddx的比例
+            new_names += ["VOLDDX_MA%d" % d for d in windows]  # 名称如：VOLDDX_MA5, VOLDDX_MA10, ...
+
+            new_fields += ["Mean($bigddx, %d)/($bigddx+1e-12)" % d for d in windows]  # d期bigddx均值与当前bigddx的比例
+            new_names += ["BIGDDX_MA%d" % d for d in windows]  # 名称如：BIGDDX_MA5, BIGDDX_MA10, ...
+
+            # 3. 价格波动率因子（Standard Deviation, STD）
+            new_fields += ["Std($volddx, %d)/($volddx+1e-12)" % d for d in windows] # d期volddx标准差与当前volddx的比例
+            new_names += ["VOLDDX_STD%d" % d for d in windows]  # 名称如：VOLDDX_STD5, VOLDDX_STD10, ...
+
+            new_fields += ["Std($bigddx, %d)/($bigddx+1e-12)" % d for d in windows] # d期bigddx标准差与当前bigddx的比例
+            new_names += ["BIGDDX_STD%d" % d for d in windows]  # 名称如：BIGDDX_STD5, BIGDDX_STD10, ...
+
+            # 3. 对流通盘拉动作用1日、3日、5日累计
+            windows_s = [1, 3, 5]  # 定义多个滚动窗口（1日至5日）
+            new_fields += ["Sum($volddx,%d)/($csfree+1e-12)" % d for d in windows_s]
+            new_names += ["VOLDDX_R%d" % d for d in windows_s]
+
+            new_fields += ["Sum($bigddx,%d)/($csfree+1e-12)" % d for d in windows_s]
+            new_names += ["BIGDDX_R%d" % d for d in windows_s]
+
+            # 3. 对流通盘拉动作用20日方差
+            new_fields += ["Std($volddx/($csfree+1e-12), %d)" % d for d in windows]
+            new_names += ["VOLDDX_RSTD%d" % d for d in windows]
+
+            new_fields += ["Std($bigddx/($csfree+1e-12), %d)" % d for d in windows]
+            new_names += ["BIGDDX_RSTD%d" % d for d in windows]
+
+        else:
+            pass
+
 
         if self.include_alpha158:
             fields.extend(new_fields)
