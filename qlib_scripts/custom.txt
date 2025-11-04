@@ -81,3 +81,81 @@ python qlib_scripts/dump_bin.py dump_all ^
 --include_fields open,close,high,low,volume,factor
 
 python qlib_scripts/dump_bin.py dump_all --data_path E:\qlibdata --qlib_dir C:\Users\Thinkpad\.qlib\qlib_data\my_data --freq day --date_field_name date --include_fields open,high,low,close,adjclose,volume,factor,volddx,bigddx,netcsfree,basiccurhold,adfadfbasiccurhold,amount,vwap,change
+
+[214 rows x 158 columns]]'. Reason: 'MemoryError()'].
+  File "D:\PycharmProjects\MyQuant\qlib_scripts\custom_train_backtest.py", line 190, in <module>
+    dataset = init_instance_by_config(task["dataset"])  # 根据dataset配置创建数据集实例
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\qlib\utils\mod.py", line 180, in init_instance_by_config
+    return klass(**cls_kwargs, **try_kwargs, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\qlib\data\dataset\__init__.py", line 119, in __init__
+    self.handler: DataHandler = init_instance_by_config(handler, accept_types=DataHandler)
+                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\qlib\utils\mod.py", line 180, in init_instance_by_config
+    return klass(**cls_kwargs, **try_kwargs, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\qlib\contrib\data\handler.py", line 129, in __init__
+    super().__init__(
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\qlib\data\dataset\handler.py", line 509, in __init__
+    super().__init__(instruments, start_time, end_time, data_loader, **kwargs)
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\qlib\data\dataset\handler.py", line 151, in __init__
+    self.setup_data()
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\qlib\data\dataset\handler.py", line 651, in setup_data
+    super().setup_data(**kwargs)
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\qlib\data\dataset\handler.py", line 195, in setup_data
+    self._data = lazy_sort_index(self.data_loader.load(self.instruments, self.start_time, self.end_time))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\qlib\data\dataset\loader.py", line 142, in load
+    grp: self.load_group_df(instruments, exprs, names, start_time, end_time, grp)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\qlib\data\dataset\loader.py", line 223, in load_group_df
+    df = D.features(instruments, exprs, start_time, end_time, freq=freq, inst_processors=inst_processors)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\qlib\data\data.py", line 1190, in features
+    return DatasetD.dataset(instruments, fields, start_time, end_time, freq, inst_processors=inst_processors)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\qlib\data\data.py", line 923, in dataset
+    data = self.dataset_processor(
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\qlib\data\data.py", line 577, in dataset_processor
+    ParallelExt(n_jobs=workers, backend=C.joblib_backend, maxtasksperchild=C.maxtasksperchild)(task_l),
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\joblib\parallel.py", line 2007, in __call__
+    return output if self.return_generator else list(output)
+                                                ^^^^^^^^^^^^
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\joblib\parallel.py", line 1650, in _get_outputs
+    yield from self._retrieve()
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\joblib\parallel.py", line 1754, in _retrieve
+    self._raise_error_fast()
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\joblib\parallel.py", line 1789, in _raise_error_fast
+    error_job.get_result(self.timeout)
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\joblib\parallel.py", line 745, in get_result
+    return self._return_or_raise()
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\ProgramData\anaconda3\envs\qlib_env_cpu\Lib\site-packages\joblib\parallel.py", line 763, in _return_or_raise
+    raise self._result
+MaybeEncodingError: Error sending result: '[            $high/$close  ...  Sum(Greater(Ref($volume,1)-$volume,0),60)/(Sum(Abs($volume-Ref($volume,1)),60)+1e-12)
+datetime                  ...
+2023-02-17      1.000000  ...                                                NaN
+2023-02-20      1.087214  ...                                           0.000000
+2023-02-21      1.053608  ...                                           0.236449
+2023-02-22      1.041912  ...                                           0.346192
+2023-02-23      1.031957  ...                                           0.313112
+...                  ...  ...                                                ...
+2023-12-25      1.018424  ...                                           0.518271
+2023-12-26      1.032190  ...                                           0.515327
+2023-12-27      1.010523  ...                                           0.511653
+2023-12-28      1.005862  ...                                           0.511937
+2023-12-29      1.003415  ...                                           0.516080
+
+[214 rows x 158 columns]]'. Reason: 'MemoryError()'
+
+(qlib_env_cpu) C:\Users\wangc>python -c "import platform; print(platform.architecture()[0])"
+64bit
+
+(qlib_env_cpu) C:\Users\wangc>
+
+conda activate qlib_env_cpu
+
+D:\ProgramData\anaconda3\envs\qlib_env_cpu\python.exe D:\PycharmProjects\MyQuant\qlib_scripts\custom_train_backtest.py
