@@ -15,6 +15,7 @@ from .decision import Order
 from loguru import logger
 from pprint import pprint, pformat, PrettyPrinter
 
+
 class BasePosition:
     """
     The Position wants to maintain the position like a dictionary
@@ -391,14 +392,16 @@ class Position(BasePosition):
 
     def update_order(self, order: Order, trade_val: float, cost: float, trade_price: float) -> None:
         # handle order, order is a order class, defined in exchange.py
-        formatted = pformat(order, indent=4, width=80)
+        # formatted = pformat(order, indent=4, width=80)
         if order.direction == Order.BUY:
             # BUY
-            logger.info(f"股票交易记录-BUY:{formatted} 实际成交数量{trade_val / trade_price} 实际成交金额{trade_val} 实际成交价格{trade_price} 交易成本{cost}")
+            # logger.info(f"股票交易记录-BUY:{formatted} 实际成交数量{trade_val / trade_price} 实际成交金额{trade_val} 实际成交价格{trade_price} 交易成本{cost}")
+            logger.info({'stock_id':order.stock_id,'start_time':order.start_time,'direction':'B','deal_amount':order.deal_amount,'trade_val':trade_val,'trade_price':trade_price,'cost':cost})
             self._buy_stock(order.stock_id, trade_val, cost, trade_price)
         elif order.direction == Order.SELL:
             # SELL
-            logger.info(f"股票交易记录-SEL:{formatted} 实际成交数量{trade_val / trade_price} 实际成交金额{trade_val} 实际成交价格{trade_price} 交易成本{cost}")
+            # logger.info(f"股票交易记录-SEL:{formatted} 实际成交数量{trade_val / trade_price} 实际成交金额{trade_val} 实际成交价格{trade_price} 交易成本{cost}")
+            logger.info({'stock_id':order.stock_id,'start_time':order.start_time,'direction':'S','deal_amount':order.deal_amount,'trade_val':trade_val,'trade_price':trade_price,'cost':cost})
             self._sell_stock(order.stock_id, trade_val, cost, trade_price)
         else:
             raise NotImplementedError("do not support order direction {}".format(order.direction))

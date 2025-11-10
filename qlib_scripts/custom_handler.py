@@ -156,7 +156,7 @@ class Alpha158CostKDJ(Alpha158):
             new_names += ["BIGDDX_R%d" % d for d in windows_s]
 
             # 创建涨停跌停三态因子
-            limit_status_expr = ["$zhangting"]
+            limit_status_expr = f"$zhangting"
 
             new_fields += [limit_status_expr]
             new_names += ["LIMIT_STATUS"]
