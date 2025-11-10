@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 from qlib.contrib.data.handler import Alpha158
 from qlib.data.dataset import DataHandlerLP
-from qlib.data.ops import EMA, Sub, Div
+from qlib.data.ops import EMA, Sub, Div, If
 from qlib.strategy.base import BaseStrategy
 
 from qlib.data import D
@@ -156,27 +156,7 @@ class Alpha158CostKDJ(Alpha158):
             new_names += ["BIGDDX_R%d" % d for d in windows_s]
 
             # 创建涨停跌停三态因子
-            limit_status_expr = """
-            If(
-            (Ref($close, -1) / $close - 1) >= If(
-                $code.startswith('688'), 0.198,
-                If($code.startswith('300'), 0.198,
-                    If($code.startswith('8'), 0.298, 0.098)
-                )
-            ),
-            1,
-            If(
-                (Ref($close, -1) / $close - 1) <= -If(
-                    $code.startswith('688'), 0.198,
-                    If($code.startswith('300'), 0.198,
-                        If($code.startswith('8'), 0.298, 0.098)
-                    )
-                ),
-                -1,
-                0
-            )
-        )
-            """
+            limit_status_expr = ["$zhangting"]
 
             new_fields += [limit_status_expr]
             new_names += ["LIMIT_STATUS"]
