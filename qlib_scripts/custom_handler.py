@@ -155,6 +155,33 @@ class Alpha158CostKDJ(Alpha158):
             new_fields += ["Sum($bigddx,%d)/($csfree+1e-12)" % d for d in windows_s]
             new_names += ["BIGDDX_R%d" % d for d in windows_s]
 
+            # 创建涨停跌停三态因子
+            limit_status_expr = """
+            Case()
+                .add(When(
+                    (Ref($close, -1) / $close - 1) >= Case()
+                        .add(When($code.startswith('688'), 0.198))
+                        .add(When($code.startswith('300'), 0.198))
+                        .add(When($code.startswith('8'), 0.298))
+                        .add(When(Or($name.contains("ST"), $name.contains("*ST")), 0.048))
+                        .otherwise(0.098),
+                    then=1
+                ))
+                .add(When(
+                    (Ref($close, -1) / $close - 1) <= -Case()
+                        .add(When($code.startswith('688'), 0.198))
+                        .add(When($code.startswith('300'), 0.198))
+                        .add(When($code.startswith('8'), 0.298))
+                        .add(When(Or($name.contains("ST"), $name.contains("*ST")), 0.048))
+                        .otherwise(0.098),
+                    then=-1
+                ))
+                .otherwise(0)
+            """
+
+            new_fields += [limit_status_expr]
+            new_names += ["LIMIT_STATUS"]
+
             # # 3. 对流通盘拉动作用20日方差
             # new_fields += ["Std($volddx/($csfree+1e-12), %d)" % d for d in windows]
             # new_names += ["VOLDDX_RSTD%d" % d for d in windows]
