@@ -149,34 +149,37 @@ class Alpha158CostKDJ(Alpha158):
 
             # 3. 对流通盘拉动作用1日、3日、5日累计
             windows_s = [1, 3, 5]  # 定义多个滚动窗口（1日至5日）
-            new_fields += ["Sum($volddx,%d)/($csfree+1e-12)" % d for d in windows_s]
+            new_fields += ["Sum($volddx,%d)/($adfadfbasiccurhold+1e-12)" % d for d in windows_s]
             new_names += ["VOLDDX_R%d" % d for d in windows_s]
 
-            new_fields += ["Sum($bigddx,%d)/($csfree+1e-12)" % d for d in windows_s]
+            new_fields += ["Sum($bigddx,%d)/($adfadfbasiccurhold+1e-12)" % d for d in windows_s]
             new_names += ["BIGDDX_R%d" % d for d in windows_s]
 
             # 创建涨停跌停三态因子
             limit_status_expr = """
-            Case()
-                .add(When(
-                    (Ref($close, -1) / $close - 1) >= Case()
-                        .add(When($code.startswith('688'), 0.198))
-                        .add(When($code.startswith('300'), 0.198))
-                        .add(When($code.startswith('8'), 0.298))
-                        .add(When(Or($name.contains("ST"), $name.contains("*ST")), 0.048))
-                        .otherwise(0.098),
-                    then=1
-                ))
-                .add(When(
-                    (Ref($close, -1) / $close - 1) <= -Case()
-                        .add(When($code.startswith('688'), 0.198))
-                        .add(When($code.startswith('300'), 0.198))
-                        .add(When($code.startswith('8'), 0.298))
-                        .add(When(Or($name.contains("ST"), $name.contains("*ST")), 0.048))
-                        .otherwise(0.098),
-                    then=-1
-                ))
-                .otherwise(0)
+            If(
+                (Ref($close, -1) / $close - 1) >= If(
+                    $code.startswith('688'), 0.198,
+                    If($code.startswith('300'), 0.198,
+                        If($code.startswith('8'), 0.298,
+                            If(Or($name.contains("ST"), $name.contains("*ST")), 0.048, 0.098)
+                        )
+                    )
+                ),
+                1,
+                If(
+                    (Ref($close, -1) / $close - 1) <= -If(
+                        $code.startswith('688'), 0.198,
+                        If($code.startswith('300'), 0.198,
+                            If($code.startswith('8'), 0.298,
+                                If(Or($name.contains("ST"), $name.contains("*ST")), 0.048, 0.098)
+                            )
+                        )
+                    ),
+                    -1,
+                    0
+                )
+            )
             """
 
             new_fields += [limit_status_expr]
