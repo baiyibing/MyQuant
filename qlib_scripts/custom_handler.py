@@ -141,10 +141,10 @@ class Alpha158CostKDJ(Alpha158):
             new_names += ["BIGDDX_TX%d" % d for d in windows]
 
             # 3. 价格波动率因子（Standard Deviation, STD）
-            new_fields += ["Std($volddx, %d)/($volddx+1e-12)" % d for d in windows] # d期volddx标准差与当前volddx的比例
+            new_fields += ["Std($volddx, %d)/(Abs($volddx)+1e-12)" % d for d in windows] # d期volddx标准差与当前volddx的比例
             new_names += ["VOLDDX_STD%d" % d for d in windows]  # 名称如：VOLDDX_STD5, VOLDDX_STD10, ...
 
-            new_fields += ["Std($bigddx, %d)/($bigddx+1e-12)" % d for d in windows] # d期bigddx标准差与当前bigddx的比例
+            new_fields += ["Std($bigddx, %d)/(Abs($bigddx)+1e-12)" % d for d in windows] # d期bigddx标准差与当前bigddx的比例
             new_names += ["BIGDDX_STD%d" % d for d in windows]  # 名称如：BIGDDX_STD5, BIGDDX_STD10, ...
 
             # 3. 对流通盘拉动作用1日、3日、5日累计
