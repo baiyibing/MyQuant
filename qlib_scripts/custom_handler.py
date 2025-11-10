@@ -158,28 +158,24 @@ class Alpha158CostKDJ(Alpha158):
             # 创建涨停跌停三态因子
             limit_status_expr = """
             If(
-                (Ref($close, -1) / $close - 1) >= If(
+            (Ref($close, -1) / $close - 1) >= If(
+                $code.startswith('688'), 0.198,
+                If($code.startswith('300'), 0.198,
+                    If($code.startswith('8'), 0.298, 0.098)
+                )
+            ),
+            1,
+            If(
+                (Ref($close, -1) / $close - 1) <= -If(
                     $code.startswith('688'), 0.198,
-                    If($code.startswith('30'), 0.198,
-                        If($code.startswith('9'), 0.298,
-                            If(Or($name.contains("ST"), $name.contains("*ST")), 0.048, 0.098)
-                        )
+                    If($code.startswith('300'), 0.198,
+                        If($code.startswith('8'), 0.298, 0.098)
                     )
                 ),
-                1,
-                If(
-                    (Ref($close, -1) / $close - 1) <= -If(
-                        $code.startswith('688'), 0.198,
-                        If($code.startswith('30'), 0.198,
-                            If($code.startswith('9'), 0.298,
-                                If(Or($name.contains("ST"), $name.contains("*ST")), 0.048, 0.098)
-                            )
-                        )
-                    ),
-                    -1,
-                    0
-                )
+                -1,
+                0
             )
+        )
             """
 
             new_fields += [limit_status_expr]
