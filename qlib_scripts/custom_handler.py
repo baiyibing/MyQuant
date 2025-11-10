@@ -134,10 +134,10 @@ class Alpha158CostKDJ(Alpha158):
             # ============ 滚动窗口技术指标因子 ============
             windows = [10, 20, 30]  # 定义多个滚动窗口（5日至60日）
 
-            new_fields += ["($volddx-Mean($volddx, %d))/(Std($volddx, %d)+1e-12)" % d for d in windows]
+            new_fields += ["($volddx-Mean($volddx, %d))/(Std($volddx, %d)+1e-12)" % (d, d) for d in windows]
             new_names += ["VOLDDX_TX%d" % d for d in windows]
 
-            new_fields += ["($bigddx-Mean($bigddx, %d))/(Std($bigddx, %d)+1e-12)" % d for d in windows]
+            new_fields += ["($bigddx-Mean($bigddx, %d))/(Std($bigddx, %d)+1e-12)" % (d, d) for d in windows]
             new_names += ["BIGDDX_TX%d" % d for d in windows]
 
             # 3. 价格波动率因子（Standard Deviation, STD）
