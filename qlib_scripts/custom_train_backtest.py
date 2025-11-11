@@ -3,6 +3,8 @@ import logging
 import os
 
 from timeit import default_timer as timer
+from xml.sax.handler import all_features
+
 from loguru import logger
 import pandas as pd  # 导入pandas库进行数据处理
 import qlib
@@ -20,6 +22,7 @@ from qlib.contrib.report import analysis_model, analysis_position
 from qlib.data import D  # 导入数据模块
 from custom_handler import Alpha158CostKDJ
 from custom_ops import SMA
+import plotly.graph_objects as go
 
 from pprint import pprint
 from custom_utils import pprint_position_report, analyze_position_by_date, generate_position_report, \
@@ -74,26 +77,26 @@ if __name__ == '__main__':
     # end_time = "2025-10-14"
 
     # 定义策略相关的市场和分析基准
-    # market = "all"
+    market = "all"
     market = "csi300"
     benchmark = "SH601727"  # 设置业绩比较基准为沪深300指数代码
     # market = ['SH600000','SH600010','SH600028','SH600025','SH600019','SH600900','SH600941','SZ300059','SZ300124','SZ300274']
 
     start_time="2020-01-01"
-    end_time="2025-10-09"
+    end_time="2024-12-31"
 
     fit_start_time=start_time
-    fit_end_time="2023-12-31"
+    fit_end_time="2022-12-31"
 
-    valid_start_time="2024-01-01"
-    valid_end_time="2024-12-31"
+    valid_start_time="2023-01-01"
+    valid_end_time="2023-12-31"
 
-    test_start_time="2025-01-01"
+    test_start_time="2024-01-01"
     test_end_time=end_time
 
     exp_name = "alpha158_cost_kdj_lgb"
 
-    signal_cols = ["COST_K", "COST_D", "COST_J", "MAIRU_SIGNAL"]
+    signal_cols = ["COST_K", "COST_D", "COST_J", "MAIRU_SIGNAL","ZHANGTING"]
 
     # 定义数据处理器配置，指定数据获取的时间范围、训练集时间区间和投资标的
     data_handler_config = {
@@ -173,6 +176,7 @@ if __name__ == '__main__':
     #
     # [10 rows x 161 columns]
     print(f"所有feature列: {data.columns}")
+    all_features = data.columns
     available_cols = [col for col in signal_cols if col in data.columns]
     print(f"可用信号列: {available_cols}")
     print(data[available_cols].head(10))
@@ -246,6 +250,78 @@ if __name__ == '__main__':
 
         rid = R.get_recorder().id  # 获取当前实验记录器的ID，用于后续检索
 
+        # 5. 特征重要性分析与选择
+        # 获取特征重要性（新版本QLib模型通常内置该方法）
+        # 方式一：直接使用模型提供的 `feature_importance` (如果可用)
+        if hasattr(model, 'feature_importance'):
+            feat_imp = model.feature_importance()
+        else:
+            # 方式二：使用模型训练器中的特征重要性（适用于某些版本）
+            # 注意：具体方法可能因版本而异，请查阅官方文档
+            try:
+                feat_imp = model.get_feature_importance()
+            except:
+                # 方式三：回退方案 - 基于训练数据手动计算（近似）
+                # 此方法可能计算较慢，且为近似值
+                print(
+                    "Warning: Using fallback method for feature importance. Check Qlib documentation for the recommended way.")
+                # 此处可能需要根据实际模型类型调整获取方式
+                feat_imp = None
+
+        # 将特征重要性转换为Series并按降序排序
+        feat_imp_series = feat_imp.sort_values(ascending=False)
+
+        # 选择前K个最重要的特征
+        K = 50
+        selected_features = feat_imp_series.head(K).index.tolist()
+
+        print(f"选择前 {K} 个最重要的特征:")
+        print(selected_features)
+
+        # 6. (可选) 可视化特征重要性
+        top_features = feat_imp_series.head(K)
+
+        # 创建水平条形图
+        feature_importance_fig = go.Figure()
+
+        # 添加条形图轨迹
+        feature_importance_fig.add_trace(go.Bar(
+            y=top_features.index.tolist(),
+            x=top_features.values,
+            orientation='h',
+            marker=dict(
+                color=top_features.values,
+                colorscale='Viridis',
+                showscale=True,
+                colorbar=dict(title="重要性分数")
+            ),
+            hovertemplate='<b>%{y}</b><br>重要性: %{x:.4f}<extra></extra>'
+        ))
+
+        # 更新布局
+        feature_importance_fig.update_layout(
+            title=dict(
+                text=f'Top {K} 特征重要性',
+                x=0.5,
+                xanchor='center'
+            ),
+            xaxis_title='重要性分数',
+            yaxis_title='特征名称',
+            height=600 + K * 10,  # 动态调整高度以适应特征数量
+            template='plotly_white',
+            showlegend=False
+        )
+
+        # 调整y轴顺序，使最重要的特征在顶部
+        feature_importance_fig.update_yaxes(autorange="reversed")
+
+        feature_importance_fig.show()
+
+        # 7. 使用筛选后的特征重新训练模型（可选但推荐）
+        # 可以创建一个新的Handler或Dataset，仅包含选定的特征
+        # 例如，可以修改handler的配置，只包含selected_features
+        # 然后重新训练模型，可能会获得更好的性能或更快的训练速度
+
         # 生成预测信号
         recorder = R.get_recorder()
 
@@ -316,6 +392,20 @@ if __name__ == '__main__':
 
         par = PortAnaRecord(recorder, port_analysis_config, "day")  # 传入记录器、回测配置和时间频率
         par.generate()  # 系统会基于配置启动完整的回测流程，包括初始化投资组合、模拟每日交易、计算持仓价值，并最终生成收益率、波动率、夏普比率、最大回撤等指标的分析报告
+
+
+        x_test = dataset.prepare("test")
+        importance_array = model.feature_importance()  # 获取重要性数组
+        feature_names = x_test.columns.values  # 获取特征名称列表
+        # 创建DataFrame并排序
+        importance_df = pd.DataFrame({
+            'feature': feature_names,
+            'importance': importance_array
+        })
+        importance_df.sort_values('importance', ascending=False, inplace=True)
+        importance_df.reset_index(drop=True, inplace=True)  # 重置索引
+
+        print(importance_df)  # 打印可读结果
 
         # 'The following are analysis results of benchmark return(1day).'
         #                        risk
