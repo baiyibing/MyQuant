@@ -43,7 +43,7 @@ if __name__ == '__main__':
         provider_uri = "~/.qlib/qlib_data/my_data",  # target_dir
         # 中国市场
         region=REG_CN,
-        # kernels=16,
+        kernels=16,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。
         redis_host='127.0.0.1',
         redis_port=6379,
@@ -78,7 +78,7 @@ if __name__ == '__main__':
 
     # 定义策略相关的市场和分析基准
     market = "all"
-    market = "csi300"
+    # market = "csi300"
     benchmark = "SH601727"  # 设置业绩比较基准为沪深300指数代码
     # market = ['SH600000','SH600010','SH600028','SH600025','SH600019','SH600900','SH600941','SZ300059','SZ300124','SZ300274']
 
@@ -395,8 +395,9 @@ if __name__ == '__main__':
 
 
         x_test = dataset.prepare("test")
-        importance_array = model.feature_importance()  # 获取重要性数组
-        feature_names = x_test.columns.values  # 获取特征名称列表
+        importance_array = feat_imp  # 获取重要性数组
+        feature_lable0_names = x_test.columns.values  # 获取特征名称列表
+        feature_names = feature_lable0_names[:-1] # 去掉最后一个lable0
         # 创建DataFrame并排序
         importance_df = pd.DataFrame({
             'feature': feature_names,
@@ -405,7 +406,7 @@ if __name__ == '__main__':
         importance_df.sort_values('importance', ascending=False, inplace=True)
         importance_df.reset_index(drop=True, inplace=True)  # 重置索引
 
-        print(importance_df)  # 打印可读结果
+        print('特征重要性DataFrame',importance_df)  # 打印可读结果
 
         # 'The following are analysis results of benchmark return(1day).'
         #                        risk
