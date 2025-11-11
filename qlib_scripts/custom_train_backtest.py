@@ -13,6 +13,7 @@ from qlib.contrib.data.handler import Alpha158
 from qlib.contrib.evaluate import risk_analysis
 from qlib.contrib.model import LGBModel
 from qlib.contrib.report.analysis_position import report_graph
+from qlib.data.filter import ExpressionDFilter
 from qlib.utils import init_instance_by_config, flatten_dict
 from qlib.workflow import R
 from qlib.data.dataset import DatasetH
@@ -43,7 +44,7 @@ if __name__ == '__main__':
         provider_uri = "~/.qlib/qlib_data/my_data",  # target_dir
         # 中国市场
         region=REG_CN,
-        kernels=16,
+        # kernels=16,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。
         redis_host='127.0.0.1',
         redis_port=6379,
@@ -73,26 +74,37 @@ if __name__ == '__main__':
     # 设置显示宽度，防止自动换行
     pd.set_option('display.width', None)
 
-    # start_time = "2023-01-01"
-    # end_time = "2025-10-14"
-
-    # 定义策略相关的市场和分析基准
-    market = "all"
-    # market = "csi300"
-    benchmark = "SH601727"  # 设置业绩比较基准为沪深300指数代码
-    # market = ['SH600000','SH600010','SH600028','SH600025','SH600019','SH600900','SH600941','SZ300059','SZ300124','SZ300274']
-
     start_time="2020-01-01"
-    end_time="2024-12-31"
+    end_time="2023-12-31"
 
     fit_start_time=start_time
-    fit_end_time="2022-12-31"
+    fit_end_time="2021-12-31"
 
-    valid_start_time="2023-01-01"
-    valid_end_time="2023-12-31"
+    valid_start_time="2022-01-01"
+    valid_end_time="2022-12-31"
 
-    test_start_time="2024-01-01"
+    test_start_time="2023-01-01"
     test_end_time=end_time
+
+    # 2. 定义动态过滤规则：排除过去5日涨幅超过10%的股票
+    # 注意：表达式中的 $close 等字段需要确保在你的数据中存在
+    expression_rule = "(Ref($close, 0) / Ref($close, 5) - 1) <= 0.10"
+    dynamic_filter = ExpressionDFilter(rule_expression=expression_rule)
+
+    # 3. 获取基础股票池（例如全市场或沪深300）应用动态过滤器，获取筛选后的股票列表
+    filtered_instruments = D.instruments(market='all',
+                                     start_time=start_time,  # 调整为你需要的开始时间
+                                     end_time=end_time,  # 调整为你需要的结束时间
+                                     filter_pipe=[dynamic_filter],  # 应用过滤器
+                                     )  # 或者使用 market='all'
+
+    # 定义策略相关的市场和分析基准
+    # market = "all"
+    # market = "csi300"
+
+
+    benchmark = "SH601727"  # 设置业绩比较基准为沪深300指数代码
+    # market = ['SH600000','SH600010','SH600028','SH600025','SH600019','SH600900','SH600941','SZ300059','SZ300124','SZ300274']
 
     exp_name = "alpha158_cost_kdj_lgb"
 
@@ -108,8 +120,9 @@ if __name__ == '__main__':
         # "infer_processors": [
         #         {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],  # 特征计算结束时间（训练集截止时间）
         # "learn_processors": [{"class": "DropnaLabel"}],  # 特征计算结束时间（训练集截止时间）
-        "instruments": market,  # 投资标的，这里使用前面定义的market（csi300）
+        "instruments": filtered_instruments,  # 投资标的，这里使用前面定义的market（csi300）
         "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
+        "include_cost_kdj": True,
         "include_signal": False,
         "include_lz": True,
     }
