@@ -3,7 +3,7 @@ import logging
 import os
 
 from timeit import default_timer as timer
-from xml.sax.handler import all_features
+
 
 from loguru import logger
 import pandas as pd  # 导入pandas库进行数据处理
@@ -280,6 +280,13 @@ if __name__ == '__main__':
                     "Warning: Using fallback method for feature importance. Check Qlib documentation for the recommended way.")
                 # 此处可能需要根据实际模型类型调整获取方式
                 feat_imp = None
+
+
+        # 将特征名称与重要性分数映射并排序
+        feature_importance_map = list(zip(all_features, feat_imp))
+        sorted_features = sorted(feature_importance_map, key=lambda x: x[1], reverse=True)
+        print(f"将特征名称与重要性分数映射并排序:")
+        print(sorted_features)
 
         # 将特征重要性转换为Series并按降序排序
         feat_imp_series = feat_imp.sort_values(ascending=False)
