@@ -44,7 +44,7 @@ if __name__ == '__main__':
         provider_uri = "~/.qlib/qlib_data/my_data",  # target_dir
         # 中国市场
         region=REG_CN,
-        # kernels=16,
+        kernels=16,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。
         redis_host='127.0.0.1',
         redis_port=6379,
@@ -75,20 +75,32 @@ if __name__ == '__main__':
     pd.set_option('display.width', None)
 
     start_time="2020-01-01"
-    end_time="2023-12-31"
+    end_time="2024-12-31"
 
     fit_start_time=start_time
-    fit_end_time="2021-12-31"
+    fit_end_time="2022-12-31"
 
-    valid_start_time="2022-01-01"
-    valid_end_time="2022-12-31"
+    valid_start_time="2023-01-01"
+    valid_end_time="2023-12-31"
 
-    test_start_time="2023-01-01"
+    test_start_time="2024-01-01"
     test_end_time=end_time
 
     # 2. 定义动态过滤规则：排除过去5日涨幅超过10%的股票
     # 注意：表达式中的 $close 等字段需要确保在你的数据中存在
-    expression_rule = "(Ref($close, 0) / Ref($close, 5) - 1) <= 0.10"
+    # f"""
+    # (
+    #     ($close - Ref($close,5)) / Ref($close,5) < -0.10 &
+    #     ($high - $low)/$close < 0.05 &
+    #     (EMA($close,12) > EMA($close,26))
+    # )
+    # """
+    # expression_rule = "(Ref($close, 0) / Ref($close, 5) - 1) <= 0.10"
+    expression_rule = f"""
+    (
+        ($close - Ref($close,5)) / Ref($close,5) < -0.10
+    )
+    """
     dynamic_filter = ExpressionDFilter(rule_expression=expression_rule)
 
     # 3. 获取基础股票池（例如全市场或沪深300）应用动态过滤器，获取筛选后的股票列表
@@ -281,32 +293,44 @@ if __name__ == '__main__':
                 # 此处可能需要根据实际模型类型调整获取方式
                 feat_imp = None
 
-
-        # 将特征名称与重要性分数映射并排序
-        feature_importance_map = list(zip(all_features, feat_imp))
-        sorted_features = sorted(feature_importance_map, key=lambda x: x[1], reverse=True)
-        print(f"将特征名称与重要性分数映射并排序:")
-        print(sorted_features)
+        print(f"直接使用模型提供的 `feature_importance` (如果可用)")
+        print(feat_imp)
+        # Column_17     103
+        # Column_1       95
+        # Column_178     89
+        # Column_175     80
+        # Column_27      77
 
         # 将特征重要性转换为Series并按降序排序
         feat_imp_series = feat_imp.sort_values(ascending=False)
 
         # 选择前K个最重要的特征
-        K = 50
-        selected_features = feat_imp_series.head(K).index.tolist()
-
-        print(f"选择前 {K} 个最重要的特征:")
+        selected_features = feat_imp_series.index.tolist()
+        print(f"将特征重要性转换为Series并按降序排序:")
         print(selected_features)
 
+        selected_features_name = []
+        for col in selected_features:
+            parts = col.split('_') # Column_17
+            if parts:
+                number = int(parts[-1])
+                selected_features_name.append(all_features[number])
+        print(f"重要的特征列名对应的特征名")
+        print(selected_features_name)
+
+        K = 50
         # 6. (可选) 可视化特征重要性
         top_features = feat_imp_series.head(K)
+        top_features_name = pd.Series(selected_features_name)
+        top_features_name=top_features_name.head(K)
 
         # 创建水平条形图
         feature_importance_fig = go.Figure()
 
         # 添加条形图轨迹
         feature_importance_fig.add_trace(go.Bar(
-            y=top_features.index.tolist(),
+            y=top_features_name.values,
+            # y=top_features.index.tolist(),
             x=top_features.values,
             orientation='h',
             marker=dict(
@@ -426,7 +450,7 @@ if __name__ == '__main__':
         importance_df.sort_values('importance', ascending=False, inplace=True)
         importance_df.reset_index(drop=True, inplace=True)  # 重置索引
 
-        print('特征重要性DataFrame',importance_df)  # 打印可读结果
+        print('特征重要性DataFrame，这样做是错误的，没有对应好',importance_df)  # 打印可读结果
 
         # 'The following are analysis results of benchmark return(1day).'
         #                        risk
