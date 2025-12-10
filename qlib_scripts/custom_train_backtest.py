@@ -74,16 +74,16 @@ if __name__ == '__main__':
     # 设置显示宽度，防止自动换行
     pd.set_option('display.width', None)
 
-    start_time="2020-01-01"
-    end_time="2025-10-31"
+    start_time="2024-01-01"
+    end_time="2024-12-31"
 
     fit_start_time=start_time
-    fit_end_time="2023-12-31"
+    fit_end_time="2024-04-30"
 
-    valid_start_time="2024-01-01"
-    valid_end_time="2024-12-31"
+    valid_start_time="2024-05-01"
+    valid_end_time="2024-08-31"
 
-    test_start_time="2025-01-01"
+    test_start_time="2024-09-01"
     test_end_time=end_time
 
     # 2. 定义动态过滤规则：排除过去5日涨幅超过10%的股票
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     filtered_instruments = D.instruments(market='all',
                                      start_time=start_time,  # 调整为你需要的开始时间
                                      end_time=end_time,  # 调整为你需要的结束时间
-                                     filter_pipe=[dynamic_filter,exclude_filter],  # 应用过滤器
+                                     filter_pipe=[exclude_filter],  # 应用过滤器
                                      )  # 或者使用 market='all'
 
     # 定义策略相关的市场和分析基准
@@ -244,8 +244,10 @@ if __name__ == '__main__':
             },
         },
         "strategy": {  # 交易策略配置
-            "class": "TopkDropoutStrategy",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
-            "module_path": "qlib.contrib.strategy.signal_strategy",  # 策略所在模块路径
+            # "class": "TopkDropoutStrategy",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
+            # "module_path": "qlib.contrib.strategy.signal_strategy",  # 策略所在模块路径
+            "class": "TopkDropoutStrategyWithFilter",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
+            "module_path": "custom_strategy",  # 策略所在模块路径
             "kwargs": {  # 策略参数
                 "model": model,  # 使用的预测模型
                 "dataset": dataset,  # 使用的数据集

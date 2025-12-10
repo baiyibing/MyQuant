@@ -37,11 +37,12 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         # 获取过去lookback_days个交易日的日期
         prev_dates = [get_pre_trading_date(trade_start_time, i) for i in range(1, self.lookback_days + 1)]
         # 获取所有股票在这些日期的收盘价
+        # ✅ 修复：使用 D.features + $ 前缀获取数据
         close_prices = D.features(
-            D.instruments("all"),
-            ["close"],
+            instruments=stocks,  # 直接传字符串"all"
+            fields=["$close"],  # 关键：字段名带$前缀
             start_time=prev_dates[-1],
-            end_time=prev_dates[0]
+            end_time=prev_dates[0],
         )
         # 重置索引，将datetime和instrument作为列
         close_prices = close_prices.reset_index()
@@ -50,9 +51,9 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         # 按股票分组，计算每个股票的涨幅
         close_prices = close_prices.sort_values(by=["instrument", "datetime"])
         # 计算过去lookback_days的涨幅（需要shift lookback_days-1天）
-        close_prices["close_shift"] = close_prices.groupby("instrument")["close"].shift(self.lookback_days - 1)
+        close_prices["close_shift"] = close_prices.groupby("instrument")["$close"].shift(self.lookback_days - 1)
         # 计算涨幅
-        close_prices["return"] = (close_prices["close"] - close_prices["close_shift"]) / close_prices["close_shift"]
+        close_prices["return"] = (close_prices["$close"] - close_prices["close_shift"]) / close_prices["close_shift"]
         # 处理NaN值
         close_prices["return"] = close_prices["return"].fillna(0)
         # 只保留最近一天的数据
