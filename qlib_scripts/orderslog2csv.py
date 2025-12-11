@@ -62,8 +62,8 @@ profit_df = df_sorted.groupby('stock_id').agg(
     trade_count=('cash_flow', 'count')   # 可选：记录交易次数
 ).reset_index()
 
-print("\n每个stock_id的盈利情况:")
-print(profit_df)
+# print("\n每个stock_id的盈利情况:")
+# print(profit_df)
 
 # 按盈利降序排序，并重置索引
 profit_df_sorted = profit_df.sort_values(by='total_profit', ascending=False).reset_index(drop=True)

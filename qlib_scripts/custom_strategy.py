@@ -15,6 +15,7 @@ from qlib.data import D
 import numpy as np
 from qlib.backtest.signal import Signal
 from qlib.contrib.strategy import TopkDropoutStrategy
+from loguru import logger
 
 class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
     def __init__(self, *args, **kwargs):
@@ -23,7 +24,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         self.lookback_days = 5  # 回溯天数
         self.logger = get_module_logger("TopkDropoutStrategyWithFilter")
 
-    def _filter_stocks_by_return_threshold(self, stocks, trade_start_time):
+    def _filter_stocks_by_return_threshold0(self, stocks, trade_start_time):
         """
         过滤过去回溯天数内涨幅超过阈值的股票
 
@@ -44,9 +45,16 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             start_time=prev_dates[-1],
             end_time=prev_dates[0],
         )
+        # 检查是否为空
+        if close_prices.empty:
+            self.logger.warning("No price data available, returning original stocks")
+            return stocks
         # 重置索引，将datetime和instrument作为列
         close_prices = close_prices.reset_index()
-        # 将datetime转换为日期
+        # ✅ 修复：确保datetime列是datetime类型
+        if not pd.api.types.is_datetime64_any_dtype(close_prices["datetime"]):
+            close_prices["datetime"] = pd.to_datetime(close_prices["datetime"])
+        # ✅ 修复：现在可以安全使用.dt.accessor，将datetime转换为日期
         close_prices["datetime"] = close_prices["datetime"].dt.date
         # 按股票分组，计算每个股票的涨幅
         close_prices = close_prices.sort_values(by=["instrument", "datetime"])
@@ -68,6 +76,67 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             else:
                 # 如果股票不在returns中，假设涨幅为0
                 filtered_stocks.append(stock)
+
+        return filtered_stocks
+
+    def _filter_stocks_by_return_threshold(self, stocks, trade_start_time):
+        """ 过滤过去回溯天数内涨幅超过阈值的股票，增强稳定性 """
+        # 1. 验证输入参数
+        if not stocks or self.lookback_days <= 0 or self.max_return_threshold < 0:
+            return stocks  # 简单处理无效输入
+
+        # 2. 获取有效交易日，避免无效日期
+        prev_dates = []
+        for i in range(1, self.lookback_days + 1):
+            date = get_pre_trading_date(trade_start_time, i)
+            if date is None:
+                # 记录警告，但不中断执行
+                logger.warning(f"Invalid trading date for {trade_start_time} - {i} days ago")
+            else:
+                prev_dates.append(date)
+
+        # 3. 确保至少有一个有效日期
+        if not prev_dates:
+            logger.error("No valid trading dates found for lookback period")
+            return stocks
+
+        # 4. 获取数据，添加错误处理
+        try:
+            close_prices = D.features(
+                instruments=stocks,
+                fields=["$close"],
+                start_time=prev_dates[-1],
+                end_time=prev_dates[0],
+            )
+        except Exception as e:
+            logger.error(f"Failed to fetch stock data: {str(e)}")
+            return stocks
+
+        # 5. 处理数据缺失
+        if close_prices.empty:
+            logger.warning("No stock price data returned")
+            return stocks
+
+        # 6. 重置索引，将datetime和instrument作为列
+        close_prices = close_prices.reset_index()
+
+        # 7. 按股票分组，获取每个股票的起始和结束收盘价
+        prices = close_prices.groupby('instrument')["$close"].agg(['first', 'last']).reset_index()
+
+        # 8. 计算涨幅，正确处理缺失值
+        prices['return'] = (prices['last'] - prices['first']) / prices['first']
+        prices['return'] = prices['return'].fillna(float('-inf'))  # 更安全的缺失值处理
+
+        # 9. 创建股票到涨幅的映射字典
+        return_dict = {row['instrument']: row['return'] for _, row in prices.iterrows()}
+
+        # 10. 过滤股票，添加日志记录
+        filtered_stocks = [stock for stock in stocks if
+                           return_dict.get(stock, float('-inf')) <= self.max_return_threshold]
+
+        # 11. 记录过滤结果
+        logger.info(
+            f"Filtered {len(stocks)} stocks to {len(filtered_stocks)} using return threshold {self.max_return_threshold}")
 
         return filtered_stocks
 

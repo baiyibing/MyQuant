@@ -74,16 +74,16 @@ if __name__ == '__main__':
     # 设置显示宽度，防止自动换行
     pd.set_option('display.width', None)
 
-    start_time="2024-01-01"
-    end_time="2024-12-31"
+    start_time="2020-01-01"
+    end_time="2025-10-31"
 
     fit_start_time=start_time
-    fit_end_time="2024-04-30"
+    fit_end_time="2023-12-31"
 
-    valid_start_time="2024-05-01"
-    valid_end_time="2024-08-31"
+    valid_start_time="2024-01-01"
+    valid_end_time="2024-12-31"
 
-    test_start_time="2024-09-01"
+    test_start_time="2025-01-01"
     test_end_time=end_time
 
     # 2. 定义动态过滤规则：排除过去5日涨幅超过10%的股票

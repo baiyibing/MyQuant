@@ -3,7 +3,7 @@ from typing import Union
 import logging
 from qlib.constant import REG_CN
 from qlib.contrib.rolling.base import Rolling
-
+from loguru import logger
 from custom_ops import SMA
 
 # from qlib.tests.data import GetData
@@ -37,6 +37,8 @@ class RollingBenchmark(Rolling):
 
 
 if __name__ == "__main__":
+    logger.remove(0)
+    logger.add("orders.log")
     #####################################
     # 0 删除缓存数据集handler pkl文件
     #####################################
@@ -71,7 +73,7 @@ if __name__ == "__main__":
         provider_uri = "~/.qlib/qlib_data/my_data",  # target_dir
         # 中国市场
         region=REG_CN,
-        # kernels=16,
+        kernels=16,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。
         redis_host='127.0.0.1',
         redis_port=6379,

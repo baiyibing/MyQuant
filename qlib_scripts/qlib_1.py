@@ -35,12 +35,12 @@ if __name__ == '__main__':
     start = timer()
 
     logger.remove(0)
-    logger.add("ht.log")
+    logger.add("error.log")
 
     qlib.init(
         # 数据存储路径
         # provider_uri = "~/.qlib/qlib_data/my_data",  # target_dir
-        provider_uri="~/.qlib/qlib_data/cn_data",  # target_dir
+        provider_uri="~/.qlib/qlib_data/my_data",  # target_dir
         # 中国市场
         region=REG_CN,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。
@@ -98,41 +98,41 @@ if __name__ == '__main__':
     print(data)
 
     data = D.features(
-        instruments=["SZ002594"],  # 股票代码
+        instruments=["SZ002209"],  # 股票代码
         fields=["$open", "$high", "$low", "$close", "$adjclose", "$vwap","$amount", "$factor", "$change","$close/$factor", "$volume", "$volddx","$bigddx"],  # 字段：开盘、最高、最低、收盘价
-        start_time="2025-07-28",  # 查询开始日期
-        end_time="2025-07-29"     # 查询结束日期（与开始日期相同即可查询单日）
+        start_time="2024-03-11",  # 查询开始日期
+        end_time="2024-03-15"     # 查询结束日期（与开始日期相同即可查询单日）
     )
 
     print(data)
 
-    data = D.features(
-        instruments=["SZ001356"],  # 股票代码
-        fields=["$open", "$high", "$low", "$close", "$adjclose", "$vwap","$amount", "$factor", "$change","$close/$factor", "$volume", "$volddx","$bigddx"],  # 字段：开盘、最高、最低、收盘价
-        start_time="2025-01-23",  # 查询开始日期
-        end_time="2025-01-31"     # 查询结束日期（与开始日期相同即可查询单日）
-    )
-
-    print(data)
-
-    data = D.features(
-        instruments=["SZ002594"],  # 股票代码
-        fields=["$open", "$high", "$low", "$close", "$adjclose", "$vwap","$amount", "$factor", "$change","$close/$factor", "$volume", "$volddx","$bigddx"],  # 字段：开盘、最高、最低、收盘价
-        start_time="2011-06-30",  # 查询开始日期
-        end_time="2011-07-31"     # 查询结束日期（与开始日期相同即可查询单日）
-    )
-
-    print(data)
-
-    data = D.features(
-        instruments=["SZ301550"],  # 股票代码
-        fields=["$open", "$high", "$low", "$close", "$adjclose", "$vwap","$amount", "$factor", "$change","$close/$factor", "$volume", "$volddx","$bigddx"],  # 字段：开盘、最高、最低、收盘价
-        start_time="2023-09-15",  # 查询开始日期
-        end_time="2025-10-14"     # 查询结束日期（与开始日期相同即可查询单日）
-    )
-
-    print(data.head())
-    data.to_csv("SZ301550.csv", encoding='utf-8')
-    # data = D.features(["SH688399"], ["$open", "$high", "$low", "$close", "$adjclose", "$vwap", "$factor", "$change"], "2025-06-10", "2025-06-13")
+    # data = D.features(
+    #     instruments=["SZ001356"],  # 股票代码
+    #     fields=["$open", "$high", "$low", "$close", "$adjclose", "$vwap","$amount", "$factor", "$change","$close/$factor", "$volume", "$volddx","$bigddx"],  # 字段：开盘、最高、最低、收盘价
+    #     start_time="2025-01-23",  # 查询开始日期
+    #     end_time="2025-01-31"     # 查询结束日期（与开始日期相同即可查询单日）
+    # )
+    #
     # print(data)
+    #
+    # data = D.features(
+    #     instruments=["SZ002594"],  # 股票代码
+    #     fields=["$open", "$high", "$low", "$close", "$adjclose", "$vwap","$amount", "$factor", "$change","$close/$factor", "$volume", "$volddx","$bigddx"],  # 字段：开盘、最高、最低、收盘价
+    #     start_time="2011-06-30",  # 查询开始日期
+    #     end_time="2011-07-31"     # 查询结束日期（与开始日期相同即可查询单日）
+    # )
+    #
+    # print(data)
+    #
+    # data = D.features(
+    #     instruments=["SZ301550"],  # 股票代码
+    #     fields=["$open", "$high", "$low", "$close", "$adjclose", "$vwap","$amount", "$factor", "$change","$close/$factor", "$volume", "$volddx","$bigddx"],  # 字段：开盘、最高、最低、收盘价
+    #     start_time="2023-09-15",  # 查询开始日期
+    #     end_time="2025-10-14"     # 查询结束日期（与开始日期相同即可查询单日）
+    # )
+    #
+    # print(data.head())
+    # data.to_csv("SZ301550.csv", encoding='utf-8')
+    # # data = D.features(["SH688399"], ["$open", "$high", "$low", "$close", "$adjclose", "$vwap", "$factor", "$change"], "2025-06-10", "2025-06-13")
+    # # print(data)
 

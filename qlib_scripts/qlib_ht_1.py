@@ -22,7 +22,7 @@ if __name__ == '__main__':
     start = timer()
 
     logger.remove(0)
-    logger.add("ht.log")
+    logger.add("error.log")
 
     qlib.init(
         # 数据存储路径
