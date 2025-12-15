@@ -2,7 +2,15 @@ import multiprocessing
 import qlib
 import logging
 from qlib.constant import REG_CN    # 中国市场
-
+import pandas as pd  # 导入pandas库进行数据处理
+# 显示所有行
+pd.set_option('display.max_rows', None)
+# 显示所有列
+pd.set_option('display.max_columns', None)
+# 设置列宽，确保长文本完整显示
+pd.set_option('display.max_colwidth', None)
+# 设置显示宽度，防止自动换行
+pd.set_option('display.width', None)
 # 加载特征数据
 
 if __name__ == '__main__':
@@ -12,7 +20,7 @@ if __name__ == '__main__':
 
     qlib.init(
         # 数据存储路径
-        provider_uri='~/.qlib/qlib_data/cn_data',
+        provider_uri='~/.qlib/qlib_data/my_data',
         # 中国市场
         region=REG_CN,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。
@@ -41,26 +49,36 @@ if __name__ == '__main__':
     from qlib.data import D
 
     # 定义股票列表和特征
-    instruments = ['SH605116']
+    instruments = ['SZ301393']
     fields = [
-        '$close',  # 收盘价
-        '$volume',  # 成交量
-        'Ref($close, 1)',  # 前一日收盘价
-        'Mean($close, 5)',  # 5日平均收盘价
-        '$high - $low'  # 当日振幅
+        '$open',  # 收盘价
+        '$high',  # 成交量
+        '$low',  # 成交量
+        '$close',  # 成交量
+        '$adjclose',  # 成交量
+        '$factor',  # 成交量
+        '$volddx',  # 成交量
+        '$bigddx',  # 成交量
+        '$netcsfree',  # 成交量
+        '$basiccurhold',  # 成交量
+        '$adfadfbasiccurhold',  # 成交量
+        '$amount',  # 成交量
+        '$vwap',  # 成交量
+        '$change',  # 成交量
+        '$zhangting',  # 成交量
     ]
 
     # 加载特征数据
     features = D.features(
         instruments=instruments,
         fields=fields,
-        start_time='2025-01-01',
-        end_time='2025-01-03',
+        start_time='2020-01-01',
+        end_time='2025-12-12',
         freq='day'
     )
 
     print(f"特征数据形状: {features.shape}")
-    print(features.head())
+    print(features)
 
     # # 以 AKShare 为例的示例代码
     # import akshare as ak
