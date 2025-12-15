@@ -66,6 +66,16 @@ class AlphaSimpleOpen(Alpha158):
     def get_label_config(self):
         return (["Ref($open, -6)/Ref($open, -1) - 1"], ["LABEL0"])
 
+_DEFAULT_INFER_PROCESSORS = [
+    {"class": "ProcessInf", "kwargs": {}},
+    {"class": "ZScoreNorm", "kwargs": {}},
+    {"class": "Fillna", "kwargs": {}},
+]
+
+_DEFAULT_LEARN_PROCESSORS = [
+    {"class": "DropnaLabel"},
+    {"class": "CSZScoreNorm", "kwargs": {"fields_group": "label"}},
+]
 
 # （如 SigAnaRecord 或 PortfolioStrategy）
 class Alpha158CostKDJ(Alpha158):
@@ -74,8 +84,14 @@ class Alpha158CostKDJ(Alpha158):
     并在 get_extended_data 中计算 MAIRU 信号（不用于训练，仅用于回测）。
     """
 
-    def __init__(self, *args, cost_window=250, include_alpha158=False,include_cost_kdj=False, include_signal=False, include_lz=False, **kwargs):
+    def __init__(self, *args, cost_window=250, learn_processors=None, infer_processors=None, include_alpha158=False, include_cost_kdj=False, include_signal=False, include_lz=False, **kwargs):
+        if infer_processors is None:
+            infer_processors = _DEFAULT_INFER_PROCESSORS
+        if learn_processors is None:
+            learn_processors = _DEFAULT_LEARN_PROCESSORS
         self.cost_window = cost_window
+        self.learn_processors = learn_processors
+        self.infer_processors = infer_processors
         self.include_alpha158 = include_alpha158
         self.include_cost_kdj = include_cost_kdj
         self.include_signal = include_signal

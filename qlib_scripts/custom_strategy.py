@@ -17,12 +17,15 @@ from qlib.backtest.signal import Signal
 from qlib.contrib.strategy import TopkDropoutStrategy
 from loguru import logger
 
+logger.add("Filter.log")
+
 class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.max_return_threshold = 0.15  # 15%
         self.lookback_days = 5  # 回溯天数
         self.logger = get_module_logger("TopkDropoutStrategyWithFilter")
+
 
     def _filter_stocks_by_return_threshold0(self, stocks, trade_start_time):
         """
@@ -134,6 +137,15 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         filtered_stocks = [stock for stock in stocks if
                            return_dict.get(stock, float('-inf')) <= self.max_return_threshold]
 
+        for stock in stocks:
+            return_xxx = return_dict.get(stock, float('-inf'))
+            if return_dict.get(stock, float('-inf')) <= self.max_return_threshold:
+                logger.info(
+                    f"Paasssed {stock} {return_xxx} <= {self.max_return_threshold}")
+            else:
+                logger.info(
+                    f"Filtered {stock} {return_xxx} > {self.max_return_threshold}")
+
         # 11. 记录过滤结果
         logger.info(
             f"Filtered {len(stocks)} stocks to {len(filtered_stocks)} using return threshold {self.max_return_threshold}")
@@ -216,14 +228,31 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             # 2. 应用涨幅过滤
             filtered_today = self._filter_stocks_by_return_threshold(initial_today, trade_start_time)
 
+            # # 3. 检查是否需要补充
+            # if len(filtered_today) < initial_required_count:
+            #     # 4. 从剩余候选股票中补充（排除已考虑的initial_today）
+            #     remaining_candidate = candidate_stocks[~candidate_stocks.isin(initial_today)]
+            #     # 5. 从剩余候选中按分数排序取需要的数量
+            #     additional_count = initial_required_count - len(filtered_today)
+            #     additional_today = get_first_n(remaining_candidate, additional_count)
+            #     # 6. 合并过滤后的股票和补充的股票
+            #     today = filtered_today + additional_today
+            # else:
+            #     today = filtered_today
+
             # 3. 检查是否需要补充
             if len(filtered_today) < initial_required_count:
                 # 4. 从剩余候选股票中补充（排除已考虑的initial_today）
                 remaining_candidate = candidate_stocks[~candidate_stocks.isin(initial_today)]
-                # 5. 从剩余候选中按分数排序取需要的数量
+
+                # 5. 对剩余候选股票也进行涨幅过滤
+                filtered_remaining = self._filter_stocks_by_return_threshold(remaining_candidate, trade_start_time)
+
+                # 6. 从过滤后的剩余候选中取需要的数量
                 additional_count = initial_required_count - len(filtered_today)
-                additional_today = get_first_n(remaining_candidate, additional_count)
-                # 6. 合并过滤后的股票和补充的股票
+                additional_today = get_first_n(filtered_remaining, additional_count)
+
+                # 7. 合并过滤后的股票和补充的股票
                 today = filtered_today + additional_today
             else:
                 today = filtered_today
@@ -257,7 +286,11 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             raise NotImplementedError(f"This type of input is not supported")
 
         # Get the stock list we really want to buy
-        buy = today[:len(sell) + self.topk - len(last)]
+        # buy = today[:len(sell) + self.topk - len(last)]
+        # 在 today = filtered_today + additional_today 之后
+        # 再次过滤 today 中所有股票，确保全部满足条件
+        today_verified = self._filter_stocks_by_return_threshold(today, trade_start_time)
+        buy = today_verified[:len(sell) + self.topk - len(last)]
 
         for code in current_stock_list:
             if not self.trade_exchange.is_stock_tradable(

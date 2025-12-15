@@ -75,15 +75,15 @@ if __name__ == '__main__':
     pd.set_option('display.width', None)
 
     start_time="2020-01-01"
-    end_time="2025-10-31"
+    end_time="2025-12-12"
 
     fit_start_time=start_time
     fit_end_time="2023-12-31"
 
     valid_start_time="2024-01-01"
-    valid_end_time="2024-12-31"
+    valid_end_time="2025-11-30"
 
-    test_start_time="2025-01-01"
+    test_start_time="2025-12-01"
     test_end_time=end_time
 
     # 2. 定义动态过滤规则：排除过去5日涨幅超过10%的股票
@@ -144,6 +144,11 @@ if __name__ == '__main__':
         # "infer_processors": [
         #         {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],  # 特征计算结束时间（训练集截止时间）
         # "learn_processors": [{"class": "DropnaLabel"}],  # 特征计算结束时间（训练集截止时间）
+        "infer_processors": [
+            {"class": "ProcessInf"},
+            {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature"}},
+            {"class": "Fillna", "kwargs": {"method": "ffill"}}
+        ],
         "instruments": filtered_instruments,  # 投资标的，这里使用前面定义的market（csi300）
         "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
         "include_cost_kdj": True,
@@ -401,7 +406,7 @@ if __name__ == '__main__':
         print("预测结果head")
         print(pred_df.head(10))
 
-        pred_df.to_csv('20250829.csv', encoding='utf-8')
+        pred_df.to_csv('预测结果.csv', encoding='utf-8')
         # 预测结果
         #                           score
         # datetime   instrument
@@ -670,6 +675,7 @@ if __name__ == '__main__':
         pred_label = pd.concat([label_df, pred_df], axis=1, sort=True).reindex(label_df.index)
         print("pred_label结果head")
         print(pred_label.head(10))
+        pred_label.to_csv('预测结果和真实标签.csv', encoding='utf-8')
         #                           label     score
         # datetime   instrument
         # 2025-01-02 SH600000    0.008949 -0.000373
