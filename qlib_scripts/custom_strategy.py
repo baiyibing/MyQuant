@@ -17,8 +17,6 @@ from qlib.backtest.signal import Signal
 from qlib.contrib.strategy import TopkDropoutStrategy
 from loguru import logger
 
-logger.add("Filter.log")
-
 class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

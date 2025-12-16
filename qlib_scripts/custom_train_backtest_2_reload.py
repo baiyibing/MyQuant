@@ -13,7 +13,7 @@ from qlib.contrib.data.handler import Alpha158
 from qlib.contrib.evaluate import risk_analysis
 from qlib.contrib.model import LGBModel
 from qlib.contrib.report.analysis_position import report_graph
-from qlib.data.filter import ExpressionDFilter
+from qlib.data.filter import ExpressionDFilter, NameDFilter
 from qlib.utils import init_instance_by_config, flatten_dict
 from qlib.workflow import R
 from qlib.data.dataset import DatasetH
@@ -37,11 +37,33 @@ if __name__ == '__main__':
     start = timer()
 
     logger.remove(0)
-    logger.add("orders.log")
+
+    # logger.add("Filter.log", filter=lambda record: record["function"].startswith("_filter_stocks_by_return_threshold"))
+    # logger.add("Filter.log", filter=lambda record: "custom_strategy:" in record["message"])
+
+    logger.add("Filter.log", filter=lambda record: record["module"] == "custom_strategy")
+    logger.add("orders.log", filter=lambda record: record["module"] != "custom_strategy")
+    # logger.add("orders.log", filter=lambda record: record["module"] == "qlib.backtest.position")
+    # logger.add(
+    #     "logs/custom_strategy_{time:YYYY-MM-DD}.log",
+    #     format="{time:YYYY-MM-DD HH:mm:ss} | {level:<8} | {extra[name]}:{function}:{line} - {message}",
+    #     filter=lambda record: record["extra"].get("name") == "custom_strategy",
+    #     level="INFO",
+    #     rotation="00:00",  # 每天午夜轮转
+    #     retention="30 days",
+    #     compression="zip",
+    #     encoding="utf-8"
+    # )
+    #
+    # # 其他日志的文件处理器
+    # logger.add(
+    #     "orders.log",
+    #     filter=lambda record: record["extra"].get("name") != "custom_strategy"
+    # )
 
     qlib.init(
         # 数据存储路径
-        provider_uri = "~/.qlib/qlib_data/cn_data",  # target_dir
+        provider_uri = "~/.qlib/qlib_data/my_data",  # target_dir
         # 中国市场
         region=REG_CN,
         kernels=16,
@@ -74,32 +96,90 @@ if __name__ == '__main__':
     # 设置显示宽度，防止自动换行
     pd.set_option('display.width', None)
 
-    start_time="2020-01-01"
-    end_time="2020-12-31"
+    start_time="2025-10-01"
+    end_time="2025-12-12"
 
     fit_start_time=start_time
-    fit_end_time="2020-04-30"
+    fit_end_time="2025-10-31"
 
-    valid_start_time="2020-05-01"
-    valid_end_time="2020-08-31"
+    valid_start_time="2025-11-01"
+    valid_end_time="2025-12-09"
 
-    test_start_time="2020-09-01"
+    test_start_time="2025-12-10"
     test_end_time=end_time
-    exp_name = "alpha158_cost_kdj_lgb_reload"
-    market = "csi300"  # 设置股票池为沪深300指数成分股
-    benchmark = "SH000300"  # 设置业绩比较基准为沪深300指数代码
-    signal_cols = ["COST_K", "COST_D", "COST_J", "MAIRU_SIGNAL"]
+
+    # 2. 定义动态过滤规则：排除过去5日涨幅超过10%的股票
+    # 注意：表达式中的 $close 等字段需要确保在你的数据中存在
+    # f"""
+    # (
+    #     ($close - Ref($close,5)) / Ref($close,5) < -0.10 &
+    #     ($high - $low)/$close < 0.05 &
+    #     (EMA($close,12) > EMA($close,26))
+    # )
+    # """
+    # expression_rule = "(Ref($close, 0) / Ref($close, 5) - 1) <= 0.10"
+
+    # 要排除的股票代码列表
+    exclude_stocks = ['SZ000004', 'SZ000430', 'SZ000488', 'SZ000504', 'SZ000518', 'SZ000595', 'SZ000608', 'SZ000609', 'SZ000615', 'SZ000638', 'SZ000656', 'SZ000668', 'SZ000669', 'SZ000691', 'SZ000697', 'SZ000698', 'SZ000711', 'SZ000736', 'SZ000752', 'SZ000793', 'SZ000820', 'SZ000903', 'SZ000908', 'SZ000909', 'SZ000929', 'SZ000972', 'SZ001270', 'SZ002005', 'SZ002024', 'SZ002047', 'SZ002058', 'SZ002076', 'SZ002122', 'SZ002168', 'SZ002197', 'SZ002199', 'SZ002200', 'SZ002211', 'SZ002214', 'SZ002231', 'SZ002253', 'SZ002289', 'SZ002305', 'SZ002306', 'SZ002388', 'SZ002425', 'SZ002485', 'SZ002496', 'SZ002528', 'SZ002529', 'SZ002569', 'SZ002581', 'SZ002586', 'SZ002592', 'SZ002620', 'SZ002630', 'SZ002647', 'SZ002650', 'SZ002656', 'SZ002693', 'SZ002713', 'SZ002717', 'SZ002742', 'SZ002762', 'SZ002789', 'SZ002808', 'SZ002816', 'SZ002822', 'SZ002848', 'SZ002868', 'SZ002872', 'SZ002898', 'SZ003004', 'SZ003032', 'SZ300020', 'SZ300029', 'SZ300044', 'SZ300052', 'SZ300093', 'SZ300096', 'SZ300097', 'SZ300125', 'SZ300137', 'SZ300147', 'SZ300152', 'SZ300159', 'SZ300165', 'SZ300167', 'SZ300175', 'SZ300198', 'SZ300205', 'SZ300211', 'SZ300225', 'SZ300237', 'SZ300268', 'SZ300301', 'SZ300311', 'SZ300313', 'SZ300326', 'SZ300338', 'SZ300343', 'SZ300344', 'SZ300366', 'SZ300376', 'SZ300379', 'SZ300391', 'SZ300419', 'SZ300462', 'SZ300472', 'SZ300477', 'SZ300506', 'SZ300527', 'SZ300555', 'SZ300561', 'SZ300716', 'SZ300899', 'SZ301288', 'SH600107', 'SH600130', 'SH600136', 'SH600165', 'SH600169', 'SH600193', 'SH600200', 'SH600228', 'SH600238', 'SH600243', 'SH600265', 'SH600289', 'SH600355', 'SH600358', 'SH600360', 'SH600365', 'SH600381', 'SH600421', 'SH600525', 'SH600568', 'SH600599', 'SH600608', 'SH600624', 'SH600636', 'SH600696', 'SH600735', 'SH600753', 'SH600777', 'SH600892', 'SH603007', 'SH603021', 'SH603261', 'SH603268', 'SH603377', 'SH603388', 'SH603389', 'SH603398', 'SH603517', 'SH603557', 'SH603559', 'SH603580', 'SH603595', 'SH603721', 'SH603789', 'SH603813', 'SH603825', 'SH603828', 'SH603838', 'SH603843', 'SH603869', 'SH605081', 'SH605199', 'SH688053', 'SH688076', 'SH688184', 'SH688287', 'SH688511', 'SH688646', 'BJ920305', 'BJ920680']
+    # exclude_stocks = ['SZ000004', 'SZ000430', 'SZ000488']
+
+    # 创建排除表达式
+    # 这里使用NotIn操作来排除特定股票
+    exclude_filter = NameDFilter(name_rule_re='^(?!(' + '|'.join(exclude_stocks) + ')).*$')  # 正则排除
+
+    # 创建表达式过滤器
+    # exclude_filter = ExpressionDFilter(rule_expression=exclude_expression)
+
+    expression_rule = f"""
+    (
+        ($close - Ref($close,5)) / Ref($close,5) < -0.10
+    )
+    """
+    dynamic_filter = ExpressionDFilter(rule_expression=expression_rule)
+
+    # 3. 获取基础股票池（例如全市场或沪深300）应用动态过滤器，获取筛选后的股票列表
+    filtered_instruments = D.instruments(market='all',
+                                     start_time=start_time,  # 调整为你需要的开始时间
+                                     end_time=end_time,  # 调整为你需要的结束时间
+                                     filter_pipe=[exclude_filter],  # 应用过滤器
+                                     )  # 或者使用 market='all'
+
+    # 定义策略相关的市场和分析基准
+    # market = "all"
+    # market = "csi300"
+
+
+    benchmark = "SH601727"  # 设置业绩比较基准为沪深300指数代码
+    # market = ['SH600000','SH600010','SH600028','SH600025','SH600019','SH600900','SH600941','SZ300059','SZ300124','SZ300274']
+
+    exp_name = "alpha158_cost_kdj_lgb"
+
+    signal_cols = ["COST_K", "COST_D", "COST_J", "MAIRU_SIGNAL","ZHANGTING"]
+
     # 定义数据处理器配置，指定数据获取的时间范围、训练集时间区间和投资标的
     data_handler_config = {
         "start_time": start_time,  # 整体数据开始时间
         "end_time": end_time,  # 整体数据结束时间
         "fit_start_time": fit_start_time,  # 特征计算起始时间（通常与start_time一致）
         "fit_end_time": fit_end_time,  # 特征计算结束时间（训练集截止时间）
-        "instruments": market,  # 投资标的，这里使用前面定义的market（csi300）
+        # "cost_window": 250,  # 特征计算结束时间（训练集截止时间）
+        # "infer_processors": [
+        #         {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],  # 特征计算结束时间（训练集截止时间）
+        # "learn_processors": [{"class": "DropnaLabel"}],  # 特征计算结束时间（训练集截止时间）
+        "infer_processors": [
+            {"class": "ProcessInf"},
+            {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature"}},
+            {"class": "Fillna", "kwargs": {"method": "ffill"}}
+        ],
+        "instruments": filtered_instruments,  # 投资标的，这里使用前面定义的market（csi300）
+        "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
+        "include_cost_kdj": True,
+        "include_signal": False,
+        "include_lz": True,
     }
 
-    # handler = Alpha158CostKDJ(**data_handler_config)
-    handler = Alpha158(**data_handler_config) #  **运算符将字典展开为关键字参数
+    handler = Alpha158CostKDJ(**data_handler_config)
+    # handler = Alpha158(**data_handler_config) #  **运算符将字典展开为关键字参数
 
     # 定义任务配置字典，包含模型和数据集的详细配置
     task = {
@@ -125,11 +205,11 @@ if __name__ == '__main__':
             "kwargs": {  # 传递给数据集构造函数的参数
                 "handler":
                 {  # 数据处理器配置
-                    # "class": "Alpha158CostKDJ",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
-                    # "module_path": "custom_handler",  # 数据处理器所在模块路径
+                    "class": "Alpha158CostKDJ",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
+                    "module_path": "custom_handler",  # 数据处理器所在模块路径
                     # "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
-                    "class": "Alpha158",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
-                    "module_path": "qlib.contrib.data.handler",  # 数据处理器所在模块路径
+                    # "class": "Alpha158",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
+                    # "module_path": "qlib.contrib.data.handler",  # 数据处理器所在模块路径
                     "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
                 },
                 "segments": {  # 定义数据集的分段（训练集、验证集、测试集）
@@ -198,8 +278,8 @@ if __name__ == '__main__':
             "kwargs": {  # 策略参数
                 "model": model,  # 使用的预测模型
                 "dataset": dataset,  # 使用的数据集
-                "topk": 50,  # 选择信号最强的50只股票
-                "n_drop": 5,  # 每次调仓时丢弃排名最后5只股票
+                "topk": 10,  # 选择信号最强的50只股票
+                "n_drop": 3,  # 每次调仓时丢弃排名最后5只股票
                 "hold_thresh": 1  # 最小持有1天
             },
         },
@@ -225,102 +305,25 @@ if __name__ == '__main__':
     信号驱动：直接用 MAIRU == 1 选股
     """
 
-    recorder_path = None
     r_start = timer()
     rid = None
-    with R.start(experiment_name=exp_name):
-        R.log_params(**flatten_dict(task))  # 将任务配置参数扁平化后记录到实验中，便于追踪
-        model.fit(dataset)  # 方法根据数据集对模型进行训练，这个过程会生成模型参数和训练指标 在训练集上训练模型，并在验证集上进行验证
-        R.save_objects(trained_model=model)  # 将训练好的模型保存到当前实验记录中
-        # 保存的模型可以通过 recorder.load_object("trained_model")在后续流程（如回测阶段）中重新加载使用，确保模型的一致性和可复用性
+    # with R.start(experiment_name=exp_name):
+    #     R.log_params(**flatten_dict(task))  # 将任务配置参数扁平化后记录到实验中，便于追踪
+    #     model.fit(dataset)  # 在训练集上训练模型，并在验证集上进行验证
+    #     R.save_objects(trained_model=model)  # 将训练好的模型保存到当前实验记录中
+    #     rid = R.get_recorder().id  # 获取当前实验记录器的ID，用于后续检索
 
+    # 打印完成信息
+    print("模型训练完成！", rid, timer() - r_start)
+    # 开始一个名为"backtest_analysis"的实验工作流，用于组织回测分析过程
+    with R.start(experiment_name="backtest_analysis"):
+        # 从之前的"train_model"实验中获取记录器，并加载其中保存的已训练模型
+        # recorder = R.get_recorder(recorder_id=rid, experiment_name=exp_name)  # 根据rid获取训练记录器
+        # 获取当前回测实验的记录器及其ID 如果接着上个with R.start() model.fit(dataset) 就直接使用recorder = R.get_recorder()
+        recorder = R.get_recorder()
+        model = recorder.load_object('trained_model')  # 从记录器中加载名为"trained_model"的模型对象
         rid = R.get_recorder().id  # 获取当前实验记录器的ID，用于后续检索
-
-        # 5. 特征重要性分析与选择
-        # 获取特征重要性（新版本QLib模型通常内置该方法）
-        # 方式一：直接使用模型提供的 `feature_importance` (如果可用)
-        if hasattr(model, 'feature_importance'):
-            feat_imp = model.feature_importance()
-        else:
-            # 方式二：使用模型训练器中的特征重要性（适用于某些版本）
-            # 注意：具体方法可能因版本而异，请查阅官方文档
-            try:
-                feat_imp = model.get_feature_importance()
-            except:
-                # 方式三：回退方案 - 基于训练数据手动计算（近似）
-                # 此方法可能计算较慢，且为近似值
-                print(
-                    "Warning: Using fallback method for feature importance. Check Qlib documentation for the recommended way.")
-                # 此处可能需要根据实际模型类型调整获取方式
-                feat_imp = None
-
-        print(f"直接使用模型提供的 `feature_importance` (如果可用)")
-        print(feat_imp)
-        # Column_17     103
-        # Column_1       95
-        # Column_178     89
-        # Column_175     80
-        # Column_27      77
-
-        # 将特征重要性转换为Series并按降序排序
-        feat_imp_series = feat_imp.sort_values(ascending=False)
-
-        # 选择前K个最重要的特征
-        selected_features = feat_imp_series.index.tolist()
-        print(f"将特征重要性转换为Series并按降序排序:")
-        print(selected_features)
-
-        selected_features_name = []
-        for col in selected_features:
-            parts = col.split('_') # Column_17
-            if parts:
-                number = int(parts[-1])
-                selected_features_name.append(all_features[number])
-        print(f"重要的特征列名对应的特征名")
-        print(selected_features_name)
-
-        K = 50
-        # 6. (可选) 可视化特征重要性
-        top_features = feat_imp_series.head(K)
-        top_features_name = pd.Series(selected_features_name)
-        top_features_name=top_features_name.head(K)
-
-        # 创建水平条形图
-        feature_importance_fig = go.Figure()
-
-        # 添加条形图轨迹
-        feature_importance_fig.add_trace(go.Bar(
-            y=top_features_name.values,
-            # y=top_features.index.tolist(),
-            x=top_features.values,
-            orientation='h',
-            marker=dict(
-                color=top_features.values,
-                colorscale='Viridis',
-                showscale=True,
-                colorbar=dict(title="重要性分数")
-            ),
-            hovertemplate='<b>%{y}</b><br>重要性: %{x:.4f}<extra></extra>'
-        ))
-
-        # 更新布局
-        feature_importance_fig.update_layout(
-            title=dict(
-                text=f'Top {K} 特征重要性',
-                x=0.5,
-                xanchor='center'
-            ),
-            xaxis_title='重要性分数',
-            yaxis_title='特征名称',
-            height=600 + K * 10,  # 动态调整高度以适应特征数量
-            template='plotly_white',
-            showlegend=False
-        )
-
-        # 调整y轴顺序，使最重要的特征在顶部
-        feature_importance_fig.update_yaxes(autorange="reversed")
-
-        feature_importance_fig.show()
+        print("策略回测开始！", rid)
 
         # 7. 使用筛选后的特征重新训练模型（可选但推荐）
         # 可以创建一个新的Handler或Dataset，仅包含选定的特征
@@ -348,7 +351,7 @@ if __name__ == '__main__':
         print("预测结果head")
         print(pred_df.head(10))
 
-        pred_df.to_csv('20250829.csv', encoding='utf-8')
+        pred_df.to_csv('预测结果.csv', encoding='utf-8')
         # 预测结果
         #                           score
         # datetime   instrument
@@ -398,20 +401,6 @@ if __name__ == '__main__':
         par = PortAnaRecord(recorder, port_analysis_config, "day")  # 传入记录器、回测配置和时间频率
         par.generate()  # 系统会基于配置启动完整的回测流程，包括初始化投资组合、模拟每日交易、计算持仓价值，并最终生成收益率、波动率、夏普比率、最大回撤等指标的分析报告
 
-
-        x_test = dataset.prepare("test")
-        importance_array = feat_imp  # 获取重要性数组
-        feature_lable0_names = x_test.columns.values  # 获取特征名称列表
-        feature_names = feature_lable0_names[:-1] # 去掉最后一个lable0
-        # 创建DataFrame并排序
-        importance_df = pd.DataFrame({
-            'feature': feature_names,
-            'importance': importance_array
-        })
-        importance_df.sort_values('importance', ascending=False, inplace=True)
-        importance_df.reset_index(drop=True, inplace=True)  # 重置索引
-
-        print('特征重要性DataFrame，这样做是错误的，没有对应好',importance_df)  # 打印可读结果
 
         # 'The following are analysis results of benchmark return(1day).'
         #                        risk
@@ -617,6 +606,7 @@ if __name__ == '__main__':
         pred_label = pd.concat([label_df, pred_df], axis=1, sort=True).reindex(label_df.index)
         print("pred_label结果head")
         print(pred_label.head(10))
+        pred_label.to_csv('预测结果和真实标签.csv', encoding='utf-8')
         #                           label     score
         # datetime   instrument
         # 2025-01-02 SH600000    0.008949 -0.000373
@@ -641,31 +631,3 @@ if __name__ == '__main__':
         print("策略回测完成！", rid, timer() - r_start)
 
         print("✅ 训练与回测完成！")
-
-        """
-        在Qlib中，pred.pkl文件保存了模型在测试集上生成的预测结果，其核心字段包括时间戳、股票代码以及模型给出的预测分数。这个文件是连接模型预测与后续回测分析的关键输出。
-        预测分数：这是文件中最核心的数值。模型会为每一个股票在每一个交易日期预测一个代表其未来潜力的分数。
-        一般而言，分数越高，表示模型认为该股票在未来时间段内的预期收益也越高。这个分数是后续构建投资组合（如买入高分股票、卖出低分股票）的直接依据
-        分数含义：预测分数的具体含义取决于模型训练时使用的标签（label）。如果标签是未来收益率，那么预测分数就直接与预期收益率相关
-        
-        在 Qlib 中，dataset.prepare(segments='test', col_set=['feature', 'label'])的 label表示机器学习模型要预测的目标变量。
-        具体到量化投资场景，label通常是未来某个时间段的收益率或其他能够衡量投资回报的指标。
-        
-        标签在量化投资中的具体含义
-        在 Qlib 的框架中，label是监督学习的核心组成部分，它代表了模型需要学习和预测的金融目标。
-        
-        常见的 label定义包括：
-        未来收益率：最常用的标签，计算为 (未来N日价格 - 当前价格) / 当前价格，模型的目标是预测股票未来的价格走势
-        涨跌分类：将未来收益率转化为分类问题，例如设定阈值将股票分为"上涨"和"下跌"两类
-        相对排名：根据未来收益率对股票进行排名，用于构建投资组合
-        
-        特征与标签的关系
-        在 Qlib 的数据集中，col_set=['feature', 'label']表示同时获取特征和标签数据：
-        特征（feature）：描述股票当前状态的各种指标，如价格、成交量、技术指标等，作为模型的输入变量
-        标签（label）：基于未来数据计算的目标值，作为模型训练时的监督信号
-        
-        标签在模型训练中的作用
-        当使用 segments='test'参数时，Qlib 会准备测试集的数据，其中标签用于评估模型在未见数据上的表现。通过比较模型预测的标签值与真实的标签值，可以评估模型的预测准确性。
-        需要注意的是，在实际的量化策略中，标签的定义直接影响模型的学习目标和最终的交易性能，因此需要谨慎设计以避免未来函数和保证实际可交易性。
-        
-        """
