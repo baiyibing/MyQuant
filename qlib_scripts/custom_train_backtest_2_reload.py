@@ -28,7 +28,8 @@ if __name__ == '__main__':
     start = timer()
 
     logger.remove(0)
-    logger.add("backtest.log")
+    logger.add("Filter.log", filter=lambda record: record["module"] == "custom_strategy")
+    logger.add("orders.log", filter=lambda record: record["module"] != "custom_strategy")
 
     qlib.init(
         provider_uri="~/.qlib/qlib_data/my_data",

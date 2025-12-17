@@ -57,8 +57,8 @@ if __name__ == '__main__':
     fit_start_time = start_time
     fit_end_time = "2025-10-31"
     valid_start_time = "2025-11-01"
-    valid_end_time = "2025-12-09"
-    test_start_time = "2025-12-10"
+    valid_end_time = "2025-11-30"
+    test_start_time = "2025-12-01"
     test_end_time = end_time
 
     # 排除股票列表

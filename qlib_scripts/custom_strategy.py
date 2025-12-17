@@ -1,3 +1,5 @@
+from pprint import pprint
+
 from qlib.contrib.strategy import TopkDropoutStrategy
 from qlib.data import D
 from qlib.utils import get_pre_trading_date, load_dataset
@@ -120,9 +122,14 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
 
         # 6. 重置索引，将datetime和instrument作为列
         close_prices = close_prices.reset_index()
+        logger.info(
+            f"6. 重置索引，将datetime和instrument作为列 {close_prices}")
 
         # 7. 按股票分组，获取每个股票的起始和结束收盘价
         prices = close_prices.groupby('instrument')["$close"].agg(['first', 'last']).reset_index()
+        logger.info(
+            f"7. 按股票分组，获取每个股票的起始和结束收盘价 {prices}")
+
 
         # 8. 计算涨幅，正确处理缺失值
         prices['return'] = (prices['last'] - prices['first']) / prices['first']
@@ -130,6 +137,10 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
 
         # 9. 创建股票到涨幅的映射字典
         return_dict = {row['instrument']: row['return'] for _, row in prices.iterrows()}
+        pprint('创建股票到涨幅的映射字典')
+        pprint(return_dict)
+        logger.info(
+            f"创建股票到涨幅的映射字典 {return_dict}")
 
         # 10. 过滤股票，添加日志记录
         filtered_stocks = [stock for stock in stocks if
