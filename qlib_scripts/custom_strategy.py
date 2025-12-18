@@ -22,7 +22,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         self.logger = get_module_logger("TopkDropoutStrategyWithFilter")
 
 
-    def _filter_stocks_by_return_threshold(self, stocks, trade_start_time):
+    def _filter_stocks_by_return_threshold0(self, stocks, trade_start_time):
         """ 过滤过去回溯天数内涨幅超过阈值的股票，增强稳定性 """
         # 1. 验证输入参数
         if self.lookback_days <= 0 or self.max_return_threshold < 0:
@@ -132,6 +132,93 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
 
         return filtered_stocks
 
+    def _filter_stocks_by_return_threshold(self, stocks, trade_start_time):
+        """
+        用极致性能方案过滤涨幅超过阈值的股票（仅查询首尾两天数据，无中间历史数据）
+
+        参数:
+        stocks: 股票代码列表
+        trade_start_time: 结束日期（交易日，如'2025-04-01'）
+
+        返回:
+        涨幅不超过阈值的股票列表
+        """
+        # 1. 验证输入参数
+        if self.lookback_days <= 0 or self.max_return_threshold < 0:
+            logger.warning(
+                f"Invalid parameters: lookback_days={self.lookback_days}, threshold={self.max_return_threshold}")
+            return stocks
+
+        # 2. 检查股票列表
+        if not stocks:
+            logger.warning("Empty stock list provided")
+            return stocks
+
+        # 3. 获取有效起始日期（回溯天数前的交易日）
+        prev_dates_last = get_date_by_shift(trade_start_time, -self.lookback_days, future=False)
+        if not prev_dates_last:
+            logger.error(f"Invalid lookback date: {trade_start_time} - {self.lookback_days} days")
+            return stocks
+
+        # 4. 直接获取首尾两天收盘价（仅查询2天数据！）
+        try:
+            # 获取起始日收盘价（只查1天）
+            start_price = D.features(
+                instruments=stocks,
+                fields=["$close"],
+                start_time=prev_dates_last,
+                end_time=prev_dates_last,  # 精确到单日
+            )
+
+            # 获取结束日收盘价（只查1天）
+            end_price = D.features(
+                instruments=stocks,
+                fields=["$close"],
+                start_time=trade_start_time,
+                end_time=trade_start_time,  # 精确到单日
+            )
+        except Exception as e:
+            logger.error(f"Data fetch failed: {str(e)}")
+            return stocks
+
+        # 5. 处理空数据情况
+        if start_price.empty or end_price.empty:
+            logger.warning("Empty price data for start/end dates")
+            return stocks
+
+        # 6. 合并计算涨幅（内存0开销！）
+        merged = pd.merge(
+            start_price[['instrument', '$close']].rename(columns={'$close': 'first'}),
+            end_price[['instrument', '$close']].rename(columns={'$close': 'last'}),
+            on='instrument'
+        )
+
+        # 计算涨幅（安全处理除零）
+        merged['return'] = (merged['last'] - merged['first']) / merged['first']
+        merged['return'] = merged['return'].replace([float('inf'), float('-inf')], float('-inf'))
+
+        # 7. 创建股票涨幅映射
+        return_dict = merged.set_index('instrument')['return'].to_dict()
+
+        # 8. 过滤股票（仅需O(n)遍历，无额外计算）
+        filtered_stocks = []
+        for stock in stocks:
+            # 用get安全获取，避免KeyError
+            return_val = return_dict.get(stock, float('-inf'))
+
+            # 涨幅 <= 阈值则保留
+            if return_val <= self.max_return_threshold:
+                filtered_stocks.append(stock)
+                logger.info(f"PASS: {stock} ({return_val:.2%}) <= {self.max_return_threshold:.2%}")
+            else:
+                logger.info(f"FILTER: {stock} ({return_val:.2%}) > {self.max_return_threshold:.2%}")
+
+        # 9. 记录过滤结果
+        logger.info(
+            f"Filtered {len(stocks)} stocks to {len(filtered_stocks)} using threshold {self.max_return_threshold:.2%}")
+
+        return filtered_stocks
+
     # 这是 Qlib 策略基类 BaseStrategy中定义的抽象方法，所有自定义策略都必须实现它。它在回测的每个时间步（由执行器频率决定，默认为每天）都会被回测引擎调用，是策略逻辑的核心入口
     # 参数 execute_result：它包含了上一个交易决策的执行结果（例如，哪些订单成交了，成交价格多少）。在策略开始运行时或没有待处理订单时，它可能是 None。策略可以根据这些信息来调整当前的决策
     def generate_trade_decision(self, execute_result=None):
@@ -217,10 +304,11 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
 
             # 1. 先获取初始候选股票（按分数排序的前 self.n_drop + self.topk - len(last) 只）
             initial_required_count = self.n_drop + self.topk - len(last)
-            initial_today = get_first_n(candidate_stocks, initial_required_count)
+            initial_today = get_first_n(candidate_stocks, initial_required_count*5)
 
             # 2. 应用涨幅过滤
             filtered_today = self._filter_stocks_by_return_threshold(initial_today, trade_start_time)
+            filtered_today = filtered_today[:initial_required_count]
 
             # # 3. 检查是否需要补充
             # if len(filtered_today) < initial_required_count:
@@ -236,11 +324,13 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
 
             # 3. 检查是否需要补充
             if len(filtered_today) < initial_required_count:
+                logger.info(
+                    f"过滤了 {len(filtered_today)} 需要补足到  {initial_required_count}，要2次过滤了 ")
                 # 4. 从剩余候选股票中补充（排除已考虑的initial_today）
                 remaining_candidate = candidate_stocks[~candidate_stocks.isin(initial_today)]
 
-                # 优化点：仅处理前10倍所需数量的股票
-                max_process = (initial_required_count - len(filtered_today)) * 10
+                # 优化点：仅处理前5倍所需数量的股票
+                max_process = (initial_required_count - len(filtered_today)) * 5
                 processed_remaining = remaining_candidate[:max_process]
 
                 # 5. 对部分候选股票也进行涨幅过滤

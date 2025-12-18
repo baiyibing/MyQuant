@@ -53,12 +53,12 @@ if __name__ == '__main__':
 
     # 时间配置
     start_time = "2020-01-01"
-    end_time = "2024-12-31"
+    end_time = "2025-12-12"
     fit_start_time = start_time
-    fit_end_time = "2022-12-31"
-    valid_start_time = "2023-01-01"
-    valid_end_time = "2023-12-31"
-    test_start_time = "2024-01-01"
+    fit_end_time = "2023-12-31"
+    valid_start_time = "2024-01-01"
+    valid_end_time = "2024-12-31"
+    test_start_time = "2025-01-01"
     test_end_time = end_time
 
     # 排除股票列表
