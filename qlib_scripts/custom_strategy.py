@@ -150,9 +150,10 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             return stocks
 
         # 2. 检查股票列表
-        if not stocks:
-            logger.warning("Empty stock list provided")
+        if stocks is None or len(stocks) == 0:
             return stocks
+        else:
+            logger.warning(f"本次 {trade_start_time} 检查的股票列表 {stocks}")
 
         # 3. 获取有效起始日期（回溯天数前的交易日）
         prev_dates_last = get_date_by_shift(trade_start_time, -self.lookback_days, future=False)
@@ -186,10 +187,22 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             logger.warning("Empty price data for start/end dates")
             return stocks
 
-        # 6. 合并计算涨幅（内存0开销！）
+        # 在获取数据后添加调试信息
+        logger.info(f"Start price columns: {start_price.columns.tolist()}")
+        logger.info(f"Start price index: {start_price.index.names}")
+        logger.info(f"Start price shape: {start_price.shape}")
+
+        # 6. 重置索引以获取 instrument 信息
+        start_price_reset = start_price.reset_index()
+        end_price_reset = end_price.reset_index()
+
+        # 重置索引后
+        logger.info(f"Start price reset columns: {start_price_reset.columns.tolist()}")
+
+        # 7. 合并计算涨幅
         merged = pd.merge(
-            start_price[['instrument', '$close']].rename(columns={'$close': 'first'}),
-            end_price[['instrument', '$close']].rename(columns={'$close': 'last'}),
+            start_price_reset[['instrument', '$close']].rename(columns={'$close': 'first'}),
+            end_price_reset[['instrument', '$close']].rename(columns={'$close': 'last'}),
             on='instrument'
         )
 
@@ -197,10 +210,10 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         merged['return'] = (merged['last'] - merged['first']) / merged['first']
         merged['return'] = merged['return'].replace([float('inf'), float('-inf')], float('-inf'))
 
-        # 7. 创建股票涨幅映射
+        # 8. 创建股票涨幅映射
         return_dict = merged.set_index('instrument')['return'].to_dict()
 
-        # 8. 过滤股票（仅需O(n)遍历，无额外计算）
+        # 9. 过滤股票（仅需O(n)遍历，无额外计算）
         filtered_stocks = []
         for stock in stocks:
             # 用get安全获取，避免KeyError
@@ -213,7 +226,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             else:
                 logger.info(f"FILTER: {stock} ({return_val:.2%}) > {self.max_return_threshold:.2%}")
 
-        # 9. 记录过滤结果
+        # 10. 记录过滤结果
         logger.info(
             f"Filtered {len(stocks)} stocks to {len(filtered_stocks)} using threshold {self.max_return_threshold:.2%}")
 
