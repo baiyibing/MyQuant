@@ -2,7 +2,7 @@ from pprint import pprint
 
 from qlib.contrib.strategy import TopkDropoutStrategy
 from qlib.data import D
-from qlib.utils import get_pre_trading_date, load_dataset
+from qlib.utils import get_pre_trading_date, load_dataset,get_date_by_shift
 import pandas as pd
 import numpy as np
 from qlib.backtest.position import Position
@@ -89,27 +89,49 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             return stocks  # 简单处理无效输入
 
         # 2. 获取有效交易日，避免无效日期
-        prev_dates = []
-        for i in range(1, self.lookback_days + 1):
-            date = get_pre_trading_date(trade_start_time, i)
-            if date is None:
-                # 记录警告，但不中断执行
-                logger.warning(f"Invalid trading date for {trade_start_time} - {i} days ago")
-            else:
-                prev_dates.append(date)
+        # prev_dates = []
+        # for i in range(1, self.lookback_days + 1):
+        #     # date = get_pre_trading_date(trading_date=trade_start_time)
+        #     date = get_date_by_shift(trade_start_time, -i ,future=False)
+        #     if date is None:
+        #         # 记录警告，但不中断执行
+        #         logger.warning(f"Invalid trading date for {trade_start_time} - {i} days ago")
+        #     else:
+        #         logger.warning(f"valid trading date for {trade_start_time} - {i} days ago")
+        #         prev_dates.append(date)
+        # prev_dates_first = get_date_by_shift(trade_start_time, -1 ,future=False)
+        # if prev_dates_first is None:
+        #     # 记录警告，但不中断执行
+        #     logger.warning(f"prev_dates_first无效交易日 for ：{trade_start_time} - 1 days ago")
+        # else:
+        #     logger.warning(f"prev_dates_first有效交易日 for ：{trade_start_time} - 1 days ago")
+
+        prev_dates_last = get_date_by_shift(trade_start_time, -self.lookback_days ,future=False)
+        if prev_dates_last is None:
+            # 记录警告，但不中断执行
+            logger.warning(f"prev_dates_last无效交易日 for {trade_start_time} - {self.lookback_days} days ago")
+        else:
+            logger.warning(f"prev_dates_last有效交易日 for {trade_start_time} - {self.lookback_days} days ago")
+
 
         # 3. 确保至少有一个有效日期
-        if not prev_dates:
+        # if not prev_dates:
+        #     logger.error("No valid trading dates found for lookback period")
+        #     return stocks
+
+        # 3. 确保至少有一个有效日期
+        if not prev_dates_last:
             logger.error("No valid trading dates found for lookback period")
             return stocks
 
+        logger.error(f"3. 确保有效日期从 {trade_start_time} 至 {prev_dates_last}")
         # 4. 获取数据，添加错误处理
         try:
             close_prices = D.features(
                 instruments=stocks,
                 fields=["$close"],
-                start_time=prev_dates[-1],
-                end_time=prev_dates[0],
+                start_time=prev_dates_last,
+                end_time=trade_start_time,
             )
         except Exception as e:
             logger.error(f"Failed to fetch stock data: {str(e)}")
@@ -161,12 +183,26 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
 
         return filtered_stocks
 
+    # 这是 Qlib 策略基类 BaseStrategy中定义的抽象方法，所有自定义策略都必须实现它。它在回测的每个时间步（由执行器频率决定，默认为每天）都会被回测引擎调用，是策略逻辑的核心入口
+    # 参数 execute_result：它包含了上一个交易决策的执行结果（例如，哪些订单成交了，成交价格多少）。在策略开始运行时或没有待处理订单时，它可能是 None。策略可以根据这些信息来调整当前的决策
     def generate_trade_decision(self, execute_result=None):
         # 调用父类方法获取基础交易决策
         trade_step = self.trade_calendar.get_trade_step()
+        # 从 trade_calendar（交易日历管理器）中获取当前回测进行到的步骤索引
+        # Qlib 的回测过程由 TradeCalendarManager管理，它将整个回测时间范围划分为多个时间步（trade step）。
+        # trade_step是一个从 0 开始的整数，随着回测进行而递增。这个方法返回的就是当前的步数，用于定位在时间轴上的位置
         trade_start_time, trade_end_time = self.trade_calendar.get_step_time(trade_step)
+        logger.info(
+            f"获取当前这个交易决策步骤所对应的实际交易时间范围 {trade_start_time} 到 {trade_end_time} 标明了“今天”这个交易日的时间区间（通常是同一天的开始和结束时刻）")
         pred_start_time, pred_end_time = self.trade_calendar.get_step_time(trade_step, shift=1)
+        # 注意参数 shift=1。这表示将时间窗口向前（过去）移动了一个周期。
+        # 这样设计的目的是确保在 trade_step这个时间点做决策时，所使用的预测信号是基于在此之前已经发生的历史数据计算得出的，严格符合回测的因果关系。
+        # 例如，在回测到第5天（trade_step=4）时，这里获取的是第4天及之前的数据来生成信号，用于第5天的交易。
+        logger.info(
+            f"获取用于计算预测信号（pred_score）的时间范围 {pred_start_time} 到 {pred_end_time} 标明了“今天”这个交易日的时间区间（通常是同一天的开始和结束时刻）")
         pred_score = self.signal.get_signal(start_time=pred_start_time, end_time=pred_end_time)
+        # 调用信号对象的方法，获取在指定的预测时间范围内所有股票的预测分数
+        # pred_score通常是一个 Pandas Series 或 DataFrame，索引为日期和股票代码，包含一列名为 score的预测值。这个分数是排序和选择股票的依据——通常认为分数越高的股票未来表现越好
 
         # NOTE: the current version of topk dropout strategy can't handle pd.DataFrame(multiple signal)
         # So it only leverage the first col of signal
