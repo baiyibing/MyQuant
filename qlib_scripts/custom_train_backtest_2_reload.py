@@ -60,7 +60,7 @@ if __name__ == '__main__':
     rid = None
     exp_name = None
     try:
-        with open("last_experiment_info.txt", 'r', encoding='utf-8') as f:
+        with open("last_experiment_info_2020-01-01_2024-12-31.txt", 'r', encoding='utf-8') as f:
             content = f.read().strip()
             print(f"文件内容: {content}")
 

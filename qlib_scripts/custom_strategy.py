@@ -11,12 +11,7 @@ from qlib.backtest.decision import Order, OrderDir, TradeDecisionWO
 from qlib.log import get_module_logger
 from qlib.utils import copy
 from qlib.contrib.strategy.order_generator import OrderGenerator, OrderGenWOInteract
-import pandas as pd
-from qlib.backtest.decision import Order, OrderDir, TradeDecisionWO
-from qlib.data import D
-import numpy as np
-from qlib.backtest.signal import Signal
-from qlib.contrib.strategy import TopkDropoutStrategy
+
 from loguru import logger
 
 class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
@@ -27,66 +22,20 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         self.logger = get_module_logger("TopkDropoutStrategyWithFilter")
 
 
-    def _filter_stocks_by_return_threshold0(self, stocks, trade_start_time):
-        """
-        过滤过去回溯天数内涨幅超过阈值的股票
-
-        Args:
-            stocks: 待过滤的股票列表
-            trade_start_time: 交易开始时间
-
-        Returns:
-            过滤后的股票列表
-        """
-        # 获取过去lookback_days个交易日的日期
-        prev_dates = [get_pre_trading_date(trade_start_time, i) for i in range(1, self.lookback_days + 1)]
-        # 获取所有股票在这些日期的收盘价
-        # ✅ 修复：使用 D.features + $ 前缀获取数据
-        close_prices = D.features(
-            instruments=stocks,  # 直接传字符串"all"
-            fields=["$close"],  # 关键：字段名带$前缀
-            start_time=prev_dates[-1],
-            end_time=prev_dates[0],
-        )
-        # 检查是否为空
-        if close_prices.empty:
-            self.logger.warning("No price data available, returning original stocks")
-            return stocks
-        # 重置索引，将datetime和instrument作为列
-        close_prices = close_prices.reset_index()
-        # ✅ 修复：确保datetime列是datetime类型
-        if not pd.api.types.is_datetime64_any_dtype(close_prices["datetime"]):
-            close_prices["datetime"] = pd.to_datetime(close_prices["datetime"])
-        # ✅ 修复：现在可以安全使用.dt.accessor，将datetime转换为日期
-        close_prices["datetime"] = close_prices["datetime"].dt.date
-        # 按股票分组，计算每个股票的涨幅
-        close_prices = close_prices.sort_values(by=["instrument", "datetime"])
-        # 计算过去lookback_days的涨幅（需要shift lookback_days-1天）
-        close_prices["close_shift"] = close_prices.groupby("instrument")["$close"].shift(self.lookback_days - 1)
-        # 计算涨幅
-        close_prices["return"] = (close_prices["$close"] - close_prices["close_shift"]) / close_prices["close_shift"]
-        # 处理NaN值
-        close_prices["return"] = close_prices["return"].fillna(0)
-        # 只保留最近一天的数据
-        returns = close_prices.groupby("instrument").last()[["return"]]
-
-        # 过滤涨幅超过阈值的股票
-        filtered_stocks = []
-        for stock in stocks:
-            if stock in returns.index:
-                if returns.loc[stock, "return"] <= self.max_return_threshold:
-                    filtered_stocks.append(stock)
-            else:
-                # 如果股票不在returns中，假设涨幅为0
-                filtered_stocks.append(stock)
-
-        return filtered_stocks
-
     def _filter_stocks_by_return_threshold(self, stocks, trade_start_time):
         """ 过滤过去回溯天数内涨幅超过阈值的股票，增强稳定性 """
         # 1. 验证输入参数
-        if not stocks or self.lookback_days <= 0 or self.max_return_threshold < 0:
+        if self.lookback_days <= 0 or self.max_return_threshold < 0:
             return stocks  # 简单处理无效输入
+
+        # ValueError: The truth value of a Index is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+        # if not stocks:
+        #     return stocks  # 简单处理无效输入
+
+        if stocks is None or len(stocks) == 0:
+            return stocks
+        else:
+            logger.warning(f"本次 {trade_start_time} 检查的股票列表 {stocks}")
 
         # 2. 获取有效交易日，避免无效日期
         # prev_dates = []
@@ -124,7 +73,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             logger.error("No valid trading dates found for lookback period")
             return stocks
 
-        logger.error(f"3. 确保有效日期从 {trade_start_time} 至 {prev_dates_last}")
+        logger.info(f"3. 确保有效日期从 {trade_start_time} 至 {prev_dates_last}")
         # 4. 获取数据，添加错误处理
         try:
             close_prices = D.features(
@@ -290,8 +239,12 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
                 # 4. 从剩余候选股票中补充（排除已考虑的initial_today）
                 remaining_candidate = candidate_stocks[~candidate_stocks.isin(initial_today)]
 
-                # 5. 对剩余候选股票也进行涨幅过滤
-                filtered_remaining = self._filter_stocks_by_return_threshold(remaining_candidate, trade_start_time)
+                # 优化点：仅处理前10倍所需数量的股票
+                max_process = (initial_required_count - len(filtered_today)) * 10
+                processed_remaining = remaining_candidate[:max_process]
+
+                # 5. 对部分候选股票也进行涨幅过滤
+                filtered_remaining = self._filter_stocks_by_return_threshold(processed_remaining, trade_start_time)
 
                 # 6. 从过滤后的剩余候选中取需要的数量
                 additional_count = initial_required_count - len(filtered_today)
@@ -331,11 +284,11 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             raise NotImplementedError(f"This type of input is not supported")
 
         # Get the stock list we really want to buy
-        # buy = today[:len(sell) + self.topk - len(last)]
+        buy = today[:len(sell) + self.topk - len(last)]
         # 在 today = filtered_today + additional_today 之后
         # 再次过滤 today 中所有股票，确保全部满足条件
-        today_verified = self._filter_stocks_by_return_threshold(today, trade_start_time)
-        buy = today_verified[:len(sell) + self.topk - len(last)]
+        # today_verified = self._filter_stocks_by_return_threshold(today, trade_start_time)
+        # buy = today_verified[:len(sell) + self.topk - len(last)]
 
         for code in current_stock_list:
             if not self.trade_exchange.is_stock_tradable(

@@ -52,13 +52,13 @@ if __name__ == '__main__':
     pd.set_option('display.width', None)
 
     # 时间配置
-    start_time = "2025-10-01"
-    end_time = "2025-12-12"
+    start_time = "2020-01-01"
+    end_time = "2024-12-31"
     fit_start_time = start_time
-    fit_end_time = "2025-10-31"
-    valid_start_time = "2025-11-01"
-    valid_end_time = "2025-11-30"
-    test_start_time = "2025-12-01"
+    fit_end_time = "2022-12-31"
+    valid_start_time = "2023-01-01"
+    valid_end_time = "2023-12-31"
+    test_start_time = "2024-01-01"
     test_end_time = end_time
 
     # 排除股票列表
@@ -194,7 +194,7 @@ if __name__ == '__main__':
         print(f"模型训练完成，实验ID: {rid}")
 
         # 将实验ID和实验名称写入文件
-        with open("last_experiment_info.txt", "w") as f:
+        with open(f"last_experiment_info_{start_time}_{end_time}.txt", "w") as f:
             f.write(f"{rid}={exp_name}\n")
 
     print("✅ 模型训练完成并保存！总耗时:", timer() - start)
