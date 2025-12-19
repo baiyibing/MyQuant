@@ -49,7 +49,7 @@ if __name__ == '__main__':
     from qlib.data import D
 
     # 定义股票列表和特征
-    instruments = ['SZ301393']
+    instruments = ['SZ002428']
     fields = [
         '$open',  # 收盘价
         '$high',  # 成交量

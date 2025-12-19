@@ -22,7 +22,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         self.logger = get_module_logger("TopkDropoutStrategyWithFilter")
 
 
-    def _filter_stocks_by_return_threshold0(self, stocks, trade_start_time):
+    def _filter_stocks_by_return_threshold(self, stocks, trade_start_time):
         """ 过滤过去回溯天数内涨幅超过阈值的股票，增强稳定性 """
         # 1. 验证输入参数
         if self.lookback_days <= 0 or self.max_return_threshold < 0:
@@ -48,39 +48,39 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         #     else:
         #         logger.warning(f"valid trading date for {trade_start_time} - {i} days ago")
         #         prev_dates.append(date)
-        # prev_dates_first = get_date_by_shift(trade_start_time, -1 ,future=False)
-        # if prev_dates_first is None:
-        #     # 记录警告，但不中断执行
-        #     logger.warning(f"prev_dates_first无效交易日 for ：{trade_start_time} - 1 days ago")
-        # else:
-        #     logger.warning(f"prev_dates_first有效交易日 for ：{trade_start_time} - 1 days ago")
+        prev_dates_first = get_date_by_shift(trade_start_time, -1 ,future=False)
+        if prev_dates_first is None:
+            # 记录警告，但不中断执行
+            logger.warning(f"prev_dates_first无效交易日 for ：{trade_start_time} - 1 days ago")
+        else:
+            logger.warning(f"prev_dates_first有效交易日 for ：{trade_start_time} - 1 days ago")
 
-        prev_dates_last = get_date_by_shift(trade_start_time, -self.lookback_days ,future=False)
+        prev_dates_last = get_date_by_shift(trade_start_time, -(self.lookback_days+1) ,future=False)
         if prev_dates_last is None:
             # 记录警告，但不中断执行
-            logger.warning(f"prev_dates_last无效交易日 for {trade_start_time} - {self.lookback_days} days ago")
+            logger.warning(f"prev_dates_last无效交易日 for {trade_start_time} - {(self.lookback_days+1)} days ago")
         else:
-            logger.warning(f"prev_dates_last有效交易日 for {trade_start_time} - {self.lookback_days} days ago")
+            logger.warning(f"prev_dates_last有效交易日 for {trade_start_time} - {(self.lookback_days+1)} days ago")
 
 
         # 3. 确保至少有一个有效日期
-        # if not prev_dates:
-        #     logger.error("No valid trading dates found for lookback period")
-        #     return stocks
+        if not prev_dates_first:
+            logger.error("No valid trading dates found for lookback period")
+            return stocks
 
         # 3. 确保至少有一个有效日期
         if not prev_dates_last:
             logger.error("No valid trading dates found for lookback period")
             return stocks
 
-        logger.info(f"3. 确保有效日期从 {trade_start_time} 至 {prev_dates_last}")
+        logger.info(f"3. 确保有效日期从 {prev_dates_first} 至 {prev_dates_last}")
         # 4. 获取数据，添加错误处理
         try:
             close_prices = D.features(
                 instruments=stocks,
                 fields=["$close"],
                 start_time=prev_dates_last,
-                end_time=trade_start_time,
+                end_time=prev_dates_first,
             )
         except Exception as e:
             logger.error(f"Failed to fetch stock data: {str(e)}")
@@ -132,7 +132,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
 
         return filtered_stocks
 
-    def _filter_stocks_by_return_threshold(self, stocks, trade_start_time):
+    def _filter_stocks_by_return_threshold1(self, stocks, trade_start_time):
         """
         用极致性能方案过滤涨幅超过阈值的股票（仅查询首尾两天数据，无中间历史数据）
 
@@ -153,7 +153,8 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         if stocks is None or len(stocks) == 0:
             return stocks
         else:
-            logger.warning(f"本次 {trade_start_time} 检查的股票列表 {stocks}")
+            pass
+            # logger.warning(f"本次 {trade_start_time} 检查的股票列表 {stocks}")
 
         # 3. 获取有效起始日期（回溯天数前的交易日）
         prev_dates_last = get_date_by_shift(trade_start_time, -self.lookback_days, future=False)
@@ -188,16 +189,16 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             return stocks
 
         # 在获取数据后添加调试信息
-        logger.info(f"Start price columns: {start_price.columns.tolist()}")
-        logger.info(f"Start price index: {start_price.index.names}")
-        logger.info(f"Start price shape: {start_price.shape}")
+        # logger.info(f"Start price columns: {start_price.columns.tolist()}")
+        # logger.info(f"Start price index: {start_price.index.names}")
+        # logger.info(f"Start price shape: {start_price.shape}")
 
         # 6. 重置索引以获取 instrument 信息
         start_price_reset = start_price.reset_index()
         end_price_reset = end_price.reset_index()
 
         # 重置索引后
-        logger.info(f"Start price reset columns: {start_price_reset.columns.tolist()}")
+        # logger.info(f"Start price reset columns: {start_price_reset.columns.tolist()}")
 
         # 7. 合并计算涨幅
         merged = pd.merge(
@@ -318,6 +319,9 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             # 1. 先获取初始候选股票（按分数排序的前 self.n_drop + self.topk - len(last) 只）
             initial_required_count = self.n_drop + self.topk - len(last)
             initial_today = get_first_n(candidate_stocks, initial_required_count*5)
+
+            logger.info(
+                f"{pred_start_time} 到 {pred_end_time} 预测信号（pred_score）的 {pred_score.head(30)}")
 
             # 2. 应用涨幅过滤
             filtered_today = self._filter_stocks_by_return_threshold(initial_today, trade_start_time)

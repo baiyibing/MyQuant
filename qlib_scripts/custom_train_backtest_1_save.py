@@ -86,9 +86,7 @@ if __name__ == '__main__':
                       'SH605199', 'SH688053', 'SH688076', 'SH688184', 'SH688287', 'SH688511', 'SH688646', 'BJ920305',
                       'BJ920680']
 
-    exclude_filter_1 = NameDFilter(name_rule_re='^(?!(' + '|'.join(exclude_stocks[:11*8]) + ')).*$')
-
-    exclude_filter_2 = NameDFilter(name_rule_re='^(?!(' + '|'.join(exclude_stocks[11*8+1:]) + ')).*$')
+    exclude_filter = NameDFilter(name_rule_re='^(?!(' + '|'.join(exclude_stocks) + ')).*$')
 
     expression_rule = """
     (
@@ -101,7 +99,7 @@ if __name__ == '__main__':
     filtered_instruments = D.instruments(market='all',
                                          start_time=start_time,
                                          end_time=end_time,
-                                         filter_pipe=[exclude_filter_1,exclude_filter_2])
+                                         filter_pipe=[exclude_filter])
 
     benchmark = "SH601727"
     exp_name = "alpha158_cost_kdj_lgb"
