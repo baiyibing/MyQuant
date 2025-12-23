@@ -479,20 +479,6 @@ if __name__ == '__main__':
         par.generate()  # 系统会基于配置启动完整的回测流程，包括初始化投资组合、模拟每日交易、计算持仓价值，并最终生成收益率、波动率、夏普比率、最大回撤等指标的分析报告
 
 
-        x_test = dataset.prepare("test")
-        importance_array = feat_imp  # 获取重要性数组
-        feature_lable0_names = x_test.columns.values  # 获取特征名称列表
-        feature_names = feature_lable0_names[:-1] # 去掉最后一个lable0
-        # 创建DataFrame并排序
-        importance_df = pd.DataFrame({
-            'feature': feature_names,
-            'importance': importance_array
-        })
-        importance_df.sort_values('importance', ascending=False, inplace=True)
-        importance_df.reset_index(drop=True, inplace=True)  # 重置索引
-
-        print('特征重要性DataFrame，这样做是错误的，没有对应好',importance_df)  # 打印可读结果
-
         # 'The following are analysis results of benchmark return(1day).'
         #                        risk
         # mean               0.000297
