@@ -183,13 +183,6 @@ if __name__ == '__main__':
         )
 
         recorder = R.get_recorder()
-
-        # 生成预测信号用于验证
-        from qlib.workflow.record_temp import SignalRecord
-
-        sr = SignalRecord(model, dataset, recorder)
-        sr.generate()
-
         rid = recorder.id
         print(f"模型训练完成，实验ID: {rid}")
 

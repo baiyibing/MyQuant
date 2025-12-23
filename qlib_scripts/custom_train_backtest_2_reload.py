@@ -19,7 +19,7 @@ from custom_utils import pprint_position_report, analyze_position_by_date, gener
 import plotly.graph_objects as go
 from qlib.contrib.evaluate import risk_analysis
 from qlib.contrib.report.analysis_position import report_graph
-from qlib.workflow.record_temp import PortAnaRecord
+from qlib.workflow.record_temp import SignalRecord, SigAnaRecord, PortAnaRecord
 
 if __name__ == '__main__':
     multiprocessing.freeze_support()
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     rid = None
     exp_name = None
     try:
-        with open("last_experiment_info_2020-01-01_2022-12-31.txt", 'r', encoding='utf-8') as f:
+        with open("last_experiment_info_2020-01-01_2025-12-12.txt", 'r', encoding='utf-8') as f:
             content = f.read().strip()
             print(f"文件内容: {content}")
 
@@ -221,8 +221,15 @@ if __name__ == '__main__':
 
     # 调整y轴顺序，使最重要的特征在顶部
     feature_importance_fig.update_yaxes(autorange="reversed")
-
     feature_importance_fig.show()
+
+    # 生成预测信号用于验证
+    sr = SignalRecord(model, dataset, recorder)
+    sr.generate()
+
+    # 创建信号分析记录
+    sar = SigAnaRecord(recorder)
+    sar.generate()
 
 
     # 回测配置
@@ -272,10 +279,10 @@ if __name__ == '__main__':
 
     # 加载回测结果
     try:
-        report_normal_df = recorder.load_object("portfolio_analysis/report_normal_1day.pkl")
-        positions = recorder.load_object("portfolio_analysis/positions_normal_1day.pkl")
-        analysis_df = recorder.load_object("portfolio_analysis/port_analysis_1day.pkl")
-
+        report_normal_df = recorder.load_object("portfolio_analysis/report_normal_1day.pkl")    # 每日组合表现报告。它是一个 DataFrame，包含了投资组合每天的关键指标
+        positions = recorder.load_object("portfolio_analysis/positions_normal_1day.pkl")        # 持仓记录,每日详细的持仓信息，包括现金、每个持仓的股票代码、数量、市值、权重等
+        analysis_df = recorder.load_object("portfolio_analysis/port_analysis_1day.pkl")         # 风险分析结果，如计算出的夏普比率、最大回撤等风险指标
+        pred_df = recorder.load_object("pred.pkl")  # 预测结果
         print("成功加载回测结果")
     except Exception as e:
         print(f"加载回测结果失败: {e}")
@@ -283,6 +290,33 @@ if __name__ == '__main__':
 
     # 分析结果
     print("\n=== 回测结果分析 ===")
+
+
+    print("预测结果head")
+    print(pred_df.head(10))
+    pred_df.to_csv('预测结果.csv', encoding='utf-8')
+    # 预测结果
+    #                           score
+    # datetime   instrument
+    # 2025-01-02 SH600000   -0.000373
+    #            SH600009   -0.000373
+    #            SH600010   -0.000373
+    #            SH600011   -0.000373
+    #            SH600015   -0.000373
+    #            SH600016   -0.000373
+    #            SH600018   -0.000373
+    #            SH600019   -0.000373
+    #            SH600023   -0.000373
+    #            SH600025   -0.000373
+    print("预测结果tail")
+    print(pred_df.tail(10))
+
+    label_df = dataset.prepare("test", col_set="label")
+    label_df.columns = ['label']
+    pred_label = pd.concat([label_df, pred_df], axis=1, sort=True).reindex(label_df.index)
+    print("pred_label结果head")
+    print(pred_label.head(10))
+    pred_label.to_csv('预测结果和真实标签.csv', encoding='utf-8')
 
     # 风险分析
     returns = report_normal_df["return"]
@@ -316,15 +350,19 @@ if __name__ == '__main__':
         figures = analysis_position.report_graph(report_df=report_normal_df, show_notebook=False)
         print("生成回测净值图表")
         for i, fig in enumerate(figures):
-            fig.write_image(f"backtest_chart_{i}.png")
-            print(f"图表已保存为 backtest_chart_{i}.png")
+            fig.show()
 
         figures = analysis_position.risk_analysis_graph(analysis_df=analysis_df, report_normal_df=report_normal_df,
                                                         show_notebook=False)
         print("生成风险分析图表")
         for i, fig in enumerate(figures):
-            fig.write_image(f"risk_analysis_chart_{i}.png")
-            print(f"图表已保存为 risk_analysis_chart_{i}.png")
+            fig.show()
+
+        figures = analysis_position.score_ic_graph(pred_label, show_notebook=False)
+        print("AI模型预测个股收益的IC和Rank IC值可视化结果", timer() - start)
+        for i, fig in enumerate(figures):
+            # 如果你在支持 Plotly 的环境中（如 Dash 或某些 IDE），也可以直接显示
+            fig.show()
 
     except Exception as e:
         print(f"图表生成失败: {e}")
