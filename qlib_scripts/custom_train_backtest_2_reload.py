@@ -1,6 +1,7 @@
 import multiprocessing
 import logging
 import os
+import pprint
 from timeit import default_timer as timer
 
 from loguru import logger
@@ -122,6 +123,8 @@ if __name__ == '__main__':
         print(f"加载模型或配置失败: {e}")
         exit(1)
 
+
+
     # 重新创建数据集（使用测试时间段）
     dataset_config['kwargs']['segments'] = {
         'test': (test_start_time, test_end_time)
@@ -129,6 +132,98 @@ if __name__ == '__main__':
 
     dataset = init_instance_by_config(dataset_config)
     print("数据集创建完成")
+
+    # 假设已有一个 DatasetH 实例 ds
+    handler = dataset.handler  # 直接获取 DataHandler 实例
+    print("# 获取特征名称列表")
+    feature_names = handler.get_cols()
+
+    # 5. 特征重要性分析与选择
+    # 获取特征重要性（新版本QLib模型通常内置该方法）
+    # 方式一：直接使用模型提供的 `feature_importance` (如果可用)
+    if hasattr(model, 'feature_importance'):
+        feat_imp = model.feature_importance()
+    else:
+        # 方式二：使用模型训练器中的特征重要性（适用于某些版本）
+        # 注意：具体方法可能因版本而异，请查阅官方文档
+        try:
+            feat_imp = model.get_feature_importance()
+        except:
+            # 方式三：回退方案 - 基于训练数据手动计算（近似）
+            # 此方法可能计算较慢，且为近似值
+            print(
+                "Warning: Using fallback method for feature importance. Check Qlib documentation for the recommended way.")
+            # 此处可能需要根据实际模型类型调整获取方式
+            feat_imp = None
+
+    print(f"直接使用模型提供的 `feature_importance` (如果可用)")
+    print(feat_imp)
+    # Column_17     103
+    # Column_1       95
+    # Column_178     89
+    # Column_175     80
+    # Column_27      77
+
+    # 将特征重要性转换为Series并按降序排序
+    feat_imp_series = feat_imp.sort_values(ascending=False)
+
+    # 选择前K个最重要的特征
+    selected_features = feat_imp_series.index.tolist()
+    print(f"将特征重要性转换为Series并按降序排序:")
+    print(selected_features)
+
+    selected_features_name = []
+    for col in selected_features:
+        parts = col.split('_')  # Column_17
+        if parts:
+            number = int(parts[-1])
+            selected_features_name.append(feature_names[number])
+    print(f"重要的特征列名对应的特征名")
+    print(selected_features_name)
+
+    K = 100
+    # 6. (可选) 可视化特征重要性
+    top_features = feat_imp_series.head(K)
+    top_features_name = pd.Series(selected_features_name)
+    top_features_name = top_features_name.head(K)
+
+    # 创建水平条形图
+    feature_importance_fig = go.Figure()
+
+    # 添加条形图轨迹
+    feature_importance_fig.add_trace(go.Bar(
+        y=top_features_name.values,
+        # y=top_features.index.tolist(),
+        x=top_features.values,
+        orientation='h',
+        marker=dict(
+            color=top_features.values,
+            colorscale='Viridis',
+            showscale=True,
+            colorbar=dict(title="重要性分数")
+        ),
+        hovertemplate='<b>%{y}</b><br>重要性: %{x:.4f}<extra></extra>'
+    ))
+
+    # 更新布局
+    feature_importance_fig.update_layout(
+        title=dict(
+            text=f'Top {K} 特征重要性',
+            x=0.5,
+            xanchor='center'
+        ),
+        xaxis_title='重要性分数',
+        yaxis_title='特征名称',
+        height=600 + K * 10,  # 动态调整高度以适应特征数量
+        template='plotly_white',
+        showlegend=False
+    )
+
+    # 调整y轴顺序，使最重要的特征在顶部
+    feature_importance_fig.update_yaxes(autorange="reversed")
+
+    feature_importance_fig.show()
+
 
     # 回测配置
     port_analysis_config = {
@@ -166,6 +261,8 @@ if __name__ == '__main__':
             },
         },
     }
+
+
 
     # 执行回测
     print("开始回测...")
