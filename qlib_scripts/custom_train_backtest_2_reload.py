@@ -113,6 +113,7 @@ if __name__ == '__main__':
 
         test_start_time = backtest_config["test_start_time"]
         test_end_time = backtest_config["test_end_time"]
+        test_end_time = '2025-12-24'
         benchmark = backtest_config["benchmark"]
 
         print("成功加载训练好的模型和配置")
@@ -123,12 +124,24 @@ if __name__ == '__main__':
         print(f"加载模型或配置失败: {e}")
         exit(1)
 
-
+    print("重新创建数据集（使用测试时间段）0")
+    pprint.pprint(dataset_config)
 
     # 重新创建数据集（使用测试时间段）
     dataset_config['kwargs']['segments'] = {
         'test': (test_start_time, test_end_time)
     }
+
+    data_handler_config['end_time'] = test_end_time
+
+    dataset_config['kwargs']['handler'] = {
+                    "class": "Alpha158CostKDJ",
+                    "module_path": "custom_handler",
+                    "kwargs": data_handler_config,
+                }
+
+    print("重新创建数据集（使用测试时间段）1")
+    pprint.pprint(dataset_config)
 
     dataset = init_instance_by_config(dataset_config)
     print("数据集创建完成")
@@ -273,7 +286,8 @@ if __name__ == '__main__':
         },
     }
 
-
+    print("打印回测结束时间...")
+    pprint.pprint(port_analysis_config['backtest']['end_time'])
 
     # 执行回测
     print("开始回测...")
