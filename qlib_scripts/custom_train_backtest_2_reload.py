@@ -133,6 +133,10 @@ if __name__ == '__main__':
     dataset = init_instance_by_config(dataset_config)
     print("数据集创建完成")
 
+    data_df = dataset.prepare(segments='test', col_set=['feature', 'label'])
+    data_df.to_csv('data_test.csv', encoding='utf-8')
+    print("测试数据集保存到本地")
+
     # 假设已有一个 DatasetH 实例 ds
     handler = dataset.handler  # 直接获取 DataHandler 实例
     print("# 获取特征名称列表")
@@ -290,6 +294,8 @@ if __name__ == '__main__':
 
     # 分析结果
     print("\n=== 回测结果分析 ===")
+
+
 
 
     print("预测结果head")
