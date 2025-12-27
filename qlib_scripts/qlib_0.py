@@ -80,6 +80,42 @@ if __name__ == '__main__':
     print(f"特征数据形状: {features.shape}")
     print(features)
 
+    # # 定义计算周收盘价的表达式
+    # # 这里使用 Resample 获取每周最后一个交易日的收盘价
+    # expression = "Resample($close, 'week', 'LAST')"
+    #
+    # # 通过 D.features 方法获取数据
+    # from qlib.data import D
+    #
+    # weekly_data = D.features(
+    #     instruments=['SH600000'],  # 股票代码
+    #     fields=[expression],  # 字段，这里就是我们的表达式
+    #     start_time='2023-01-01',
+    #     end_time='2023-03-31',
+    #     freq='day'  # 基础频率仍然是日线，表达式会在日线基础上进行计算
+    # )
+    # print(f"定义计算周收盘价的表达式: {weekly_data.shape}")
+    # print(weekly_data)
+
+    expressions = [
+        'Mean($close, 5)',  # 5日均线
+        'Std($close, 20)',  # 20日标准差
+        'Max($high, 10)',  # 10日最高价
+        'Rank($volume, 60)',  # 60日成交量排名
+        'Corr($close, $volume, 10)',  # 10日价量相关性
+        'TResample($close, "W-FRI", "LAST")'  # 10日价量相关性
+    ]
+
+    # 获取数据
+    data = D.features(
+        instruments=['SH600000'],
+        fields=expressions,
+        start_time='2020-01-01',
+        end_time='2020-12-31',
+        freq='day'
+    )
+    print(data.head())
+
     # # 以 AKShare 为例的示例代码
     # import akshare as ak
     #

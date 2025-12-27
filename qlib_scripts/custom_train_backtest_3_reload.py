@@ -122,24 +122,36 @@ if __name__ == '__main__':
         print(f"加载模型或配置失败: {e}")
         exit(1)
 
-    # test_start_time = '2025-01-01'
+    print("\n✅ 成功加载训练好的模型和配置！耗时:", timer() - start)
+
+    start_time = '2025-01-01'
+    end_time = '2025-12-24'
+
+    test_start_time = '2025-12-01'
     test_end_time = '2025-12-24'
+
+    # 优化点1: 创建一个新的data_handler_config，只包含测试阶段需要的配置
+    test_data_handler_config = {
+        "start_time": start_time,
+        "end_time": end_time,
+        "infer_processors": data_handler_config["infer_processors"],
+        "instruments": data_handler_config["instruments"],
+        "include_alpha158": data_handler_config["include_alpha158"],
+        "include_cost_kdj": data_handler_config["include_cost_kdj"],
+        "include_signal": data_handler_config["include_signal"],
+        "include_lz": data_handler_config["include_lz"],
+    }
 
     print("重新创建数据集（使用测试时间段）0")
     pprint.pprint(dataset_config)
 
     # 重新创建数据集（使用测试时间段）
-    dataset_config['kwargs']['segments'] = {
-        'test': (test_start_time, test_end_time)
-    }
-
-    data_handler_config['end_time'] = test_end_time
-
+    dataset_config['kwargs']['segments'] = {'test': (test_start_time, test_end_time)}
     dataset_config['kwargs']['handler'] = {
-                    "class": "Alpha158CostKDJ",
-                    "module_path": "custom_handler",
-                    "kwargs": data_handler_config,
-                }
+        "class": "Alpha158CostKDJ",
+        "module_path": "custom_handler",
+        "kwargs": test_data_handler_config,
+    }
 
     print("重新创建数据集（使用测试时间段）1")
     pprint.pprint(dataset_config)
@@ -152,6 +164,8 @@ if __name__ == '__main__':
     # data_df = dataset.prepare(segments='test', col_set=['feature', 'label'])
     # data_df.to_csv('data_test.csv', encoding='utf-8')
     # print("测试数据集保存到本地")
+
+    print("\n✅ 测试数据集保存到本地！耗时:", timer() - start)
 
     # 假设已有一个 DatasetH 实例 ds
     handler = dataset.handler  # 直接获取 DataHandler 实例
@@ -263,8 +277,10 @@ if __name__ == '__main__':
             },
         },
         "strategy": {
-            "class": "TopkDropoutStrategyWithFilter",
-            "module_path": "custom_strategy",
+            # "class": "TopkDropoutStrategyWithFilter",
+            # "module_path": "custom_strategy",
+            "class": "TopkDropoutStrategy",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
+            "module_path": "qlib.contrib.strategy.signal_strategy",  # 策略所在模块路径
             "kwargs": {
                 "model": model,
                 "dataset": dataset,
@@ -311,6 +327,9 @@ if __name__ == '__main__':
 
     # 分析结果
     print("\n=== 回测结果分析 ===")
+
+
+
 
     print("预测结果head")
     print(pred_df.head(10))

@@ -1,25 +1,25 @@
-from pprint import pprint
+from pprint import pprint                                           # 导入美观打印模块，用于格式化输出数据结构
 
-from qlib.contrib.strategy import TopkDropoutStrategy
-from qlib.data import D
-from qlib.utils import get_pre_trading_date, load_dataset,get_date_by_shift
-import pandas as pd
-import numpy as np
-from qlib.backtest.position import Position
-from qlib.backtest.signal import Signal
-from qlib.backtest.decision import Order, OrderDir, TradeDecisionWO
-from qlib.log import get_module_logger
-from qlib.utils import copy
-from qlib.contrib.strategy.order_generator import OrderGenerator, OrderGenWOInteract
+from qlib.contrib.strategy import TopkDropoutStrategy               # 导入基础策略类
+from qlib.data import D                                             # 导入QLib数据接口
+from qlib.utils import get_pre_trading_date, load_dataset,get_date_by_shift # 导入QLib工具函数
+import pandas as pd                                                 # 导入pandas数据处理库
+import numpy as np                                                  # 导入numpy数值计算库
+from qlib.backtest.position import Position                         # 导入仓位管理类
+from qlib.backtest.signal import Signal                             # 导入信号类
+from qlib.backtest.decision import Order, OrderDir, TradeDecisionWO # 导入交易决策相关类
+from qlib.log import get_module_logger                              # 导入日志记录器
+from qlib.utils import copy                                         # 导入复制工具
+from qlib.contrib.strategy.order_generator import OrderGenerator, OrderGenWOInteract    # 导入订单生成器
 
-from loguru import logger
+from loguru import logger   # 导入日志库
 
 class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.max_return_threshold = 0.15  # 15%
-        self.lookback_days = 5  # 回溯天数
-        self.logger = get_module_logger("TopkDropoutStrategyWithFilter")
+        super().__init__(*args, **kwargs)   # 调用父类构造函数
+        self.max_return_threshold = 0.15    # 设置最大收益阈值（15%），超过此阈值的股票将被过滤
+        self.lookback_days = 5              # 设置回溯天数（5天），用于计算历史收益
+        self.logger = get_module_logger("TopkDropoutStrategyWithFilter")    # 获取模块专用的日志记录器
 
 
     def _filter_stocks_by_return_threshold(self, stocks, trade_start_time):
@@ -29,25 +29,15 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             return stocks  # 简单处理无效输入
 
         # ValueError: The truth value of a Index is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
-        # if not stocks:
-        #     return stocks  # 简单处理无效输入
-
+        # 2. 检查股票列表是否为空
         if stocks is None or len(stocks) == 0:
             return stocks
         else:
+            pass
+            # 记录警告日志，显示当前检查的股票列表
             logger.warning(f"本次 {trade_start_time} 检查的股票列表 {stocks}")
 
-        # 2. 获取有效交易日，避免无效日期
-        # prev_dates = []
-        # for i in range(1, self.lookback_days + 1):
-        #     # date = get_pre_trading_date(trading_date=trade_start_time)
-        #     date = get_date_by_shift(trade_start_time, -i ,future=False)
-        #     if date is None:
-        #         # 记录警告，但不中断执行
-        #         logger.warning(f"Invalid trading date for {trade_start_time} - {i} days ago")
-        #     else:
-        #         logger.warning(f"valid trading date for {trade_start_time} - {i} days ago")
-        #         prev_dates.append(date)
+        # 3. 获取有效起始日期
         prev_dates_first = get_date_by_shift(trade_start_time, -1 ,future=False)
         if prev_dates_first is None:
             # 记录警告，但不中断执行
@@ -55,6 +45,12 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         else:
             logger.warning(f"prev_dates_first有效交易日 for ：{trade_start_time} - 1 days ago")
 
+        # 4. 确保至少有一个有效日期
+        if not prev_dates_first:
+            logger.error("No valid trading dates found for lookback period")
+            return stocks
+
+        # 5. 获取有效结束日期
         prev_dates_last = get_date_by_shift(trade_start_time, -(self.lookback_days+1) ,future=False)
         if prev_dates_last is None:
             # 记录警告，但不中断执行
@@ -62,19 +58,14 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         else:
             logger.warning(f"prev_dates_last有效交易日 for {trade_start_time} - {(self.lookback_days+1)} days ago")
 
-
-        # 3. 确保至少有一个有效日期
-        if not prev_dates_first:
-            logger.error("No valid trading dates found for lookback period")
-            return stocks
-
-        # 3. 确保至少有一个有效日期
+        # 6. 确保至少有一个有效日期
         if not prev_dates_last:
             logger.error("No valid trading dates found for lookback period")
             return stocks
 
-        logger.info(f"3. 确保有效日期从 {prev_dates_first} 至 {prev_dates_last}")
-        # 4. 获取数据，添加错误处理
+        logger.info(f"确保有效日期从 {prev_dates_first} 至 {prev_dates_last}")
+
+        # 7. 获取数据，添加错误处理
         try:
             close_prices = D.features(
                 instruments=stocks,
@@ -86,37 +77,37 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             logger.error(f"Failed to fetch stock data: {str(e)}")
             return stocks
 
-        # 5. 处理数据缺失
+        # 8. 处理数据缺失
         if close_prices.empty:
             logger.warning("No stock price data returned")
             return stocks
 
-        # 6. 重置索引，将datetime和instrument作为列
+        # 9. 重置索引，将datetime和instrument作为列
         close_prices = close_prices.reset_index()
         logger.info(
-            f"6. 重置索引，将datetime和instrument作为列 {close_prices}")
+            f"重置索引，将datetime和instrument作为列 {close_prices}")
 
-        # 7. 按股票分组，获取每个股票的起始和结束收盘价
+        # 10. 按股票分组，获取每个股票的起始和结束收盘价
         prices = close_prices.groupby('instrument')["$close"].agg(['first', 'last']).reset_index()
         logger.info(
-            f"7. 按股票分组，获取每个股票的起始和结束收盘价 {prices}")
+            f"10. 按股票分组，获取每个股票的起始和结束收盘价 {prices}")
 
-
-        # 8. 计算涨幅，正确处理缺失值
+        # 11. 计算涨幅，正确处理缺失值
         prices['return'] = (prices['last'] - prices['first']) / prices['first']
-        prices['return'] = prices['return'].fillna(float('-inf'))  # 更安全的缺失值处理
+        prices['return'] = prices['return'].fillna(float('-inf'))  # 用负无穷填充缺失值,更安全的缺失值处理
 
-        # 9. 创建股票到涨幅的映射字典
+        # 12. 创建股票到涨幅的映射字典
         return_dict = {row['instrument']: row['return'] for _, row in prices.iterrows()}
         pprint('创建股票到涨幅的映射字典')
         pprint(return_dict)
         logger.info(
             f"创建股票到涨幅的映射字典 {return_dict}")
 
-        # 10. 过滤股票，添加日志记录
+        # 13. 过滤股票，添加日志记录
         filtered_stocks = [stock for stock in stocks if
                            return_dict.get(stock, float('-inf')) <= self.max_return_threshold]
 
+        # 14. 记录每只股票的过滤结果
         for stock in stocks:
             return_xxx = return_dict.get(stock, float('-inf'))
             if return_dict.get(stock, float('-inf')) <= self.max_return_threshold:
@@ -126,7 +117,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
                 logger.info(
                     f"Filtered {stock} {return_xxx} > {self.max_return_threshold}")
 
-        # 11. 记录过滤结果
+        # 15. 记录总体过滤结果
         logger.info(
             f"Filtered {len(stocks)} stocks to {len(filtered_stocks)} using return threshold {self.max_return_threshold}")
 
@@ -233,7 +224,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
 
         return filtered_stocks
 
-    # 这是 Qlib 策略基类 BaseStrategy中定义的抽象方法，所有自定义策略都必须实现它。它在回测的每个时间步（由执行器频率决定，默认为每天）都会被回测引擎调用，是策略逻辑的核心入口
+    # 方法 generate_trade_decision Qlib 策略基类 BaseStrategy中定义的抽象方法，所有自定义策略都必须实现它。它在回测的每个时间步（由执行器频率决定，默认为每天）都会被回测引擎调用，是策略逻辑的核心入口
     # 参数 execute_result：它包含了上一个交易决策的执行结果（例如，哪些订单成交了，成交价格多少）。在策略开始运行时或没有待处理订单时，它可能是 None。策略可以根据这些信息来调整当前的决策
     def generate_trade_decision(self, execute_result=None):
         # 调用父类方法获取基础交易决策
@@ -256,18 +247,24 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
 
         # NOTE: the current version of topk dropout strategy can't handle pd.DataFrame(multiple signal)
         # So it only leverage the first col of signal
-        if isinstance(pred_score, pd.DataFrame):
+        # 注意：当前版本的 topk dropout 策略无法处理 pandas DataFrame（多信号数据），因此它只能利用信号的第一列。
+        if isinstance(pred_score, pd.DataFrame):    # 处理信号数据类型：如果为DataFrame则取第一列
             pred_score = pred_score.iloc[:, 0]
         if pred_score is None:
             return TradeDecisionWO([], self)
 
+        # 根据是否只考虑可交易股票设置不同的过滤函数
         if self.only_tradable:
             # If The strategy only consider tradable stock when make decision
             # It needs following actions to filter stocks
+            # 如果策略在做出决策时只考虑可交易的股票,则需要执行以下操作来筛选股票
+            # 如果希望策略在执行时自动过滤掉无法交易的股票（例如停牌、涨跌停或不在交易时间的股票），就需要在代码中实现相应的过滤逻辑
             def get_first_n(li, n, reverse=False):
+                """获取前n个可交易股票"""
                 cur_n = 0
                 res = []
                 for si in reversed(li) if reverse else li:
+                    # 检查股票是否可交易
                     if self.trade_exchange.is_stock_tradable(
                             stock_id=si,
                             start_time=trade_start_time,
@@ -280,9 +277,11 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
                 return res[::-1] if reverse else res
 
             def get_last_n(li, n):
+                """获取最后n个可交易股票"""
                 return get_first_n(li, n, reverse=True)
 
             def filter_stock(li):
+                """过滤可交易股票"""
                 return [si for si in li if self.trade_exchange.is_stock_tradable(
                     stock_id=si,
                     start_time=trade_start_time,
@@ -290,6 +289,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
                 )]
         else:
             # Otherwise, the stock will make decision without the stock tradable info
+            # 否则，系统将在不考虑该股票是否可交易的情况下，对其做出决策。
             def get_first_n(li, n):
                 return list(li)[:n]
 
@@ -299,16 +299,17 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             def filter_stock(li):
                 return li
 
+        # 深拷贝当前仓位状态
         current_temp: Position = copy.deepcopy(self.trade_position)
-        # generate order list for this adjust date
-        sell_order_list = []
-        buy_order_list = []
+        # generate order list for this adjust date 为这个调整日期生成订单列表
+        sell_order_list = []    # 卖出订单列表
+        buy_order_list = []     # 买入订单列表
 
-        # load score
+        # 获取当前现金和股票列表
         cash = current_temp.get_cash()
         current_stock_list = current_temp.get_stock_list()
 
-        # last position (sorted by score)
+        # 获取上一期持仓股票（按分数排序）
         last = pred_score.reindex(current_stock_list).sort_values(ascending=False).index
 
         # The new stocks today want to buy **at most**
@@ -320,8 +321,8 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             initial_required_count = self.n_drop + self.topk - len(last)
             initial_today = get_first_n(candidate_stocks, initial_required_count*5)
 
-            logger.info(
-                f"{pred_start_time} 到 {pred_end_time} 预测信号（pred_score）的 {pred_score.head(30)}")
+            # logger.info(
+            #     f"{pred_start_time} 到 {pred_end_time} 预测信号（pred_score）的 {pred_score.head(30)}")
 
             # 2. 应用涨幅过滤
             filtered_today = self._filter_stocks_by_return_threshold(initial_today, trade_start_time)
