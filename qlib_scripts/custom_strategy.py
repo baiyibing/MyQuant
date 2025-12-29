@@ -318,8 +318,9 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             initial_required_count = self.n_drop + self.topk - len(last)
             # initial_today = filter_stock(candidate_stocks)
             # 取排名前200的股票，全部股票太多了
-            initial_today = get_first_n(candidate_stocks, 200)
-
+            initial_today = get_first_n(candidate_stocks, 1000)
+            logger.info(
+                f"{trade_start_time} 需要买入的新股票数量 {initial_required_count} =  目标持仓数量 {self.topk}  + 计划卖出数量{self.n_drop}  - 当前持仓数量{len(last)}")
             # logger.info(
             #     f"{pred_start_time} 到 {pred_end_time} 预测信号（pred_score）的 {pred_score.head(30)}")
 
@@ -332,14 +333,14 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
                 logger.info(
                     f"过滤了 {len(filtered_today)} 需要补足到  {initial_required_count}，要2次过滤了 ")
                 # 4. 从剩余候选股票中补充（排除已考虑的initial_today）
-                remaining_candidate = candidate_stocks[~candidate_stocks.isin(initial_today)]
-
+                # remaining_candidate = candidate_stocks[~candidate_stocks.isin(initial_today)]
                 # 优化点：仅处理前5倍所需数量的股票
-                max_process = (initial_required_count - len(filtered_today)) * 5
-                processed_remaining = remaining_candidate[:max_process]
+                # max_process = (initial_required_count - len(filtered_today)) * 5
+                # processed_remaining = remaining_candidate[:max_process]
+                remaining_candidate = candidate_stocks[1000:2000]
 
                 # 5. 对部分候选股票也进行涨幅过滤
-                filtered_remaining = self._filter_stocks_by_return_threshold(processed_remaining, trade_start_time,initial_required_count)
+                filtered_remaining = self._filter_stocks_by_return_threshold(remaining_candidate, trade_start_time,initial_required_count)
 
                 # 6. 从过滤后的剩余候选中取需要的数量
                 additional_count = initial_required_count - len(filtered_today)

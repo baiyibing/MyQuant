@@ -277,10 +277,10 @@ if __name__ == '__main__':
             },
         },
         "strategy": {
-            # "class": "TopkDropoutStrategyWithFilter",
-            # "module_path": "custom_strategy",
-            "class": "TopkDropoutStrategy",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
-            "module_path": "qlib.contrib.strategy.signal_strategy",  # 策略所在模块路径
+            "class": "TopkDropoutStrategyWithFilter",
+            "module_path": "custom_strategy",
+            # "class": "TopkDropoutStrategy",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
+            # "module_path": "qlib.contrib.strategy.signal_strategy",  # 策略所在模块路径
             "kwargs": {
                 "model": model,
                 "dataset": dataset,
