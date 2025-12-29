@@ -127,7 +127,7 @@ if __name__ == '__main__':
     start_time = '2025-01-01'
     end_time = '2025-12-24'
 
-    test_start_time = '2025-12-01'
+    test_start_time = '2025-01-01'
     test_end_time = '2025-12-24'
 
     # 优化点1: 创建一个新的data_handler_config，只包含测试阶段需要的配置
