@@ -125,10 +125,10 @@ if __name__ == '__main__':
     print("\n✅ 成功加载训练好的模型和配置！耗时:", timer() - start)
 
     start_time = '2025-01-01'
-    end_time = '2026-01-09'
+    end_time = '2026-01-13'
 
     test_start_time = '2025-01-01'
-    test_end_time = '2026-01-09'
+    test_end_time = '2026-01-13'
 
     # 优化点1: 创建一个新的data_handler_config，只包含测试阶段需要的配置
     test_data_handler_config = {

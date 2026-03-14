@@ -92,16 +92,16 @@ if __name__ == '__main__':
         instruments=["SH000300"],  # 股票代码
         fields=["$open", "$high", "$low", "$close", "$adjclose", "$vwap","$amount", "$factor", "$change","$close/$factor", "$volume", "$volddx","$bigddx"],  # 字段：开盘、最高、最低、收盘价
         start_time="2025-01-01",  # 查询开始日期
-        end_time="2025-01-31"     # 查询结束日期（与开始日期相同即可查询单日）
+        end_time="2026-03-16"     # 查询结束日期（与开始日期相同即可查询单日）
     )
 
     print(data)
 
     data = D.features(
-        instruments=["SZ002209"],  # 股票代码
-        fields=["$open", "$high", "$low", "$close", "$adjclose", "$vwap","$amount", "$factor", "$change","$close/$factor", "$volume", "$volddx","$bigddx"],  # 字段：开盘、最高、最低、收盘价
-        start_time="2024-03-11",  # 查询开始日期
-        end_time="2024-03-15"     # 查询结束日期（与开始日期相同即可查询单日）
+        instruments=["SZ301559"],  # 股票代码
+        fields=["$open", "$high", "$low", "$close", "($close - Ref($close,5)) / Ref($close,5)", "Ref($close,5)","$amount", "$factor", "$change","$close/$factor", "$volume", "$volddx","$bigddx"],  # 字段：开盘、最高、最低、收盘价
+        start_time="2026-01-05",  # 查询开始日期
+        end_time="2026-03-16"     # 查询结束日期（与开始日期相同即可查询单日）
     )
 
     print(data)
