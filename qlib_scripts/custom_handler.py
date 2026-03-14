@@ -131,8 +131,8 @@ class Alpha158CostKDJ(Alpha158):
         # === 5. J = 3*K - 2*D ===
         J_expr = f"3*({K_expr}) - 2*({D_expr})"
 
-        new_fields = None
-        new_names = None
+        new_fields = []
+        new_names = []
         if self.include_cost_kdj:
             if self.include_signal:
                 # 股票价格同时站上20日线和20周线的qlib表达式
