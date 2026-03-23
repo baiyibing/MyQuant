@@ -5,8 +5,69 @@ import pandas as pd  # 导入pandas库进行数据处理
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+import json
+import os
+from contextlib import contextmanager
 from collections import defaultdict
+from timeit import default_timer as timer
+from typing import Optional, Dict
 from qlib.backtest.position import Position
+
+
+class TimerRecorder:
+    """Lightweight timing recorder.
+
+    Designed for end-to-end scripts: record named wall-clock durations and dump to JSON.
+    """
+
+    def __init__(self):
+        self._t0 = timer()
+        self.nodes = []  # List[{"name": str, "seconds": float}]
+
+    @contextmanager
+    def timer_context(self, name: str):
+        start = timer()
+        try:
+            yield
+        finally:
+            elapsed = timer() - start
+            self.nodes.append({"name": name, "seconds": elapsed})
+
+    def timer(self, name: str):
+        """Alias for backward/plan compatibility."""
+        return self.timer_context(name)
+
+    def dump_json(self, path: str, extra: Optional[Dict] = None):
+        base_dir = os.path.dirname(path)
+        if base_dir:
+            os.makedirs(base_dir, exist_ok=True)
+
+        payload = {
+            "total_seconds": timer() - self._t0,
+            "nodes": self.nodes,
+        }
+        if extra:
+            payload.update(extra)
+
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
+# Global recorder reference for cross-module timing.
+# Used by `custom_strategy.py` / `custom_handler.py` to append into the same JSON dump.
+_GLOBAL_TIMER_RECORDER: Optional["TimerRecorder"] = None
+
+
+def set_global_timer_recorder(rec: "TimerRecorder") -> None:
+    """Set the global recorder used by other modules (if running in same process)."""
+    global _GLOBAL_TIMER_RECORDER
+    _GLOBAL_TIMER_RECORDER = rec
+
+
+def get_global_timer_recorder() -> Optional["TimerRecorder"]:
+    """Get the global recorder; returns None if not set."""
+    return _GLOBAL_TIMER_RECORDER
+
 
 def analyze_and_visualize_positions(report: pd.DataFrame, positions: dict, figsize=(14, 10)):
     """

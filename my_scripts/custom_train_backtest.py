@@ -1,4 +1,5 @@
 import multiprocessing
+import atexit
 import logging
 import os
 
@@ -27,7 +28,7 @@ import plotly.graph_objects as go
 
 from pprint import pprint
 from custom_utils import pprint_position_report, analyze_position_by_date, generate_position_report, \
-    pprint_risk_analysis
+    pprint_risk_analysis, TimerRecorder, set_global_timer_recorder
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
@@ -35,6 +36,12 @@ if __name__ == '__main__':
     print(qlib.__version__)  # 如果能够打印出版本号，说明安装成功
 
     start = timer()
+    t_rec = TimerRecorder()
+    # Make recorder visible to other modules in the same process (strategy/handler timing).
+    set_global_timer_recorder(t_rec)
+    base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    exp_name = None
+    timing_path = None
 
     logger.remove(0)
 
@@ -138,11 +145,13 @@ if __name__ == '__main__':
     dynamic_filter = ExpressionDFilter(rule_expression=expression_rule)
 
     # 3. 获取基础股票池（例如全市场或沪深300）应用动态过滤器，获取筛选后的股票列表
-    filtered_instruments = D.instruments(market='all',
-                                     start_time=start_time,  # 调整为你需要的开始时间
-                                     end_time=end_time,  # 调整为你需要的结束时间
-                                     filter_pipe=[exclude_filter],  # 应用过滤器
-                                     )  # 或者使用 market='all'
+    with t_rec.timer("D.instruments"):
+        filtered_instruments = D.instruments(
+            market='all',
+            start_time=start_time,  # 调整为你需要的开始时间
+            end_time=end_time,  # 调整为你需要的结束时间
+            filter_pipe=[exclude_filter],  # 应用过滤器
+        )  # 或者使用 market='all'
 
     # 定义策略相关的市场和分析基准
     # market = "all"
@@ -153,6 +162,18 @@ if __name__ == '__main__':
     # market = ['SH600000','SH600010','SH600028','SH600025','SH600019','SH600900','SH600941','SZ300059','SZ300124','SZ300274']
 
     exp_name = "alpha158_cost_kdj_lgb"
+    timing_path = os.path.join(base_dir, f"timing_custom_train_backtest_{exp_name}.json")
+
+    def _dump_timing_on_exit():
+        # Ensure we always persist timing nodes, even if the run crashes mid-way.
+        try:
+            _path = timing_path or os.path.join(base_dir, "timing_custom_train_backtest_unknown.json")
+            t_rec.dump_json(_path, extra={"exp_name": exp_name})
+            print(f"=== Timing saved: {_path} ===")
+        except Exception as e:
+            print(f"Failed to dump timing json: {e}")
+
+    atexit.register(_dump_timing_on_exit)
 
     signal_cols = ["COST_K", "COST_D", "COST_J", "MAIRU_SIGNAL","ZHANGTING"]
 
@@ -178,7 +199,8 @@ if __name__ == '__main__':
         "include_lz": True,
     }
 
-    handler = Alpha158CostKDJ(**data_handler_config)
+    with t_rec.timer("handler_init"):
+        handler = Alpha158CostKDJ(**data_handler_config)
     # handler = Alpha158(**data_handler_config) #  **运算符将字典展开为关键字参数
 
     # 定义任务配置字典，包含模型和数据集的详细配置
@@ -222,7 +244,8 @@ if __name__ == '__main__':
     }
 
     # 验证数据加载
-    data = handler.fetch(col_set="feature")
+    with t_rec.timer("handler_fetch_feature"):
+        data = handler.fetch(col_set="feature")
 
     print(data.head(10))
     #                            KMID      KLEN  ...    COST_D    COST_J
@@ -255,9 +278,11 @@ if __name__ == '__main__':
     #            SH600025    0.348180  0.223375  0.598955
     #            SH600028    1.079720  1.067183  1.107931
 
-    model = init_instance_by_config(task["model"])  # 根据model配置创建模型实例
+    with t_rec.timer("model_init"):
+        model = init_instance_by_config(task["model"])  # 根据model配置创建模型实例
     print(u'根据model配置创建模型实例', timer() - start)
-    dataset = init_instance_by_config(task["dataset"])  # 根据dataset配置创建数据集实例
+    with t_rec.timer("dataset_init"):
+        dataset = init_instance_by_config(task["dataset"])  # 根据dataset配置创建数据集实例
     print(u'根据dataset配置创建数据集实例', timer() - start)
 
     # 定义投资组合分析（回测）的配置
@@ -280,7 +305,8 @@ if __name__ == '__main__':
                 "dataset": dataset,  # 使用的数据集
                 "topk": 10,  # 选择信号最强的50只股票
                 "n_drop": 3,  # 每次调仓时丢弃排名最后5只股票
-                "hold_thresh": 1  # 最小持有1天
+                "hold_thresh": 1,  # 最小持有1天
+                "timing_interval_steps": 10  # sample timing every N steps
             },
         },
         "backtest": {  # 回测参数配置
@@ -310,7 +336,8 @@ if __name__ == '__main__':
     rid = None
     with R.start(experiment_name=exp_name):
         R.log_params(**flatten_dict(task))  # 将任务配置参数扁平化后记录到实验中，便于追踪
-        model.fit(dataset)  # 方法根据数据集对模型进行训练，这个过程会生成模型参数和训练指标 在训练集上训练模型，并在验证集上进行验证
+        with t_rec.timer("model_fit"):
+            model.fit(dataset)  # 方法根据数据集对模型进行训练，这个过程会生成模型参数和训练指标 在训练集上训练模型，并在验证集上进行验证
         R.save_objects(trained_model=model)  # 将训练好的模型保存到当前实验记录中
         # 保存的模型可以通过 recorder.load_object("trained_model")在后续流程（如回测阶段）中重新加载使用，确保模型的一致性和可复用性
 
@@ -411,7 +438,8 @@ if __name__ == '__main__':
         recorder = R.get_recorder()
 
         sr = SignalRecord(model, dataset, recorder)
-        sr.generate()
+        with t_rec.timer("SignalRecord.generate"):
+            sr.generate()
         # 执行 sr.generate()后，生成的预测信号会保存到记录器的工件（artifacts）中，主要包括：
         #   预测分数文件：保存每个股票在每个时间点的预测分数
         # [record_temp.py:198] - Signal record 'pred.pkl' has been saved as the artifact of the Experiment 963122733822150836
@@ -451,7 +479,8 @@ if __name__ == '__main__':
         # 创建信号分析记录
         sar = SigAnaRecord(recorder)
         # 执行信号分析
-        sar.generate()
+        with t_rec.timer("SigAnaRecord.generate"):
+            sar.generate()
         # 在 Qlib 中，sig_analysis.pkl文件是由 SigAnaRecord组件在您调用其 generate()方法后自动生成的，并默认保存在当前实验的 记录器（Recorder） 对应的目录下
         # sig_analysis.pkl文件包含了 SigAnaRecord对模型预测信号进行分析后得出的关键量化指标。这些指标是评估策略预测有效性的核心。
         # 通常，该文件会保存一个字典（Dictionary）形式的数据，其中可能包括：
@@ -476,7 +505,8 @@ if __name__ == '__main__':
         #   day则指定了回测的频率为日级别
 
         par = PortAnaRecord(recorder, port_analysis_config, "day")  # 传入记录器、回测配置和时间频率
-        par.generate()  # 系统会基于配置启动完整的回测流程，包括初始化投资组合、模拟每日交易、计算持仓价值，并最终生成收益率、波动率、夏普比率、最大回撤等指标的分析报告
+        with t_rec.timer("PortAnaRecord.generate"):
+            par.generate()  # 系统会基于配置启动完整的回测流程，包括初始化投资组合、模拟每日交易、计算持仓价值，并最终生成收益率、波动率、夏普比率、最大回撤等指标的分析报告
 
 
         # 'The following are analysis results of benchmark return(1day).'
@@ -613,7 +643,8 @@ if __name__ == '__main__':
         for i, fig in enumerate(figures):
             fig.show()
 
-        data_df = dataset.prepare(segments='test', col_set=['feature', 'label'])
+        with t_rec.timer("dataset_prepare_test_feature_label"):
+            data_df = dataset.prepare(segments='test', col_set=['feature', 'label'])
         print(data_df.head(10))
         #                         feature            ...               label
         #                            KMID      KLEN  ...    COST_J    LABEL0

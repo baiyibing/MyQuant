@@ -1,5 +1,6 @@
 import sys
 import os
+from contextlib import nullcontext
 import pandas as pd
 import numpy as np
 from qlib.contrib.data.handler import Alpha158
@@ -9,17 +10,19 @@ from qlib.strategy.base import BaseStrategy
 
 from qlib.data import D
 
+from custom_utils import get_global_timer_recorder
+
 # 确保 custom_ops.py 所在目录在 Python 路径中
 # 如果 custom_ops.py 与当前文件同级，添加当前目录
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-
-# ✅ 核心：导入即注册！只要执行这行，SMA 就自动注册到 Qlib
-from custom_ops import SMA
-
-# 验证：打印确认类已加载
-print(f"✅ SMA 类已导入: {SMA}")
+# current_dir = os.path.dirname(os.path.abspath(__file__))
+# if current_dir not in sys.path:
+#     sys.path.insert(0, current_dir)
+#
+# # ✅ 核心：导入即注册！只要执行这行，SMA 就自动注册到 Qlib
+# from custom_ops import SMA
+#
+# # 验证：打印确认类已加载
+# print(f"✅ SMA 类已导入: {SMA}")
 
 class AlphaSimpleCustom(Alpha158):
 
@@ -80,6 +83,15 @@ _DEFAULT_LEARN_PROCESSORS = [
 # （如 SigAnaRecord 或 PortfolioStrategy）
 class Alpha158CostKDJ(Alpha158):
     """
+
+    L1:=COST(0.01);
+    L2:=COST(99.99);
+    L3:=(C-L1)/(L2-L1)*100;
+    K:SMA(L3,3,1),COLORWHITE;
+    D:SMA(K,3,1),COLORYELLOW;
+    J:3*K-2*D,COLORFF00FF;
+    MAIRU:=CROSS(J,K) AND J<80;
+
     扩展 Alpha158，将 L1, L2, L3, K, D, J 全部作为 Alpha 因子，
     并在 get_extended_data 中计算 MAIRU 信号（不用于训练，仅用于回测）。
     """
@@ -99,52 +111,56 @@ class Alpha158CostKDJ(Alpha158):
         super().__init__(*args, **kwargs)
 
     def get_feature_config(self):
+        rec = get_global_timer_recorder()
         # 获取原始 Alpha158 的特征
-        fields, names = super().get_feature_config()
+        with (rec.timer("handler.get_feature_config.super") if rec is not None else nullcontext()):
+            fields, names = super().get_feature_config()
         # COST_J 作为 Alpha 因子，可用于模型排序（值越大越看涨）
         # MAIRU_SIGNAL 作为 信号列，仅用于回测策略，不参与模型训练（避免过拟合）
 
-        # 获取原始 Alpha158 的特征
-        fields, names = super().get_feature_config()
+        with (rec.timer("handler.get_feature_config.kdj_expr") if rec is not None else nullcontext()):
+            N = self.cost_window
 
-        N = self.cost_window
+            # === 1. 近似 COST(0.01) 和 COST(99.99) ===
+            L1_expr = f"Quantile($low, {N}, 0.0001)"          # ≈ COST(0.01)
+            L2_expr = f"Quantile($high, {N}, 0.9999)"         # ≈ COST(99.99)
 
-        # === 1. 近似 COST(0.01) 和 COST(99.99) ===
-        L1_expr = f"Quantile($low, {N}, 0.0001)"          # ≈ COST(0.01)
-        L2_expr = f"Quantile($high, {N}, 0.9999)"         # ≈ COST(99.99)
+            # === 2. L3: 相对位置 [0, 100] ===
+            L3_expr = f"($close - {L1_expr}) / ({L2_expr} - {L1_expr} + 1e-6) * 100"
 
-        # === 2. L3: 相对位置 [0, 100] ===
-        L3_expr = f"($close - {L1_expr}) / ({L2_expr} - {L1_expr} + 1e-6) * 100"
+            # === 3. K = SMA(L3, 3, 1) → 使用简单移动平均（Ts_Mean）===
+            # 关键差异：通达信 SMA(X,3,1) 是加权移动平均（权重 M=1），而 Qlib SMA() 是等权重简单平均。
+            # 数学关系：SMA(X,N,1) ≈ EMA(X, 2*N-1) （指数移动平均）
+            # 因此 SMA(X,3,1) 可用 EMA(X, 5) 近似
+            # K_expr = f"SMA({L3_expr}, 3, 1)"
+            # D_expr = f"SMA({K_expr}, 3, 1)"
 
-        # === 3. K = SMA(L3, 3, 1) → 使用简单移动平均（Ts_Mean）===
-        # K_expr = f"SMA({L3_expr}, 3, 1)"
-        # 使用QLib内置函数替代自定义SMA[5]使用EMA近似SMA(3,1)，性能更好
-        # K_expr = f"EMA({L3_expr}, 3)"
-        K_expr = f"SMA({L3_expr}, 3, 1)"
-        D_expr = f"SMA({K_expr}, 3, 1)"
+            # 使用QLib内置函数替代自定义SMA[5]使用EMA近似SMA(3,1)，性能更好
+            K_expr = f"EMA({L3_expr}, 5)"
+            D_expr = f"EMA({K_expr}, 5)"
 
-        # === 5. J = 3*K - 2*D ===
-        J_expr = f"3*({K_expr}) - 2*({D_expr})"
+            # === 5. J = 3*K - 2*D ===
+            J_expr = f"3*({K_expr}) - 2*({D_expr})"
 
-        new_fields = []
-        new_names = []
-        if self.include_cost_kdj:
-            if self.include_signal:
-                # 股票价格同时站上20日线和20周线的qlib表达式
-                # Qlib 默认使用日频数据，没有“周线”概念，因此通常将5周均线近似为 25日均线。如果你有真正的周线数据，需先聚合，但一般实盘/回测中用25日均线代替5周均线是行业惯例。
-                K20_expr = "($close > Mean($close, 20)) & ($close > Mean($close, 100))"
-
-                MAIRU_expr = f"If(({J_expr} > {K_expr}) & (Ref({J_expr}, 1) <= Ref({K_expr}, 1)) & ({J_expr} < 80) & {K20_expr}, 2, 0)"
-
-                # === 添加所有中间变量为 Alpha 因子 ===
-                new_fields += [K_expr, D_expr, J_expr,MAIRU_expr]
-                new_names += ["COST_K", "COST_D", "COST_J","MAIRU_SIGNAL"]
-            else:
-                new_fields = [K_expr, D_expr, J_expr]
-                new_names = ["COST_K", "COST_D", "COST_J"]
-        else:
             new_fields = []
             new_names = []
+            if self.include_cost_kdj:
+                if self.include_signal:
+                    # 股票价格同时站上20日线和20周线的qlib表达式
+                    # Qlib 默认使用日频数据，没有“周线”概念，因此通常将5周均线近似为 25日均线。如果你有真正的周线数据，需先聚合，但一般实盘/回测中用25日均线代替5周均线是行业惯例。
+                    K20_expr = "($close > Mean($close, 20)) & ($close > Mean($close, 100))"
+
+                    MAIRU_expr = f"If(({J_expr} > {K_expr}) & (Ref({J_expr}, 1) <= Ref({K_expr}, 1)) & ({J_expr} < 80) & {K20_expr}, 2, 0)"
+
+                    # === 添加所有中间变量为 Alpha 因子 ===
+                    new_fields += [K_expr, D_expr, J_expr,MAIRU_expr]
+                    new_names += ["COST_K", "COST_D", "COST_J","MAIRU_SIGNAL"]
+                else:
+                    new_fields = [K_expr, D_expr, J_expr]
+                    new_names = ["COST_K", "COST_D", "COST_J"]
+            else:
+                new_fields = []
+                new_names = []
 
         if self.include_lz:
             # ============ 滚动窗口技术指标因子 ============
@@ -246,16 +262,18 @@ class CostKDJSignalHandler(DataHandlerLP):
         """
         Qlib v0.9.7 中，DataHandlerLP 支持此方法用于后处理（需在 Dataset 中设置 process_type="append"）
         """
-        # 提取已计算的 K 和 J
-        K = df["COST_K"]
-        J = df["COST_J"]
+        rec = get_global_timer_recorder()
+        with (rec.timer("handler.get_extended_data.cross_and_mairu") if rec is not None else nullcontext()):
+            # 提取已计算的 K 和 J
+            K = df["COST_K"]
+            J = df["COST_J"]
 
-        # 计算 CROSS(J, K): J 上穿 K
-        cross = (J > K) & (J.shift(1) <= K.shift(1))
-        MAIRU = (cross & (J < 80)).astype(int)
+            # 计算 CROSS(J, K): J 上穿 K
+            cross = (J > K) & (J.shift(1) <= K.shift(1))
+            MAIRU = (cross & (J < 80)).astype(int)
 
-        # 添加信号列
-        df["MAIRU"] = MAIRU
+            # 添加信号列
+            df["MAIRU"] = MAIRU
         return df
 
 

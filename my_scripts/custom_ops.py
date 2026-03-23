@@ -46,30 +46,49 @@ class SMA(Rolling):
         series = self.feature.load(instrument, start_index, end_index, *args)
         if series.empty:
             return series
-
-        values = series.values.astype(np.float64)
+        values = series.values.astype(np.float64, copy=False)
         n = len(values)
         sma = np.full(n, np.nan, dtype=np.float64)
+
+        # Match the original semantics:
+        # - Before the first non-NaN, sma is NaN.
+        # - After the first NaN appears (after the first valid point), sma becomes NaN forever.
+        valid_mask = ~np.isnan(values)
+        if not valid_mask.any():
+            return pd.Series(sma, index=series.index)
+
+        first_valid = int(valid_mask.argmax())
+        if first_valid + 1 < n:
+            tail_invalid_mask = ~valid_mask[first_valid + 1 :]
+            if tail_invalid_mask.any():
+                first_nan_rel = int(tail_invalid_mask.argmax())
+                end = first_valid + 1 + first_nan_rel  # exclusive
+            else:
+                end = n
+        else:
+            end = first_valid + 1
+
+        v = values[first_valid:end]  # v contains no NaNs
+        m = len(v)
         alpha = self.M / self.N
         beta = 1.0 - alpha
 
-        # Find first valid index
-        first_valid = None
-        for i in range(n):
-            if not np.isnan(values[i]):
-                sma[i] = values[i]
-                first_valid = i
-                break
+        if m == 1:
+            sma[first_valid] = v[0]
+        elif beta == 0.0:
+            # alpha == 1, recurrence collapses to sma[t] = v[t]
+            sma[first_valid:end] = v
+        else:
+            # Closed-form for y[t] = beta*y[t-1] + alpha*v[t] with y[0] = v[0]
+            # => y[t] = beta^t * (v0 + sum_{j=1..t} alpha*v[j]*beta^{-j})
+            pow_b = beta ** np.arange(m, dtype=np.float64)
+            w = np.zeros(m, dtype=np.float64)
+            w[1:] = alpha * v[1:]
 
-        if first_valid is None:
-            return pd.Series(sma, index=series.index)
-
-        # Recursive computation
-        for i in range(first_valid + 1, n):
-            if np.isnan(values[i]):
-                sma[i] = np.nan
-            else:
-                sma[i] = alpha * values[i] + beta * sma[i - 1]
+            # Compute s[t] = sum_{j=0..t} w[j] * beta^{-j} (w[0] = 0)
+            inv_pow_b = beta ** (-np.arange(m, dtype=np.float64))
+            s = np.cumsum(w * inv_pow_b)
+            sma[first_valid:end] = pow_b * (v[0] + s)
 
         return pd.Series(sma, index=series.index)
 

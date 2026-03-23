@@ -12,14 +12,19 @@ from qlib.log import get_module_logger                              # 导入日�
 from qlib.utils import copy                                         # 导入复制工具
 from qlib.contrib.strategy.order_generator import OrderGenerator, OrderGenWOInteract    # 导入订单生成器
 
+from contextlib import nullcontext
+
 from loguru import logger   # 导入日志库
 
+from custom_utils import get_global_timer_recorder
+
 class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, timing_interval_steps: int = 10, **kwargs):
         super().__init__(*args, **kwargs)   # 调用父类构造函数
         self.max_return_threshold = 0.15    # 设置最大收益阈值（15%），超过此阈值的股票将被过滤
         self.lookback_days = 5              # 设置回溯天数（5天），用于计算历史收益
         self.logger = get_module_logger("TopkDropoutStrategyWithFilter")    # 获取模块专用的日志记录器
+        self.timing_interval_steps = int(timing_interval_steps) if timing_interval_steps else 10
 
 
     def _filter_stocks_by_return_threshold_old(self, stocks, trade_start_time,initial_required_count):
@@ -233,7 +238,16 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         # 例如，在回测到第5天（trade_step=4）时，这里获取的是第4天及之前的数据来生成信号，用于第5天的交易。
         logger.info(
             f"获取用于计算预测信号（pred_score）的时间范围 {pred_start_time} 到 {pred_end_time} 标明了“今天”这个交易日的时间区间（通常是同一天的开始和结束时刻）")
-        pred_score = self.signal.get_signal(start_time=pred_start_time, end_time=pred_end_time)
+        # High-frequency hook: only record timing on sampled trade steps.
+        do_timing = (
+            self.timing_interval_steps is not None
+            and self.timing_interval_steps > 0
+            and trade_step % self.timing_interval_steps == 0
+        )
+        rec = get_global_timer_recorder() if do_timing else None
+
+        with (rec.timer("strategy.signal.get_signal") if rec is not None else nullcontext()):
+            pred_score = self.signal.get_signal(start_time=pred_start_time, end_time=pred_end_time)
         # 调用信号对象的方法，获取在指定的预测时间范围内所有股票的预测分数
         # pred_score通常是一个 Pandas Series 或 DataFrame，索引为日期和股票代码，包含一列名为 score的预测值。这个分数是排序和选择股票的依据——通常认为分数越高的股票未来表现越好
 
@@ -325,7 +339,10 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             #     f"{pred_start_time} 到 {pred_end_time} 预测信号（pred_score）的 {pred_score.head(30)}")
 
             # 2. 应用涨幅过滤
-            filtered_today = self._filter_stocks_by_return_threshold(initial_today, trade_start_time,initial_required_count)
+            with (rec.timer("strategy.filter_return_threshold") if rec is not None else nullcontext()):
+                filtered_today = self._filter_stocks_by_return_threshold(
+                    initial_today, trade_start_time, initial_required_count
+                )
             filtered_today = filtered_today[:initial_required_count]
 
             # 3. 检查是否需要补充
@@ -340,7 +357,10 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
                 remaining_candidate = candidate_stocks[1000:2000]
 
                 # 5. 对部分候选股票也进行涨幅过滤
-                filtered_remaining = self._filter_stocks_by_return_threshold(remaining_candidate, trade_start_time,initial_required_count)
+                with (rec.timer("strategy.filter_return_threshold") if rec is not None else nullcontext()):
+                    filtered_remaining = self._filter_stocks_by_return_threshold(
+                        remaining_candidate, trade_start_time, initial_required_count
+                    )
 
                 # 6. 从过滤后的剩余候选中取需要的数量
                 additional_count = initial_required_count - len(filtered_today)
@@ -388,41 +408,42 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         buy = today[:len(sell) + self.topk - len(last)]
 
         # 生成卖出订单
-        for code in current_stock_list:
-            # 检查股票是否可交易
-            if not self.trade_exchange.is_stock_tradable(
-                    stock_id=code,
-                    start_time=trade_start_time,
-                    end_time=trade_end_time,
-                    direction=None if self.forbid_all_trade_at_limit else OrderDir.SELL,
-            ):
-                continue
-            if code in sell:
-                # check hold limit
-                # 检查持仓限制
-                time_per_step = self.trade_calendar.get_freq()
-                if current_temp.get_stock_count(code, bar=time_per_step) < self.hold_thresh:
+        with (rec.timer("strategy.order_sell_loop") if rec is not None else nullcontext()):
+            for code in current_stock_list:
+                # 检查股票是否可交易
+                if not self.trade_exchange.is_stock_tradable(
+                        stock_id=code,
+                        start_time=trade_start_time,
+                        end_time=trade_end_time,
+                        direction=None if self.forbid_all_trade_at_limit else OrderDir.SELL,
+                ):
                     continue
-                # sell order
-                # 创建卖出订单
-                sell_amount = current_temp.get_stock_amount(code=code)
-                sell_order = Order(
-                    stock_id=code,
-                    amount=sell_amount,
-                    start_time=trade_start_time,
-                    end_time=trade_end_time,
-                    direction=Order.SELL,  # 0 for sell, 1 for buy
-                )
-                # is order executable
-                # 检查订单是否可执行
-                if self.trade_exchange.check_order(sell_order):
-                    sell_order_list.append(sell_order)
-                # 处理订单并更新现金
-                trade_val, trade_cost, trade_price = self.trade_exchange.deal_order(
-                    sell_order, position=current_temp
-                )
-                # update cash
-                cash += trade_val - trade_cost
+                if code in sell:
+                    # check hold limit
+                    # 检查持仓限制
+                    time_per_step = self.trade_calendar.get_freq()
+                    if current_temp.get_stock_count(code, bar=time_per_step) < self.hold_thresh:
+                        continue
+                    # sell order
+                    # 创建卖出订单
+                    sell_amount = current_temp.get_stock_amount(code=code)
+                    sell_order = Order(
+                        stock_id=code,
+                        amount=sell_amount,
+                        start_time=trade_start_time,
+                        end_time=trade_end_time,
+                        direction=Order.SELL,  # 0 for sell, 1 for buy
+                    )
+                    # is order executable
+                    # 检查订单是否可执行
+                    if self.trade_exchange.check_order(sell_order):
+                        sell_order_list.append(sell_order)
+                    # 处理订单并更新现金
+                    trade_val, trade_cost, trade_price = self.trade_exchange.deal_order(
+                        sell_order, position=current_temp
+                    )
+                    # update cash
+                    cash += trade_val - trade_cost
 
         # buy new stock
         # note the current has been changed
@@ -431,38 +452,39 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
 
         # set open_cost limit
         # 设置买入成本限制
-        for code in buy:
-            # check is stock suspended
-            # 检查股票是否可交易
-            if not self.trade_exchange.is_stock_tradable(
+        with (rec.timer("strategy.order_buy_loop") if rec is not None else nullcontext()):
+            for code in buy:
+                # check is stock suspended
+                # 检查股票是否可交易
+                if not self.trade_exchange.is_stock_tradable(
+                        stock_id=code,
+                        start_time=trade_start_time,
+                        end_time=trade_end_time,
+                        direction=None if self.forbid_all_trade_at_limit else OrderDir.BUY,
+                ):
+                    continue
+                # buy order
+                # 创建买入订单
+                buy_price = self.trade_exchange.get_deal_price(
                     stock_id=code,
                     start_time=trade_start_time,
                     end_time=trade_end_time,
-                    direction=None if self.forbid_all_trade_at_limit else OrderDir.BUY,
-            ):
-                continue
-            # buy order
-            # 创建买入订单
-            buy_price = self.trade_exchange.get_deal_price(
-                stock_id=code,
-                start_time=trade_start_time,
-                end_time=trade_end_time,
-                direction=OrderDir.BUY,
-            )
-            buy_amount = value / buy_price
-            factor = self.trade_exchange.get_factor(
-                stock_id=code,
-                start_time=trade_start_time,
-                end_time=trade_end_time,
-            )
-            buy_amount = self.trade_exchange.round_amount_by_trade_unit(buy_amount, factor)
-            buy_order = Order(
-                stock_id=code,
-                amount=buy_amount,
-                start_time=trade_start_time,
-                end_time=trade_end_time,
-                direction=Order.BUY,  # 1 for buy
-            )
-            buy_order_list.append(buy_order)
+                    direction=OrderDir.BUY,
+                )
+                buy_amount = value / buy_price
+                factor = self.trade_exchange.get_factor(
+                    stock_id=code,
+                    start_time=trade_start_time,
+                    end_time=trade_end_time,
+                )
+                buy_amount = self.trade_exchange.round_amount_by_trade_unit(buy_amount, factor)
+                buy_order = Order(
+                    stock_id=code,
+                    amount=buy_amount,
+                    start_time=trade_start_time,
+                    end_time=trade_end_time,
+                    direction=Order.BUY,  # 1 for buy
+                )
+                buy_order_list.append(buy_order)
         # 返回交易决策（包含所有买卖订单）
         return TradeDecisionWO(sell_order_list + buy_order_list, self)
