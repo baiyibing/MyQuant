@@ -1,0 +1,21 @@
+{
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.external.windowsExec": "wt.exe",
+  "terminal.external.windowsExecArgs": [
+    "-d",
+    "${workspaceFolder}"
+  ],
+  "python.terminal.activateEnvironment": true,
+  "python.defaultInterpreterPath": "D:\\anaconda3\\envs\\vanna310\\python.exe",
+  "python.condaPath": "D:\\anaconda3\\Scripts\\conda.exe",
+  "terminal.integrated.profiles.windows": {
+    "PowerShell": {
+      "source": "PowerShell",
+      "args": [
+        "-NoExit",
+        "-Command",
+        "conda activate vanna310"
+      ]
+    }
+  }
+}
