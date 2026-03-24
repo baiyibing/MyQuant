@@ -98,8 +98,8 @@ if __name__ == '__main__':
     print(data)
 
     data = D.features(
-        instruments=["SZ301559"],  # 股票代码
-        fields=["$open", "$high", "$low", "$close", "($close - Ref($close,5)) / Ref($close,5)", "Ref($close,5)","$amount", "$factor", "$change","$close/$factor", "$volume", "$volddx","$bigddx"],  # 字段：开盘、最高、最低、收盘价
+        instruments=["SZ300162"],  # 股票代码
+        fields=["$open", "$high", "$low", "$close", "($close - Ref($close,5)) / Ref($close,5)", "Ref($close,5)","$amount", "$factor", "$change","$close/$factor", "$volume", "$volddx","$bigddx","$zhangting"],  # 字段：开盘、最高、最低、收盘价
         start_time="2026-01-05",  # 查询开始日期
         end_time="2026-03-16"     # 查询结束日期（与开始日期相同即可查询单日）
     )

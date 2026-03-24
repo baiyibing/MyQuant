@@ -2,6 +2,7 @@ import multiprocessing
 import atexit
 import logging
 import os
+import copy
 
 from timeit import default_timer as timer
 
@@ -23,12 +24,52 @@ from qlib.workflow.record_temp import SignalRecord, SigAnaRecord, PortAnaRecord
 from qlib.contrib.report import analysis_model, analysis_position
 from qlib.data import D  # 导入数据模块
 from custom_handler import Alpha158CostKDJ
+from custom_filter import UnifiedLimitUpFilter
 from custom_ops import SMA
 import plotly.graph_objects as go
 
 from pprint import pprint
 from custom_utils import pprint_position_report, analyze_position_by_date, generate_position_report, \
     pprint_risk_analysis, TimerRecorder, set_global_timer_recorder
+
+
+def verify_limit_up_filter(filtered_handler, unfiltered_handler, segments):
+    """验证 UnifiedLimitUpFilter 是否在 train/valid/test 三段生效。"""
+    filtered_df = filtered_handler.fetch(col_set="feature")
+    unfiltered_df = unfiltered_handler.fetch(col_set="feature")
+
+    if "LIMIT_STATUS" not in filtered_df.columns or "LIMIT_STATUS" not in unfiltered_df.columns:
+        raise ValueError("验证失败：缺少 LIMIT_STATUS 列，请确认 include_lz=True 且 $zhangting 字段可用。")
+
+    print("\n=== Verify UnifiedLimitUpFilter (train/valid/test) ===")
+    for seg_name, (seg_start, seg_end) in segments.items():
+        base_seg = unfiltered_df.loc[(slice(seg_start, seg_end), slice(None)), :]
+        filtered_seg = filtered_df.loc[(slice(seg_start, seg_end), slice(None)), :]
+
+        base_rows = len(base_seg)
+        filtered_rows = len(filtered_seg)
+        removed_rows = base_rows - filtered_rows
+        removed_ratio = (removed_rows / base_rows) if base_rows else 0.0
+
+        base_limit_cnt = int((base_seg["LIMIT_STATUS"] == 1).sum())
+        filtered_limit_cnt = int((filtered_seg["LIMIT_STATUS"] == 1).sum())
+
+        print(
+            f"[{seg_name}] rows(before/after)={base_rows}/{filtered_rows}, "
+            f"removed={removed_rows} ({removed_ratio:.2%}), "
+            f"limit_status_1(before/after)={base_limit_cnt}/{filtered_limit_cnt}"
+        )
+
+        if filtered_limit_cnt > 0:
+            raise ValueError(
+                f"验证失败：{seg_name} 分段过滤后仍存在 LIMIT_STATUS==1 样本（{filtered_limit_cnt} 条）。"
+            )
+        if base_limit_cnt > 0 and removed_rows <= 0:
+            raise ValueError(
+                f"验证失败：{seg_name} 分段存在涨停样本（{base_limit_cnt} 条），但过滤前后样本数无减少。"
+            )
+
+    print("✅ UnifiedLimitUpFilter 验证通过：train/valid/test 均已生效。\n")
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
@@ -104,7 +145,7 @@ if __name__ == '__main__':
     pd.set_option('display.width', None)
 
     start_time="2026-01-01"
-    end_time="2026-03-13"
+    end_time="2026-03-23"
 
     fit_start_time=start_time
     fit_end_time="2026-01-31"
@@ -144,19 +185,17 @@ if __name__ == '__main__':
     """
     dynamic_filter = ExpressionDFilter(rule_expression=expression_rule)
 
-    # 3. 获取基础股票池（例如全市场或沪深300）应用动态过滤器，获取筛选后的股票列表
-    with t_rec.timer("D.instruments"):
-        filtered_instruments = D.instruments(
-            market='all',
-            start_time=start_time,  # 调整为你需要的开始时间
-            end_time=end_time,  # 调整为你需要的结束时间
-            filter_pipe=[exclude_filter],  # 应用过滤器
-        )  # 或者使用 market='all'
+    # === 阶段2：动态涨停过滤（核心新增）===
+    # 这是关键：在DataHandler中配置，自动作用于Train/Valid/Test
+    limit_up_filter = UnifiedLimitUpFilter(
+        use_field="$zhangting",  # 使用您数据中的涨停标记
+        limit_pct=0.095,  # 主板阈值，科创板需0.19
+        keep=False  # False=剔除涨停股票
+    )
 
     # 定义策略相关的市场和分析基准
     # market = "all"
     # market = "csi300"
-
 
     benchmark = "SH601727"  # 设置业绩比较基准为沪深300指数代码
     # market = ['SH600000','SH600010','SH600028','SH600025','SH600019','SH600900','SH600941','SZ300059','SZ300124','SZ300274']
@@ -192,16 +231,29 @@ if __name__ == '__main__':
             {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature"}},
             {"class": "Fillna", "kwargs": {"method": "ffill"}}
         ],
-        "instruments": filtered_instruments,  # 投资标的，这里使用前面定义的market（csi300）
+        # `filter_pipe` is not None, but it will not be used with `instruments` as list
+        # "instruments": filtered_instruments,  # 投资标的，这里使用前面定义的market（csi300）
+        "instruments": "all",  # 关键：不要用 list
         "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
         "include_cost_kdj": True,
         "include_signal": False,
         "include_lz": True,
+        "filter_pipe":[exclude_filter,limit_up_filter]
     }
 
+    print("[debug] before handler_init(filtered)", flush=True)
     with t_rec.timer("handler_init"):
         handler = Alpha158CostKDJ(**data_handler_config)
+    print("[debug] after handler_init(filtered)", flush=True)
     # handler = Alpha158(**data_handler_config) #  **运算符将字典展开为关键字参数
+
+    # 构建“无涨停过滤”对照 handler：仅保留 exclude_filter，用于验证前后差异
+    no_limit_filter_config = copy.deepcopy(data_handler_config)
+    no_limit_filter_config["filter_pipe"] = [exclude_filter]
+    print("[debug] before handler_init(no_limit_filter)", flush=True)
+    with t_rec.timer("handler_init_no_limit_filter"):
+        handler_no_limit_filter = Alpha158CostKDJ(**no_limit_filter_config)
+    print("[debug] after handler_init(no_limit_filter)", flush=True)
 
     # 定义任务配置字典，包含模型和数据集的详细配置
     task = {
@@ -225,15 +277,15 @@ if __name__ == '__main__':
             "class": "DatasetH",  # 使用DatasetH数据集类,负责将数据划分为训练集、验证集和测试集，并提供数据加载接口
             "module_path": "qlib.data.dataset",  # 数据集所在的模块路径
             "kwargs": {  # 传递给数据集构造函数的参数
-                "handler":
-                {  # 数据处理器配置
-                    "class": "Alpha158CostKDJ",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
-                    "module_path": "custom_handler",  # 数据处理器所在模块路径
-                    # "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
-                    # "class": "Alpha158",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
-                    # "module_path": "qlib.contrib.data.handler",  # 数据处理器所在模块路径
-                    "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
-                },
+                "handler": handler,
+                # {  # 数据处理器配置
+                #     "class": "Alpha158CostKDJ",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
+                #     "module_path": "custom_handler",  # 数据处理器所在模块路径
+                #     # "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
+                #     # "class": "Alpha158",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
+                #     # "module_path": "qlib.contrib.data.handler",  # 数据处理器所在模块路径
+                #     "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
+                # },
                 "segments": {  # 定义数据集的分段（训练集、验证集、测试集）
                     "train": (fit_start_time, fit_end_time),  # 训练集时间范围，用于模型训练。
                     "valid": (valid_start_time, valid_end_time),  # 验证集时间范围，用于调参、早停等。
@@ -281,9 +333,20 @@ if __name__ == '__main__':
     with t_rec.timer("model_init"):
         model = init_instance_by_config(task["model"])  # 根据model配置创建模型实例
     print(u'根据model配置创建模型实例', timer() - start)
+    print("[debug] before dataset_init", flush=True)
     with t_rec.timer("dataset_init"):
         dataset = init_instance_by_config(task["dataset"])  # 根据dataset配置创建数据集实例
+    print("[debug] after dataset_init", flush=True)
     print(u'根据dataset配置创建数据集实例', timer() - start)
+
+    # 训练前强制验证过滤器是否真正生效，失败则中断
+    print("[debug] before verify_limit_up_filter", flush=True)
+    verify_limit_up_filter(
+        filtered_handler=handler,
+        unfiltered_handler=handler_no_limit_filter,
+        segments=task["dataset"]["kwargs"]["segments"],
+    )
+    print("[debug] after verify_limit_up_filter", flush=True)
 
     # 定义投资组合分析（回测）的配置
     port_analysis_config = {
@@ -296,17 +359,17 @@ if __name__ == '__main__':
             },
         },
         "strategy": {  # 交易策略配置
-            # "class": "TopkDropoutStrategy",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
-            # "module_path": "qlib.contrib.strategy.signal_strategy",  # 策略所在模块路径
-            "class": "TopkDropoutStrategyWithFilter",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
-            "module_path": "custom_strategy",  # 策略所在模块路径
+            "class": "TopkDropoutStrategy",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
+            "module_path": "qlib.contrib.strategy.signal_strategy",  # 策略所在模块路径
+            # "class": "TopkDropoutStrategyWithFilter",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
+            # "module_path": "custom_strategy",  # 策略所在模块路径
             "kwargs": {  # 策略参数
                 "model": model,  # 使用的预测模型
                 "dataset": dataset,  # 使用的数据集
                 "topk": 10,  # 选择信号最强的50只股票
                 "n_drop": 3,  # 每次调仓时丢弃排名最后5只股票
                 "hold_thresh": 1,  # 最小持有1天
-                "timing_interval_steps": 10  # sample timing every N steps
+                # timing_interval_steps 仅适用于 custom_strategy.TopkDropoutStrategyWithFilter，勿传给 qlib TopkDropoutStrategy
             },
         },
         "backtest": {  # 回测参数配置
@@ -336,8 +399,10 @@ if __name__ == '__main__':
     rid = None
     with R.start(experiment_name=exp_name):
         R.log_params(**flatten_dict(task))  # 将任务配置参数扁平化后记录到实验中，便于追踪
+        print("[debug] before model.fit", flush=True)
         with t_rec.timer("model_fit"):
             model.fit(dataset)  # 方法根据数据集对模型进行训练，这个过程会生成模型参数和训练指标 在训练集上训练模型，并在验证集上进行验证
+        print("[debug] after model.fit", flush=True)
         R.save_objects(trained_model=model)  # 将训练好的模型保存到当前实验记录中
         # 保存的模型可以通过 recorder.load_object("trained_model")在后续流程（如回测阶段）中重新加载使用，确保模型的一致性和可复用性
 
