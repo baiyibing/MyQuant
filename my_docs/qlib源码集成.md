@@ -160,8 +160,8 @@ python setup.py build_ext --inplace
 cd E:\PycharmProjects\MyQuant\qlib
 pip install cython numpy setuptools-scm
 pip install -e . --no-build-isolation --force-reinstall
-
-(vanna310) E:\PycharmProjects\MyQuant\qlib>set SETUPTOOLS_SCM_PRETEND_VERSION_FOR_PYQLIB=0.9.7 && pip install -e . 
+要注意就是，在执行下面这句的时候，项目里面要把其他文件移走或者压缩陈一个文件，只留下qlib的源文件
+(vanna310) E:\PycharmProjects\MyQuant>set SETUPTOOLS_SCM_PRETEND_VERSION_FOR_PYQLIB=0.9.7 && pip install -e . 
 ```
 
 **关键参数说明：**
