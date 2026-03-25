@@ -1,5 +1,4 @@
-import sys
-import os
+# 图表30: 自定义特征代码
 import pandas as pd
 import numpy as np
 from qlib.contrib.data.handler import Alpha158
@@ -9,17 +8,18 @@ from qlib.strategy.base import BaseStrategy
 
 from qlib.data import D
 
-# 确保 custom_ops.py 所在目录在 Python 路径中
-# 如果 custom_ops.py 与当前文件同级，添加当前目录
-current_dir = os.path.dirname(os.path.abspath(__file__))
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
 
-# ✅ 核心：导入即注册！只要执行这行，SMA 就自动注册到 Qlib
-from custom_ops import SMA
+# from custom_ops import SMA,TDX_SMA
 
-# 验证：打印确认类已加载
-print(f"✅ SMA 类已导入: {SMA}")
+# 先将AlphaSimpleCustom类保存在以下路径:
+#     C:/Users/Kang/anaconda3/Library/site-packages/pyqlib-0.6.1.dev0-py3.7-win-amd64.egg/
+#     qlib/contrib/data/handler_custom.py
+# 再通过参数dataset下的参数handler调用:
+#     "handler": {
+#         "class": "AlphaSimpleCustom",
+#         "module_path": "qlib.contrib.data.handler_custom",
+#         "kwargs": data_handler_config,
+#     },
 
 class AlphaSimpleCustom(Alpha158):
 
@@ -121,13 +121,18 @@ class Alpha158CostKDJ(Alpha158):
         # 使用QLib内置函数替代自定义SMA[5]使用EMA近似SMA(3,1)，性能更好
         # K_expr = f"EMA({L3_expr}, 3)"
         K_expr = f"SMA({L3_expr}, 3, 1)"
+
+        # === 4. D = SMA(K, 3, 1) ===
+        # D_expr = f"SMA({K_expr}, 3, 1)"
+        # 使用QLib内置函数替代自定义SMA[5]使用EMA近似SMA(3,1)，性能更好
+        # D_expr = f"EMA({K_expr}, 3)"
         D_expr = f"SMA({K_expr}, 3, 1)"
 
         # === 5. J = 3*K - 2*D ===
         J_expr = f"3*({K_expr}) - 2*({D_expr})"
 
-        new_fields = []
-        new_names = []
+        new_fields = None
+        new_names = None
         if self.include_cost_kdj:
             if self.include_signal:
                 # 股票价格同时站上20日线和20周线的qlib表达式

@@ -96,16 +96,16 @@ if __name__ == '__main__':
     # 设置显示宽度，防止自动换行
     pd.set_option('display.width', None)
 
-    start_time="2026-01-01"
-    end_time="2026-03-13"
+    start_time="2020-01-01"
+    end_time="2026-03-23"
 
     fit_start_time=start_time
-    fit_end_time="2026-01-31"
+    fit_end_time="2024-12-31"
 
-    valid_start_time="2026-02-01"
-    valid_end_time="2026-02-28"
+    valid_start_time="2025-01-01"
+    valid_end_time="2025-12-31"
 
-    test_start_time="2026-03-01"
+    test_start_time="2026-01-01"
     test_end_time=end_time
 
     # 2. 定义动态过滤规则：排除过去5日涨幅超过10%的股票
@@ -178,8 +178,16 @@ if __name__ == '__main__':
         "include_lz": True,
     }
 
+    data_handler_config_158 = {
+        "start_time": start_time,  # 整体数据开始时间
+        "end_time": end_time,  # 整体数据结束时间
+        "fit_start_time": fit_start_time,  # 特征计算起始时间（通常与start_time一致）
+        "fit_end_time": fit_end_time,  # 特征计算结束时间（训练集截止时间）
+        "instruments": filtered_instruments,  # 投资标的，这里使用前面定义的market（csi300）
+    }
+
     handler = Alpha158CostKDJ(**data_handler_config)
-    # handler = Alpha158(**data_handler_config) #  **运算符将字典展开为关键字参数
+    # handler = Alpha158(**data_handler_config_158) #  **运算符将字典展开为关键字参数
 
     # 定义任务配置字典，包含模型和数据集的详细配置
     task = {
@@ -203,15 +211,15 @@ if __name__ == '__main__':
             "class": "DatasetH",  # 使用DatasetH数据集类,负责将数据划分为训练集、验证集和测试集，并提供数据加载接口
             "module_path": "qlib.data.dataset",  # 数据集所在的模块路径
             "kwargs": {  # 传递给数据集构造函数的参数
-                "handler":
-                {  # 数据处理器配置
-                    "class": "Alpha158CostKDJ",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
-                    "module_path": "custom_handler",  # 数据处理器所在模块路径
-                    # "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
-                    # "class": "Alpha158",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
-                    # "module_path": "qlib.contrib.data.handler",  # 数据处理器所在模块路径
-                    "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
-                },
+                "handler":handler,
+                # {  # 数据处理器配置
+                #     # "class": "Alpha158CostKDJ",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
+                #     # "module_path": "custom_handler",  # 数据处理器所在模块路径
+                #     # "kwargs": data_handler_config,  # 使用前面定义的data_handler_config
+                #     "class": "Alpha158",  # 使用Alpha158特征集,一个预定义的数据处理器，它实现了 158 个常用的 Alpha 因子
+                #     "module_path": "qlib.contrib.data.handler",  # 数据处理器所在模块路径
+                #     "kwargs": data_handler_config_158,  # 使用前面定义的data_handler_config
+                # },
                 "segments": {  # 定义数据集的分段（训练集、验证集、测试集）
                     "train": (fit_start_time, fit_end_time),  # 训练集时间范围，用于模型训练。
                     "valid": (valid_start_time, valid_end_time),  # 验证集时间范围，用于调参、早停等。
@@ -271,10 +279,10 @@ if __name__ == '__main__':
             },
         },
         "strategy": {  # 交易策略配置
-            # "class": "TopkDropoutStrategy",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
-            # "module_path": "qlib.contrib.strategy.signal_strategy",  # 策略所在模块路径
-            "class": "TopkDropoutStrategyWithFilter",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
-            "module_path": "custom_strategy",  # 策略所在模块路径
+            "class": "TopkDropoutStrategy",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
+            "module_path": "qlib.contrib.strategy.signal_strategy",  # 策略所在模块路径
+            # "class": "TopkDropoutStrategyWithFilter",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
+            # "module_path": "custom_strategy",  # 策略所在模块路径
             "kwargs": {  # 策略参数
                 "model": model,  # 使用的预测模型
                 "dataset": dataset,  # 使用的数据集

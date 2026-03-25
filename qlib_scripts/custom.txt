@@ -84,7 +84,7 @@ python qlib_scripts/dump_bin.py dump_all ^
 python qlib_scripts/dump_bin.py dump_all --data_path E:\qlibdata --qlib_dir C:\Users\Thinkpad\.qlib\qlib_data\my_data --freq day --date_field_name date    --include_fields open,high,low,close,adjclose,volume,factor,volddx,bigddx,netcsfree,basiccurhold,adfadfbasiccurhold,amount,vwap,change,zhangting
 
 20251215的数据转换更新加载
-python qlib_scripts/dump_bin.py dump_update --data_path E:\qlibdata --qlib_dir C:\Users\Thinkpad\.qlib\qlib_data\my_data --freq day --date_field_name date --symbol_field_name code --include_fields open,high,low,close,adjclose,volume,factor,volddx,bigddx,netcsfree,basiccurhold,adfadfbasiccurhold,amount,vwap,change,zhangting
+python qlib_scripts/dump_bin.py dump_update --data_path E:\qlibdata --qlib_dir C:\Users\wangc\.qlib\qlib_data\my_data --freq day --date_field_name date --symbol_field_name code --include_fields open,high,low,close,adjclose,volume,factor,volddx,bigddx,netcsfree,basiccurhold,adfadfbasiccurhold,amount,vwap,change,zhangting
 
 
 [214 rows x 158 columns]]'. Reason: 'MemoryError()'].

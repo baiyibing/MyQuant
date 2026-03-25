@@ -21,7 +21,6 @@ if __name__ == '__main__':
     qlib.init(
         # 数据存储路径
         provider_uri='~/.qlib/qlib_data/my_data',
-        # calendar_provider='LocalCalendarProvider',  # 明确指定日历提供者
         # 中国市场
         region=REG_CN,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。

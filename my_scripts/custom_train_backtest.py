@@ -238,7 +238,7 @@ if __name__ == '__main__':
         "include_cost_kdj": True,
         "include_signal": False,
         "include_lz": True,
-        "filter_pipe":[exclude_filter,limit_up_filter]
+        # "filter_pipe":[exclude_filter,limit_up_filter]
     }
 
     print("[debug] before handler_init(filtered)", flush=True)
@@ -339,14 +339,14 @@ if __name__ == '__main__':
     print("[debug] after dataset_init", flush=True)
     print(u'根据dataset配置创建数据集实例', timer() - start)
 
-    # 训练前强制验证过滤器是否真正生效，失败则中断
-    print("[debug] before verify_limit_up_filter", flush=True)
-    verify_limit_up_filter(
-        filtered_handler=handler,
-        unfiltered_handler=handler_no_limit_filter,
-        segments=task["dataset"]["kwargs"]["segments"],
-    )
-    print("[debug] after verify_limit_up_filter", flush=True)
+    # # 训练前强制验证过滤器是否真正生效，失败则中断
+    # print("[debug] before verify_limit_up_filter", flush=True)
+    # verify_limit_up_filter(
+    #     filtered_handler=handler,
+    #     unfiltered_handler=handler_no_limit_filter,
+    #     segments=task["dataset"]["kwargs"]["segments"],
+    # )
+    # print("[debug] after verify_limit_up_filter", flush=True)
 
     # 定义投资组合分析（回测）的配置
     port_analysis_config = {
