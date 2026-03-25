@@ -187,6 +187,9 @@ class Alpha158CostKDJ(Alpha158):
             new_fields += ["Sum($bigddx,%d)/($adfadfbasiccurhold+1e-12)" % d for d in windows_s]
             new_names += ["BIGDDX_R%d" % d for d in windows_s]
 
+            new_fields += ["(Sum($volume,%d)*0.0001)/($adfadfbasiccurhold+1e-12)" % d for d in windows_s]
+            new_names += ["VOLUME_R%d" % d for d in windows_s]
+
             # 创建涨停跌停三态因子
             limit_status_expr = f"$zhangting"
 
