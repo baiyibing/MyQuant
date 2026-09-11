@@ -1,53 +1,47 @@
-# https://github.com/github/gitignore/blob/master/Python.gitignore
+# Python
 __pycache__/
-
-*.pyc
-*.pyd
-*.so
-*.ipynb
-.ipynb_checkpoints
-_build
+*.py[cod]
+*.egg-info/
 build/
 dist/
+.eggs/
 
-*.pkl
-*.hd5
-*.csv
-
+# 虚拟环境
 .env
-.vim
-.nvimrc
-.vscode
+.venv/
+venv/
 
-qlib/VERSION.txt
-qlib/data/_libs/expanding.cpp
-qlib/data/_libs/rolling.cpp
-qlib/_version.py
-examples/estimator/estimator_example/
-examples/rl/data/
-examples/rl/checkpoints/
-examples/rl/outputs/
-examples/rl_order_execution/data/
-examples/rl_order_execution/outputs/
-
-*.egg-info/
-
-# test related
-test-output.xml
-.output
-.data
-
-# special software
-mlruns/
-
-tags
-
+# IDE / 编辑器
+.idea/
+.vscode/
+.cursor/
+.aider*
 .pytest_cache/
 .mypy_cache/
-.vscode/
+.ruff_cache/
 
-*.swp
+# Qlib / MLflow 运行产物
+mlruns/
+mlartifacts/
+*.pkl
+*.hd5
+*.h5
 
-./pretrain
-.idea/
-.aider*
+# 日志
+*.log
+logs/
+
+# 数据与压缩包（数据不入库）
+*.7z
+*.zip
+*.csv
+*.parquet
+*.bin
+data/
+output/
+outputs/
+*.output
+
+# 系统
+Thumbs.db
+.DS_Store

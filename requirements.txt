@@ -1,0 +1,13 @@
+# Qlib 以源码 editable 方式安装，不使用 pip 的 pyqlib 包：
+#   git clone https://github.com/microsoft/qlib.git qlib-dev
+#   cd qlib-dev && pip install -e .
+# 开发基准 commit：79633dd9（v0.9.8.dev32，2026-09）
+
+# 以下为 Qlib 自身依赖之外，本项目主要使用的库
+lightgbm>=4.7
+numpy>=2.0
+pandas>=2.2
+scikit-learn>=1.5
+mlflow>=3.0
+pyarrow
+loguru
