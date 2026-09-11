@@ -32,6 +32,10 @@ pip install -e .
 
 自有 CSV 行情数据经 `qlib_scripts/dump_bin.py` 转换为 Qlib 二进制格式后使用。数据文件不入库。
 
+## 相关项目
+
+- [MyQuant-backtrader](https://github.com/baiyibing/MyQuant-backtrader) — backtrader 回测 + 股票数据 + 筹码/换手阻力研究（Python + Rust）
+
 ## 免责声明
 
 本项目仅用于量化研究与技术学习，不构成任何投资建议。
