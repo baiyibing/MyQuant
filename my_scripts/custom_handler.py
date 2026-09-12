@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 from qlib.contrib.data.handler import Alpha158
 from qlib.data.dataset import DataHandlerLP
+from qlib.data.dataset.processor import Processor
 from qlib.data.ops import EMA, Sub, Div, If
 from qlib.strategy.base import BaseStrategy
 
@@ -76,11 +77,66 @@ _DEFAULT_INFER_PROCESSORS = [
 ]
 
 _DEFAULT_LEARN_PROCESSORS = [
+    # M3-A: learn-only drop of limit-up samples (do not put on infer_processors).
+    {
+        "class": "DropLimitUpLearn",
+        "module_path": "custom_handler",
+        "kwargs": {"col": "LIMIT_STATUS", "value": 1},
+    },
     {"class": "DropnaLabel"},
     {"class": "CSZScoreNorm", "kwargs": {"fields_group": "label"}},
 ]
 
-# （如 SigAnaRecord 或 PortfolioStrategy）
+
+def drop_limit_up_rows(df: pd.DataFrame, col: str = "LIMIT_STATUS", value=1) -> pd.DataFrame:
+    """Drop rows where limit-up marker equals ``value``. Pure helper for unit tests.
+
+    Supports flat columns and MultiIndex columns (matches last level name).
+    If ``col`` is absent, returns ``df`` unchanged.
+    """
+    if df is None or df.empty:
+        return df
+    series = None
+    if isinstance(df.columns, pd.MultiIndex):
+        if col in df.columns.get_level_values(-1):
+            # Prefer ('feature', col) when present
+            if ("feature", col) in df.columns:
+                series = df[("feature", col)]
+            else:
+                series = df.loc[:, df.columns.get_level_values(-1) == col].iloc[:, 0]
+    elif col in df.columns:
+        series = df[col]
+    if series is None:
+        return df
+    mask = series != value
+    # Keep NaN marker rows (unknown) — only drop explicit limit-up hits.
+    mask = mask | series.isna()
+    return df.loc[mask]
+
+
+class DropLimitUpLearn(Processor):
+    """Learn-phase processor: drop samples with LIMIT_STATUS/$zhangting == 1.
+
+    Must not be placed on infer_processors (``is_for_infer`` is False). Export
+    pool / as-of path is untouched. With production filter_pipe already removing
+    limit-up instruments, this is defense-in-depth on the learn frame; when
+    LIMIT_STATUS is still 0/1 (shared/raw or PTYPE_I), the drop is exact.
+    """
+
+    def __init__(self, col: str = "LIMIT_STATUS", value=1):
+        self.col = col
+        self.value = value
+
+    def __call__(self, df: pd.DataFrame):
+        return drop_limit_up_rows(df, col=self.col, value=self.value)
+
+    def is_for_infer(self) -> bool:
+        return False
+
+    def readonly(self) -> bool:
+        return True
+
+
 class Alpha158CostKDJ(Alpha158):
     """
 

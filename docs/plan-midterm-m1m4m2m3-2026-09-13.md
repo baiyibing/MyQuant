@@ -1,7 +1,7 @@
 # 中期落地计划：M1 全量 bin → M4 manifest → M2 筹码 parity → M3 ranking-only
 
 - 日期：2026-09-13
-- 状态：v1，交 Codex 按片实施；每片一个分支一个 PR，全量测试绿了才提交
+- 状态：v1；M1 已合 #8；本波 `feat/m4-m3a-batch` = M4-A→(M4-B+M3-A)→M4-C（VM 跳过 live 重训）
 - 上游：`docs/plan-three-repo-roadmap-2026-09-12.md` v1.3 §0/§4（本轮 = 中期项落地）；数据现状见 `docs/qlib-data-state-2026-09-13.md`
 - 执行顺序：M1 → M4 → M2 → M3（M4 的 manifest 是 M3 sweep 的依赖）。L2 不在本计划
 

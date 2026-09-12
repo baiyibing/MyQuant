@@ -19,6 +19,8 @@ from typing import Sequence
 
 import pandas as pd
 
+from run_manifest import write_export_manifest
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT_DIR = REPO_ROOT / "exports" / "r2_pred_topn_20260302_20260323"
@@ -156,13 +158,44 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(f"prediction file does not exist: {pred_path}")
     try:
         predictions = load_predictions(pred_path)
-        _, illegal_count = export_daily_pool(
+        written, illegal_count = export_daily_pool(
             predictions, args.out_dir, topk=args.topk, asof=args.asof
         )
     except (OSError, ValueError, pd.errors.ParserError) as exc:
         parser.error(str(exc))
     if illegal_count:
         print(f"dropped {illegal_count} illegal instrument(s)", file=sys.stderr)
+    # M4-C: export run-manifest（pred md5 / asof / topk / 输出文件数）
+    try:
+        manifests_dir = REPO_ROOT / "manifests"
+        write_export_manifest(
+            manifests_dir=manifests_dir,
+            config={
+                "asof": args.asof,
+                "topk": args.topk,
+                "pred": str(pred_path),
+                "out_dir": str(Path(args.out_dir).expanduser()),
+                "output_file_count": len(written),
+            },
+            pred_path=pred_path,
+            out_dir=args.out_dir,
+            output_file_count=len(written),
+            pred_rows=int(len(predictions)),
+            data={
+                "calendar_first": str(predictions["datetime"].min().date())
+                if len(predictions)
+                else None,
+                "calendar_last": str(predictions["datetime"].max().date())
+                if len(predictions)
+                else None,
+                "calendar_days": int(predictions["datetime"].nunique())
+                if len(predictions)
+                else 0,
+            },
+            repo_root=REPO_ROOT,
+        )
+    except Exception as exc:  # noqa: BLE001 — export success must not fail on manifest
+        print(f"Failed to write export manifest: {exc}", file=sys.stderr)
     return 0
 
 
