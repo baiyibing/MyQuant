@@ -1,0 +1,8 @@
+{
+  "window_start": "2026-03-02",
+  "window_end": "2026-03-23",
+  "symbols": ["600000", "300190", "920014", "000001", "000858", "601318", "688981", "301236"],
+  "rtol": 1e-4,
+  "mapping_conclusion": "不可比",
+  "note": "Fixture metadata for M2-B harness; live numerical golden not produced because M2-A is 不可比."
+}
