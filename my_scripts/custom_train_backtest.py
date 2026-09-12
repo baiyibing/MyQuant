@@ -25,6 +25,14 @@ from qlib.contrib.report import analysis_model, analysis_position
 from qlib.data import D  # 导入数据模块
 from custom_handler import Alpha158CostKDJ
 from custom_filter import UnifiedLimitUpFilter
+from train_wiring import (
+    build_exclude_name_filter,
+    build_filtered_instruments,
+    build_limit_up_filter,
+    parse_train_cli,
+    should_verify_filters,
+    verify_limit_up_filter,
+)
 from custom_ops import SMA
 import plotly.graph_objects as go
 
@@ -33,43 +41,6 @@ from custom_utils import pprint_position_report, analyze_position_by_date, gener
     pprint_risk_analysis, TimerRecorder, set_global_timer_recorder
 
 
-def verify_limit_up_filter(filtered_handler, unfiltered_handler, segments):
-    """验证 UnifiedLimitUpFilter 是否在 train/valid/test 三段生效。"""
-    filtered_df = filtered_handler.fetch(col_set="feature")
-    unfiltered_df = unfiltered_handler.fetch(col_set="feature")
-
-    if "LIMIT_STATUS" not in filtered_df.columns or "LIMIT_STATUS" not in unfiltered_df.columns:
-        raise ValueError("验证失败：缺少 LIMIT_STATUS 列，请确认 include_lz=True 且 $zhangting 字段可用。")
-
-    print("\n=== Verify UnifiedLimitUpFilter (train/valid/test) ===")
-    for seg_name, (seg_start, seg_end) in segments.items():
-        base_seg = unfiltered_df.loc[(slice(seg_start, seg_end), slice(None)), :]
-        filtered_seg = filtered_df.loc[(slice(seg_start, seg_end), slice(None)), :]
-
-        base_rows = len(base_seg)
-        filtered_rows = len(filtered_seg)
-        removed_rows = base_rows - filtered_rows
-        removed_ratio = (removed_rows / base_rows) if base_rows else 0.0
-
-        base_limit_cnt = int((base_seg["LIMIT_STATUS"] == 1).sum())
-        filtered_limit_cnt = int((filtered_seg["LIMIT_STATUS"] == 1).sum())
-
-        print(
-            f"[{seg_name}] rows(before/after)={base_rows}/{filtered_rows}, "
-            f"removed={removed_rows} ({removed_ratio:.2%}), "
-            f"limit_status_1(before/after)={base_limit_cnt}/{filtered_limit_cnt}"
-        )
-
-        if filtered_limit_cnt > 0:
-            raise ValueError(
-                f"验证失败：{seg_name} 分段过滤后仍存在 LIMIT_STATUS==1 样本（{filtered_limit_cnt} 条）。"
-            )
-        if base_limit_cnt > 0 and removed_rows <= 0:
-            raise ValueError(
-                f"验证失败：{seg_name} 分段存在涨停样本（{base_limit_cnt} 条），但过滤前后样本数无减少。"
-            )
-
-    print("✅ UnifiedLimitUpFilter 验证通过：train/valid/test 均已生效。\n")
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
@@ -171,26 +142,21 @@ if __name__ == '__main__':
     exclude_stocks = ['SZ000004', 'SZ000430', 'SZ000488', 'SZ000504', 'SZ000518', 'SZ000595', 'SZ000608', 'SZ000609', 'SZ000615', 'SZ000638', 'SZ000656', 'SZ000668', 'SZ000669', 'SZ000691', 'SZ000697', 'SZ000698', 'SZ000711', 'SZ000736', 'SZ000752', 'SZ000793', 'SZ000820', 'SZ000903', 'SZ000908', 'SZ000909', 'SZ000929', 'SZ000972', 'SZ001270', 'SZ002005', 'SZ002024', 'SZ002047', 'SZ002058', 'SZ002076', 'SZ002122', 'SZ002168', 'SZ002197', 'SZ002199', 'SZ002200', 'SZ002211', 'SZ002214', 'SZ002231', 'SZ002253', 'SZ002289', 'SZ002305', 'SZ002306', 'SZ002388', 'SZ002425', 'SZ002485', 'SZ002496', 'SZ002528', 'SZ002529', 'SZ002569', 'SZ002581', 'SZ002586', 'SZ002592', 'SZ002620', 'SZ002630', 'SZ002647', 'SZ002650', 'SZ002656', 'SZ002693', 'SZ002713', 'SZ002717', 'SZ002742', 'SZ002762', 'SZ002789', 'SZ002808', 'SZ002816', 'SZ002822', 'SZ002848', 'SZ002868', 'SZ002872', 'SZ002898', 'SZ003004', 'SZ003032', 'SZ300020', 'SZ300029', 'SZ300044', 'SZ300052', 'SZ300093', 'SZ300096', 'SZ300097', 'SZ300125', 'SZ300137', 'SZ300147', 'SZ300152', 'SZ300159', 'SZ300165', 'SZ300167', 'SZ300175', 'SZ300198', 'SZ300205', 'SZ300211', 'SZ300225', 'SZ300237', 'SZ300268', 'SZ300301', 'SZ300311', 'SZ300313', 'SZ300326', 'SZ300338', 'SZ300343', 'SZ300344', 'SZ300366', 'SZ300376', 'SZ300379', 'SZ300391', 'SZ300419', 'SZ300462', 'SZ300472', 'SZ300477', 'SZ300506', 'SZ300527', 'SZ300555', 'SZ300561', 'SZ300716', 'SZ300899', 'SZ301288', 'SH600107', 'SH600130', 'SH600136', 'SH600165', 'SH600169', 'SH600193', 'SH600200', 'SH600228', 'SH600238', 'SH600243', 'SH600265', 'SH600289', 'SH600355', 'SH600358', 'SH600360', 'SH600365', 'SH600381', 'SH600421', 'SH600525', 'SH600568', 'SH600599', 'SH600608', 'SH600624', 'SH600636', 'SH600696', 'SH600735', 'SH600753', 'SH600777', 'SH600892', 'SH603007', 'SH603021', 'SH603261', 'SH603268', 'SH603377', 'SH603388', 'SH603389', 'SH603398', 'SH603517', 'SH603557', 'SH603559', 'SH603580', 'SH603595', 'SH603721', 'SH603789', 'SH603813', 'SH603825', 'SH603828', 'SH603838', 'SH603843', 'SH603869', 'SH605081', 'SH605199', 'SH688053', 'SH688076', 'SH688184', 'SH688287', 'SH688511', 'SH688646', 'BJ920305', 'BJ920680']
     # exclude_stocks = ['SZ000004', 'SZ000430', 'SZ000488']
 
-    # 创建排除表达式
-    # 这里使用NotIn操作来排除特定股票
-    exclude_filter = NameDFilter(name_rule_re='^(?!(' + '|'.join(exclude_stocks) + ')).*$')  # 正则排除
-
-    # 创建表达式过滤器
-    # exclude_filter = ExpressionDFilter(rule_expression=exclude_expression)
-
+    # Exclude + $zhangting limit-up via D.instruments filter_pipe (Q3-R3).
+    # dynamic_filter is constructed for reference only — NOT in filter_pipe this round.
     expression_rule = f"""
     (
         ($close - Ref($close,5)) / Ref($close,5) < -0.10
     )
     """
-    dynamic_filter = ExpressionDFilter(rule_expression=expression_rule)
+    dynamic_filter = ExpressionDFilter(rule_expression=expression_rule)  # noqa: F841 — intentionally unused in R3
 
-    # === 阶段2：动态涨停过滤（核心新增）===
-    # 这是关键：在DataHandler中配置，自动作用于Train/Valid/Test
-    limit_up_filter = UnifiedLimitUpFilter(
-        use_field="$zhangting",  # 使用您数据中的涨停标记
-        limit_pct=0.095,  # 主板阈值，科创板需0.19
-        keep=False  # False=剔除涨停股票
+    exclude_filter = build_exclude_name_filter(exclude_stocks)
+    limit_up_filter = build_limit_up_filter()
+    instruments = build_filtered_instruments(
+        start_time=start_time,
+        end_time=end_time,
+        exclude_stocks=exclude_stocks,
     )
 
     # 定义策略相关的市场和分析基准
@@ -217,43 +183,31 @@ if __name__ == '__main__':
     signal_cols = ["COST_K", "COST_D", "COST_J", "MAIRU_SIGNAL","ZHANGTING"]
 
     # 定义数据处理器配置，指定数据获取的时间范围、训练集时间区间和投资标的
+    # Live path: instruments = D.instruments(..., filter_pipe=[exclude, limit_up]).
+    # Do NOT hang a dead filter_pipe key on this handler dict (Q3-R3 / Q3-R4).
     data_handler_config = {
         "start_time": start_time,  # 整体数据开始时间
         "end_time": end_time,  # 整体数据结束时间
         "fit_start_time": fit_start_time,  # 特征计算起始时间（通常与start_time一致）
         "fit_end_time": fit_end_time,  # 特征计算结束时间（训练集截止时间）
-        # "cost_window": 250,  # 特征计算结束时间（训练集截止时间）
-        # "infer_processors": [
-        #         {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature", "clip_outlier": True}}],  # 特征计算结束时间（训练集截止时间）
-        # "learn_processors": [{"class": "DropnaLabel"}],  # 特征计算结束时间（训练集截止时间）
         "infer_processors": [
             {"class": "ProcessInf"},
             {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature"}},
             {"class": "Fillna", "kwargs": {"method": "ffill"}}
         ],
-        # `filter_pipe` is not None, but it will not be used with `instruments` as list
-        # "instruments": filtered_instruments,  # 投资标的，这里使用前面定义的market（csi300）
-        "instruments": "all",  # 关键：不要用 list
+        "instruments": instruments,  # from build_filtered_instruments / D.instruments
         "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
         "include_cost_kdj": True,
         "include_signal": False,
         "include_lz": True,
-        # "filter_pipe":[exclude_filter,limit_up_filter]
     }
 
     print("[debug] before handler_init(filtered)", flush=True)
     with t_rec.timer("handler_init"):
         handler = Alpha158CostKDJ(**data_handler_config)
     print("[debug] after handler_init(filtered)", flush=True)
-    # handler = Alpha158(**data_handler_config) #  **运算符将字典展开为关键字参数
-
-    # 构建“无涨停过滤”对照 handler：仅保留 exclude_filter，用于验证前后差异
-    no_limit_filter_config = copy.deepcopy(data_handler_config)
-    no_limit_filter_config["filter_pipe"] = [exclude_filter]
-    print("[debug] before handler_init(no_limit_filter)", flush=True)
-    with t_rec.timer("handler_init_no_limit_filter"):
-        handler_no_limit_filter = Alpha158CostKDJ(**no_limit_filter_config)
-    print("[debug] after handler_init(no_limit_filter)", flush=True)
+    # Default path: single production handler only (no handler_no_limit_filter).
+    # Contrast verify is gated by --verify-filters / QLIB_VERIFY_FILTERS (slice C).
 
     # 定义任务配置字典，包含模型和数据集的详细配置
     task = {
