@@ -44,6 +44,7 @@ import plotly.graph_objects as go
 from pprint import pprint
 from custom_utils import pprint_position_report, analyze_position_by_date, generate_position_report, \
     pprint_risk_analysis, TimerRecorder, set_global_timer_recorder
+from run_manifest import write_train_manifest
 
 
 
@@ -784,6 +785,46 @@ if __name__ == '__main__':
             fig.show()
 
         # 打印完成信息
+        # M4-B: train run-manifest（不依赖 18min 重跑即可单测 write_train_manifest）
+        try:
+            _pred_csv = os.path.abspath("预测结果.csv")
+            _pred_rows = int(len(pred_df)) if pred_df is not None else None
+            _manifest_cfg = {
+                "exp_name": exp_name,
+                "segments": task["dataset"]["kwargs"]["segments"],
+                "topk": port_analysis_config["strategy"]["kwargs"]["topk"],
+                "n_drop": port_analysis_config["strategy"]["kwargs"]["n_drop"],
+                "hold_thresh": port_analysis_config["strategy"]["kwargs"].get("hold_thresh"),
+                "benchmark": benchmark,
+                "start_time": start_time,
+                "end_time": end_time,
+                "include_lz": bool(data_handler_config.get("include_lz")),
+                "recorder_id": rid,
+            }
+            _cal_data = {}
+            try:
+                _cal = D.calendar(start_time=start_time, end_time=end_time)
+                if len(_cal) > 0:
+                    _cal_data = {
+                        "calendar_first": str(_cal[0].date()),
+                        "calendar_last": str(_cal[-1].date()),
+                        "calendar_days": int(len(_cal)),
+                    }
+            except Exception as _cal_exc:
+                print(f"[manifest] calendar snapshot skipped: {_cal_exc}")
+            _written = write_train_manifest(
+                manifests_dir=os.path.join(base_dir, "manifests"),
+                config=_manifest_cfg,
+                pred_path=_pred_csv if os.path.isfile(_pred_csv) else None,
+                timer_recorder=t_rec,
+                data=_cal_data,
+                repo_root=base_dir,
+                pred_rows=_pred_rows,
+            )
+            print(f"=== Train manifest saved: {_written[0]} ===")
+        except Exception as _man_exc:
+            print(f"Failed to write train manifest: {_man_exc}")
+
         print("策略回测完成！", rid, timer() - r_start)
 
         print("✅ 训练与回测完成！")

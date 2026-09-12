@@ -230,3 +230,72 @@ def load_manifest(path: Path | str) -> dict[str, Any]:
     data = json.loads(raw.decode("utf-8"))
     validate_manifest(data)
     return data
+
+
+def timings_from_recorder(timer_recorder: Any) -> dict[str, Any]:
+    """Snapshot TimerRecorder-like object into timings dict."""
+    if timer_recorder is None:
+        return {"total_seconds": 0, "nodes": []}
+    nodes = list(getattr(timer_recorder, "nodes", []) or [])
+    total = None
+    dump_json = getattr(timer_recorder, "dump_json", None)
+    # Prefer live total if recorder exposes _t0
+    t0 = getattr(timer_recorder, "_t0", None)
+    if t0 is not None:
+        from timeit import default_timer as timer
+
+        total = float(timer() - t0)
+    if total is None:
+        total = float(sum(float(n.get("seconds", 0)) for n in nodes if isinstance(n, Mapping)))
+    return {"total_seconds": total, "nodes": nodes}
+
+
+def write_train_manifest(
+    *,
+    manifests_dir: Path | str,
+    config: Mapping[str, Any],
+    pred_path: Path | str | None = None,
+    timer_recorder: Any = None,
+    timings: Mapping[str, Any] | None = None,
+    data: Mapping[str, Any] | None = None,
+    extra_artifacts: Sequence[Mapping[str, Any]] | None = None,
+    artifact_dirs: Iterable[Path | str] | None = None,
+    repo_root: Path | str | None = None,
+    git_commit_sha: str | None = None,
+    created_utc: str | None = None,
+    pred_rows: int | None = None,
+) -> list[Path]:
+    """Train-stage helper: fingerprint pred (+extras), attach timings, write manifest.
+
+    Callable from custom_train_backtest end-of-run and from unit tests without
+    running handler_init / full train.
+    """
+    artifacts: list[dict[str, Any]] = []
+    side_dirs: list[Path] = []
+    if pred_path is not None:
+        pred = Path(pred_path)
+        if pred.is_file():
+            base = pred.parent
+            artifacts.append(fingerprint_artifact(pred, rows=pred_rows, base_dir=base))
+            side_dirs.append(base)
+    for art in extra_artifacts or []:
+        artifacts.append(dict(art))
+    for d in artifact_dirs or []:
+        side_dirs.append(Path(d))
+
+    timing_payload = dict(timings) if timings is not None else timings_from_recorder(timer_recorder)
+    manifest = build_manifest(
+        stage="train",
+        config=config,
+        data=data,
+        artifacts=artifacts,
+        timings=timing_payload,
+        git_commit_sha=git_commit_sha,
+        created_utc=created_utc,
+        repo_root=repo_root,
+    )
+    return write_manifest(
+        manifest,
+        manifests_dir=manifests_dir,
+        artifact_dirs=side_dirs,
+    )
