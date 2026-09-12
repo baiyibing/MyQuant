@@ -1,6 +1,6 @@
 # 三仓协同路线图：信号厂 → 规则回测 → 执行栈
 
-- 日期：2026-09-12（v1.3 回写 2026-09-13；§0.2 补 M4/M3-A）
+- 日期：2026-09-12（v1.3 回写 2026-09-13；§0.2 补 M4/M3-A/M2）
 - 状态：**v1.3**。近期 R0–R5 与首轮 M5 已落地；中远期仍为方向性共识。里程碑表当预期，不当承诺维护。长期保鲜的是 §1 定位、§2 决定、§6 负面清单，以及名单/F 湖两篇契约。
 - 涉及仓库：MyQuant（本仓）/ MyQuant-backtrader / OSkhQuant1.3
 - 上游输入：2026-09-11~12 三仓架构讨论；本仓走查见 `my_docs/qlib_backtest_walkthrough_results.md`
@@ -51,6 +51,9 @@ v1.1 相对 v1：补三仓对照（含「不该再做」）、研究两层、Qli
 | M4-B 训练收尾写 train manifest（helper 可单测；VM 跳过 18min 重训） | 本分支已提交 | 中期计划 §2；宿主机合批验收 |
 | M3-A learn-only `DropLimitUpLearn`（infer/导出池 as-of 不动） | 本分支已提交 | 中期计划 §4；IC/IR 宿主机 pending |
 | M4-C 导出写 export manifest + `docs/run-manifest-spec.md` | 本分支已提交 | 中期计划 §2；BT 仓后续对齐用 |
+| M2-A 筹码概念映射 `docs/chip-parity-map.md`（结论：不可比） | 本分支已提交 | 中期计划 §3；合法关门 |
+| M2-B `chip_parity_check.py` + 注入 fake bt 单测；live 报 not comparable | 本分支已提交 | 中期计划 §3；fixture-only |
+| M2-C 晋升门 + `chip-parity-report-2026-09-13.md`（closed as 不可比） | 本分支已提交 | 中期计划 §3；**M2 轨道完成** |
 
 PortAna 第 4 轮用真沪深300 出过烟雾报告。按 §2.3 / §6：**不当产品、不当 M5 对照列。**
 
@@ -188,7 +191,7 @@ Qlib SZ300190  →  CSV 裸 300190  →  湖分区 300190_SZ  →  交易层 300
 | # | 任务 | 说明 |
 |---|---|---|
 | M1 | F 湖 → Qlib bin | **刷新管道已固化**（`refresh_mydata.py` A–D：dry-run / 四门禁+原子 swap / archive+offsite / 文档）。个股仍走 archive+CSV 拼接而非纯湖 7 列；定时刷新与 `oskh_data.integrity` 对齐仍后置 |
-| M2 | 筹码 parity test | **未做**。本仓 COST vs backtrader `qlib_cost` / 换手阻力 |
+| M2 | 筹码 parity test | **已做（不可比关门）**。映射 + checker + 晋升门；无同构量，未强制数值对齐 |
 | M3 | 模型迭代（只动排序，不动成交） | **未做**。中性化 / topk 扫描 / 筹码当特征。涨停剔除训练集：过滤侧已接 `$zhangting`，不是 M3 扫描 |
 | M4 | run manifest 约定 | **未做**。仍是 `timing_*.json` + `backtest_output` 雏形 |
 | M5 | 名单质量归因 | **首轮已做**（2026-03 version6 三列）。结论「几乎不重叠」，禁止读成模型优于手工。R0 不作此结论。加长窗 / 冻结手工快照 / 同宇宙排序对比 = 下一轮，不重开成交核 |
