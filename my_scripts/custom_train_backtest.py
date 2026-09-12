@@ -196,7 +196,9 @@ if __name__ == '__main__':
         "infer_processors": [
             {"class": "ProcessInf"},
             {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature"}},
-            {"class": "Fillna", "kwargs": {"method": "ffill"}}
+            # 本机 qlib-dev(0.9.8.dev32) 的 Fillna 只支持 fields_group/fill_value，
+            # 旧版 method="ffill" 已删除（此前该配置因 processors 未传父类而从未生效）。
+            {"class": "Fillna", "kwargs": {"fields_group": "feature"}}
         ],
         "instruments": instruments,  # from build_filtered_instruments / D.instruments
         "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
