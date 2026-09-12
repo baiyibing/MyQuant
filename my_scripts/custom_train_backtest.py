@@ -205,6 +205,16 @@ if __name__ == '__main__':
             # 旧版 method="ffill" 已删除（此前该配置因 processors 未传父类而从未生效）。
             {"class": "Fillna", "kwargs": {"fields_group": "feature"}}
         ],
+        # M3-A: learn-only 涨停样本剔除；勿放入 infer_processors / 勿改导出池 as-of。
+        "learn_processors": [
+            {
+                "class": "DropLimitUpLearn",
+                "module_path": "custom_handler",
+                "kwargs": {"col": "LIMIT_STATUS", "value": 1},
+            },
+            {"class": "DropnaLabel"},
+            {"class": "CSZScoreNorm", "kwargs": {"fields_group": "label"}},
+        ],
         "instruments": instruments,  # from build_filtered_instruments / D.instruments
         "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
         "include_cost_kdj": True,
