@@ -2,7 +2,8 @@
 
 - 日期：2026-09-13 凌晨（继 09-12 指数补丁、数据刷新之后的最终版）
 - 数据目录：`C:\Users\Thinkpad\.qlib\qlib_data\my_data`
-- 归档备份：`~/.qlib/qlib_data/my_data_20260913_full.7z`（7-Zip，含本目录全部内容）
+- 归档备份：`~/.qlib/qlib_data/my_data_20260913_full.7z`（7-Zip，含本目录全部内容，212,924,772 字节 / 204 MiB）
+- 异地副本：`F:\my_data_20260913_full.7z`、`G:\my_data_20260913_full.7z`——三份 MD5 一致（`42f7ca758dd61fdfc9b85f96e3784a26`）
 - 相关工具：`qlib_scripts/merge_archive_and_csv.py`、`qlib_scripts/patch_index_data.py`、`qlib_scripts/dump_bin.py`（PR #6）
 
 ## 规模与覆盖
