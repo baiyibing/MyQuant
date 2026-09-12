@@ -132,3 +132,216 @@ def test_config_from_args_resolves_defaults():
     assert cfg.staging_dir.name.startswith("my_data_staging_20260913")
     assert cfg.new_qlib_dir.name.startswith("my_data_new_20260913")
     assert cfg.max_workers == 8
+
+
+# ----- M1-B：门禁 + 原子 swap -----
+
+from refresh_mydata import (  # noqa: E402
+    INDEX_CODE_RE,
+    atomic_swap,
+    gate_calendar_vs_lake,
+    gate_no_indices_in_all,
+    gate_sample_values,
+    gate_universe_diff,
+    run_integrity_gates,
+)
+
+
+def _write_calendar(qlib_dir: Path, days: list[str]) -> None:
+    cal = qlib_dir / "calendars"
+    cal.mkdir(parents=True, exist_ok=True)
+    (cal / "day.txt").write_text("\n".join(days) + "\n", encoding="utf-8")
+
+
+def _write_all_txt(qlib_dir: Path, symbols: list[str]) -> None:
+    inst = qlib_dir / "instruments"
+    inst.mkdir(parents=True, exist_ok=True)
+    lines = [f"{s}\t2020-01-02\t2026-09-08" for s in symbols]
+    (inst / "all.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _write_close_bin(qlib_dir: Path, symbol: str, calendar_days: list[str], values: list[float]) -> None:
+    """写最小 close.day.bin：start_index=0，后接 float32 值。"""
+    import numpy as np
+
+    feat = qlib_dir / "features" / symbol.lower()
+    feat.mkdir(parents=True, exist_ok=True)
+    assert len(values) == len(calendar_days)
+    arr = np.zeros(len(values) + 1, dtype="<f")
+    arr[0] = 0.0  # start index
+    arr[1:] = np.asarray(values, dtype="<f")
+    arr.tofile(feat / "close.day.bin")
+
+
+def test_gate_calendar_vs_lake_ok(tmp_path):
+    import pandas as pd
+
+    qlib = tmp_path / "new"
+    days = ["2026-03-02", "2026-03-03", "2026-03-04"]
+    _write_calendar(qlib, days)
+    lake_days = pd.DatetimeIndex(pd.to_datetime(days + ["2026-03-05"]))
+    report = gate_calendar_vs_lake(qlib, tmp_path / "lake", lake_days=lake_days)
+    assert report["missing_count"] == 0
+
+
+def test_gate_calendar_vs_lake_missing_aborts(tmp_path):
+    import pandas as pd
+
+    qlib = tmp_path / "new"
+    _write_calendar(qlib, ["2026-03-02", "2026-03-03", "2026-03-04"])
+    lake_days = pd.DatetimeIndex(pd.to_datetime(["2026-03-02", "2026-03-04"]))  # 缺 03-03
+    with pytest.raises(RefreshError, match="门禁1"):
+        gate_calendar_vs_lake(qlib, tmp_path / "lake", lake_days=lake_days)
+
+
+def test_gate_no_indices_detects_leak(tmp_path):
+    qlib = tmp_path / "new"
+    _write_all_txt(qlib, ["SH600000", "SH000300", "SZ300190"])
+    with pytest.raises(RefreshError, match="门禁3"):
+        gate_no_indices_in_all(qlib)
+    _write_all_txt(qlib, ["SH600000", "SZ300190"])
+    assert gate_no_indices_in_all(qlib)["index_leak"] == []
+
+
+def test_gate_universe_diff_requires_force(tmp_path):
+    old = tmp_path / "old"
+    new = tmp_path / "new"
+    _write_all_txt(old, [f"SH60000{i}" for i in range(5)])
+    _write_all_txt(new, ["SH600000", "SH600001"])  # removed 3
+    with pytest.raises(RefreshError, match="门禁4"):
+        gate_universe_diff(old, new, expected_delist_max=2, force=False)
+    report = gate_universe_diff(old, new, expected_delist_max=2, force=True)
+    assert report["removed_count"] == 3
+    assert report["added_count"] == 0
+
+
+def test_gate_sample_values_mismatch(tmp_path):
+    import pandas as pd
+
+    qlib = tmp_path / "new"
+    csv_dir = tmp_path / "csv"
+    csv_dir.mkdir()
+    days = ["2026-03-02", "2026-03-03"]
+    _write_calendar(qlib, days)
+    _write_all_txt(qlib, ["SH600000"])
+    _write_close_bin(qlib, "SH600000", days, [10.0, 11.0])
+    # CSV 末日故意写错
+    (csv_dir / "SH600000.csv").write_text(
+        "date,close\n2026-03-02,10.0\n2026-03-03,99.0\n", encoding="utf-8"
+    )
+    with pytest.raises(RefreshError, match="门禁2"):
+        gate_sample_values(qlib, csv_dir, symbols=["SH600000"])
+
+
+def test_gate_sample_values_ok_with_injected_source(tmp_path):
+    qlib = tmp_path / "new"
+    days = ["2026-03-02", "2026-03-03"]
+    _write_calendar(qlib, days)
+    _write_all_txt(qlib, ["SH600000", "SZ000001", "SH600519"])
+    for sym, vals in (
+        ("SH600000", [1.0, 2.0]),
+        ("SZ000001", [3.0, 4.0]),
+        ("SH600519", [5.0, 6.0]),
+    ):
+        _write_close_bin(qlib, sym, days, vals)
+
+    def src(sym, day):
+        table = {
+            ("SH600000", "2026-03-02"): 1.0,
+            ("SH600000", "2026-03-03"): 2.0,
+            ("SZ000001", "2026-03-02"): 3.0,
+            ("SZ000001", "2026-03-03"): 4.0,
+            ("SH600519", "2026-03-02"): 5.0,
+            ("SH600519", "2026-03-03"): 6.0,
+        }
+        return table[(sym, str(day.date()))]
+
+    report = gate_sample_values(
+        qlib, tmp_path / "csv", symbols=["SH600000", "SZ000001", "SH600519"], source_close_fn=src
+    )
+    assert len(report["checked"]) == 6
+
+
+def test_atomic_swap_and_rollback(tmp_path):
+    target = tmp_path / "my_data"
+    new = tmp_path / "my_data_new"
+    target.mkdir()
+    (target / "old.txt").write_text("old", encoding="utf-8")
+    new.mkdir()
+    (new / "new.txt").write_text("new", encoding="utf-8")
+    backup = atomic_swap(target, new, today=date(2026, 9, 13))
+    assert backup.name == "my_data_backup_20260913_pre_refresh"
+    assert (target / "new.txt").read_text(encoding="utf-8") == "new"
+    assert (backup / "old.txt").read_text(encoding="utf-8") == "old"
+    assert not new.exists()
+
+    # 失败回滚：renamer 在第二次调用时抛错
+    target2 = tmp_path / "t2"
+    new2 = tmp_path / "n2"
+    target2.mkdir()
+    (target2 / "a").write_text("a", encoding="utf-8")
+    new2.mkdir()
+    (new2 / "b").write_text("b", encoding="utf-8")
+    calls = {"n": 0}
+
+    def bad_rename(a: Path, b: Path) -> None:
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise OSError("boom")
+        a.rename(b)
+
+    with pytest.raises(RefreshError, match="swap 失败"):
+        atomic_swap(target2, new2, today=date(2026, 9, 14), renamer=bad_rename)
+    # 回滚后目标应恢复
+    assert target2.exists()
+    assert (target2 / "a").read_text(encoding="utf-8") == "a"
+
+
+def test_run_integrity_gates_aborts_before_swap_contract(tmp_path):
+    """门禁失败时 run_integrity_gates 抛错——main 不会走到 atomic_swap。"""
+    import pandas as pd
+
+    new = tmp_path / "new"
+    old_dir = tmp_path / "old"
+    days = ["2026-03-02", "2026-03-03"]
+    _write_calendar(new, days)
+    # 3 只股票 + 指数泄漏：gate1/2 过，gate3 拦
+    syms = ["SH600000", "SZ000001", "SH600519", "SH000300"]
+    _write_all_txt(new, syms)
+    _write_all_txt(old_dir, ["SH600000", "SZ000001", "SH600519"])
+    for sym, vals in (
+        ("SH600000", [1.0, 2.0]),
+        ("SZ000001", [3.0, 4.0]),
+        ("SH600519", [5.0, 6.0]),
+    ):
+        _write_close_bin(new, sym, days, vals)
+    cfg = _cfg(
+        qlib_dir=old_dir,
+        new_qlib_dir=new,
+        csv_dir=tmp_path / "csv",
+        lake_index_root=tmp_path / "lake",
+        sample_symbols=("SH600000", "SZ000001", "SH600519"),
+    )
+    lake_days = pd.DatetimeIndex(pd.to_datetime(days))
+
+    def src(sym, day):
+        return {"SH600000": {days[0]: 1.0, days[1]: 2.0},
+                "SZ000001": {days[0]: 3.0, days[1]: 4.0},
+                "SH600519": {days[0]: 5.0, days[1]: 6.0}}[sym][str(day.date())]
+
+    with pytest.raises(RefreshError, match="门禁3"):
+        run_integrity_gates(cfg, lake_days=lake_days, source_close_fn=src)
+
+
+def test_load_lake_trading_days_utc_ms(tmp_path):
+    import pandas as pd
+    from refresh_mydata import load_lake_trading_days
+
+    # 2026-03-03 00:30 上海 = 前一日 UTC 下午；必须转上海日期
+    ms = pd.Timestamp("2026-03-03 00:30", tz="Asia/Shanghai").value // 10**6
+
+    def reader(_path):
+        return pd.DataFrame({"time": [ms]})
+
+    days = load_lake_trading_days(tmp_path, "000001_SH", reader=reader)
+    assert list(days.strftime("%Y-%m-%d")) == ["2026-03-03"]

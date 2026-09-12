@@ -29,6 +29,9 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
 
+import numpy as np
+import pandas as pd
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = Path(__file__).resolve().parent
 
@@ -262,8 +265,8 @@ def format_dry_run(cfg: RefreshConfig, steps: Sequence[StepPlan]) -> str:
         lines.append(f"  cwd: {step.cwd}")
         lines.append(f"  cmd: {subprocess.list2cmdline(step.argv)}")
     lines.append("--- post ---")
-    lines.append("integrity gates (M1-B): calendar / sample values / no-index-in-all / universe diff")
-    lines.append("atomic swap (M1-B): backup my_data_backup_YYYYMMDD_pre_* then mv")
+    lines.append("integrity gates: calendar / sample values / no-index-in-all / universe diff (fail → no swap)")
+    lines.append("atomic swap: backup my_data_backup_YYYYMMDD_pre_* then mv; rollback on error")
     if cfg.archive:
         lines.append(f"archive (M1-C): my_data_{cfg.today.strftime('%Y%m%d')}_full.7z")
     if cfg.offsite:
@@ -280,6 +283,305 @@ def run_step(step: StepPlan, *, runner: Callable[..., subprocess.CompletedProces
         code = code.returncode
     if code != 0:
         raise RefreshError(f"{step.name} 失败，exit={code}")
+
+
+
+# ---------------------------------------------------------------------------
+# M1-B：完整性门禁 + 原子 swap
+# ---------------------------------------------------------------------------
+
+
+def read_calendar(qlib_dir: Path) -> pd.DatetimeIndex:
+    cal_path = Path(qlib_dir) / "calendars" / "day.txt"
+    if not cal_path.is_file():
+        raise RefreshError(f"日历不存在: {cal_path}")
+    frame = pd.read_csv(cal_path, header=None, parse_dates=[0])
+    return pd.DatetimeIndex(frame[0])
+
+
+def load_lake_trading_days(
+    lake_index_root: Path,
+    symbol: str,
+    *,
+    reader: Callable[[Path], pd.DataFrame] | None = None,
+) -> pd.DatetimeIndex:
+    """湖指数分区 → Asia/Shanghai 交易日（time 为 UTC 毫秒）。"""
+    source = Path(lake_index_root) / f"symbol={symbol}" / "data.parquet"
+    if reader is None:
+        if not source.is_file():
+            raise RefreshError(f"湖指数 parquet 不存在: {source}")
+        df = pd.read_parquet(source)
+    else:
+        df = reader(source)
+    if "time" not in df.columns:
+        raise RefreshError("湖 parquet 缺少 time 列")
+    dates = (
+        pd.to_datetime(df["time"], unit="ms", utc=True)
+        .dt.tz_convert("Asia/Shanghai")
+        .dt.normalize()
+        .dt.tz_localize(None)
+    )
+    return pd.DatetimeIndex(sorted(dates.unique()))
+
+
+def gate_calendar_vs_lake(
+    qlib_dir: Path,
+    lake_index_root: Path,
+    lake_symbol: str = DEFAULT_LAKE_SYMBOL,
+    *,
+    lake_days: pd.DatetimeIndex | None = None,
+) -> dict:
+    """门禁 1：新日历 ⊆ 湖交易日，且湖在日历范围内 0 缺失。"""
+    calendar = read_calendar(qlib_dir)
+    lake = lake_days if lake_days is not None else load_lake_trading_days(lake_index_root, lake_symbol)
+    lake_set = set(lake)
+    cal_set = set(calendar)
+    # 日历内每一天都必须在湖里
+    missing_in_lake = sorted(cal_set - lake_set)
+    report = {
+        "calendar_days": len(calendar),
+        "lake_days_in_range": len([d for d in lake if calendar.min() <= d <= calendar.max()]),
+        "missing_in_lake": [str(d.date()) for d in missing_in_lake],
+        "missing_count": len(missing_in_lake),
+    }
+    if missing_in_lake:
+        raise RefreshError(
+            f"门禁1失败：日历相对湖 {lake_symbol} 缺 {len(missing_in_lake)} 日 "
+            f"(例: {report['missing_in_lake'][:5]})"
+        )
+    return report
+
+
+def _code_to_fname(code: str) -> str:
+    return code.lower()
+
+
+def read_bin_field(qlib_dir: Path, symbol: str, field: str, calendar: pd.DatetimeIndex) -> pd.Series:
+    path = Path(qlib_dir) / "features" / _code_to_fname(symbol) / f"{field}.day.bin"
+    if not path.is_file():
+        raise RefreshError(f"缺少 bin: {path}")
+    arr = np.fromfile(path, dtype="<f")
+    start = int(arr[0])
+    return pd.Series(arr[1:], index=calendar[start : start + len(arr) - 1])
+
+
+def read_source_close(csv_dir: Path, symbol: str, day: pd.Timestamp) -> float | None:
+    """从源 CSV 取某日 close；文件或日期缺失返回 None。"""
+    # CSV 可能是 SH600000.csv 或 600000.csv / sh600000.csv
+    candidates = [
+        Path(csv_dir) / f"{symbol}.csv",
+        Path(csv_dir) / f"{symbol.upper()}.csv",
+        Path(csv_dir) / f"{symbol.lower()}.csv",
+    ]
+    path = next((p for p in candidates if p.is_file()), None)
+    if path is None:
+        return None
+    df = pd.read_csv(path)
+    date_col = "date" if "date" in df.columns else df.columns[0]
+    df[date_col] = pd.to_datetime(df[date_col])
+    row = df.loc[df[date_col] == pd.Timestamp(day)]
+    if row.empty or "close" not in df.columns:
+        return None
+    return float(row["close"].iloc[0])
+
+
+def pick_sample_symbols(qlib_dir: Path, n: int = 3, explicit: Sequence[str] = ()) -> list[str]:
+    if explicit:
+        return [s.upper() for s in explicit][:n]
+    all_txt = Path(qlib_dir) / "instruments" / "all.txt"
+    syms = []
+    for ln in all_txt.read_text(encoding="utf-8").splitlines():
+        if not ln.strip():
+            continue
+        sym = ln.split("\t", 1)[0].strip().upper()
+        if INDEX_CODE_RE.match(sym):
+            continue
+        syms.append(sym)
+        if len(syms) >= n:
+            break
+    if len(syms) < n:
+        raise RefreshError(f"all.txt 非指数标的不足 {n} 只，无法抽样")
+    return syms
+
+
+def gate_sample_values(
+    qlib_dir: Path,
+    csv_dir: Path,
+    symbols: Sequence[str] | None = None,
+    *,
+    source_close_fn: Callable[[str, pd.Timestamp], float | None] | None = None,
+    rtol: float = 1e-5,
+    atol: float = 1e-4,
+) -> dict:
+    """门禁 2：首日/末日 × 抽样标的 close 与源 CSV 对齐。"""
+    calendar = read_calendar(qlib_dir)
+    first, last = calendar[0], calendar[-1]
+    syms = list(symbols) if symbols else pick_sample_symbols(qlib_dir, 3)
+    mismatches = []
+    checked = []
+    get_close = source_close_fn or (lambda s, d: read_source_close(csv_dir, s, d))
+    for sym in syms:
+        series = read_bin_field(qlib_dir, sym, "close", calendar)
+        for day, label in ((first, "first"), (last, "last")):
+            if day not in series.index:
+                mismatches.append(f"{sym}@{label}:{day.date()} 无 bin 值")
+                continue
+            got = float(series.loc[day])
+            exp = get_close(sym, day)
+            if exp is None:
+                # 源 CSV 无该日（可能仅 archive 段）——跳过但不记失败
+                checked.append({"symbol": sym, "day": str(day.date()), "skipped": "no_csv"})
+                continue
+            if not np.isclose(got, exp, rtol=rtol, atol=atol):
+                mismatches.append(f"{sym}@{label}:{day.date()} bin={got} csv={exp}")
+            else:
+                checked.append({"symbol": sym, "day": str(day.date()), "ok": True, "close": got})
+    if mismatches:
+        raise RefreshError("门禁2失败：抽样值不一致: " + "; ".join(mismatches))
+    return {"symbols": syms, "checked": checked}
+
+
+def read_universe(qlib_dir: Path) -> set[str]:
+    all_txt = Path(qlib_dir) / "instruments" / "all.txt"
+    if not all_txt.is_file():
+        raise RefreshError(f"缺少 all.txt: {all_txt}")
+    return {
+        ln.split("\t", 1)[0].strip().upper()
+        for ln in all_txt.read_text(encoding="utf-8").splitlines()
+        if ln.strip()
+    }
+
+
+def gate_no_indices_in_all(qlib_dir: Path) -> dict:
+    """门禁 3：all.txt 不含指数代码。"""
+    universe = read_universe(qlib_dir)
+    leaked = sorted(s for s in universe if INDEX_CODE_RE.match(s))
+    if leaked:
+        raise RefreshError(f"门禁3失败：all.txt 含指数 {leaked}")
+    return {"universe_size": len(universe), "index_leak": []}
+
+
+def gate_universe_diff(
+    old_qlib_dir: Path,
+    new_qlib_dir: Path,
+    *,
+    expected_delist_max: int = DEFAULT_EXPECTED_DELIST_MAX,
+    force: bool = False,
+) -> dict:
+    """门禁 4：新旧宇宙 diff；退市数超预期须 --force。"""
+    old = read_universe(old_qlib_dir) if (Path(old_qlib_dir) / "instruments" / "all.txt").is_file() else set()
+    new = read_universe(new_qlib_dir)
+    added = sorted(new - old)
+    removed = sorted(old - new)
+    report = {
+        "old_size": len(old),
+        "new_size": len(new),
+        "added": added,
+        "removed": removed,
+        "added_count": len(added),
+        "removed_count": len(removed),
+    }
+    print(
+        f"宇宙 diff: old={len(old)} new={len(new)} "
+        f"+{len(added)} -{len(removed)}; "
+        f"新增例={added[:5]}; 退市例={removed[:5]}"
+    )
+    if len(removed) > expected_delist_max and not force:
+        raise RefreshError(
+            f"门禁4失败：退市数 {len(removed)} > 预期上限 {expected_delist_max}；"
+            f"确认后加 --force 再跑（不会在失败时 swap）"
+        )
+    return report
+
+
+def run_integrity_gates(
+    cfg: RefreshConfig,
+    *,
+    lake_days: pd.DatetimeIndex | None = None,
+    source_close_fn: Callable[[str, pd.Timestamp], float | None] | None = None,
+) -> dict:
+    """跑齐四门禁；任一门失败抛 RefreshError（调用方不得 swap）。"""
+    assert cfg.new_qlib_dir is not None
+    reports = {}
+    print("[gate1] 日历 vs 湖 …")
+    reports["calendar"] = gate_calendar_vs_lake(
+        cfg.new_qlib_dir, cfg.lake_index_root, cfg.lake_symbol, lake_days=lake_days
+    )
+    print(f"[gate1] ok missing={reports['calendar']['missing_count']}")
+    print("[gate2] 抽样双端值 …")
+    reports["sample"] = gate_sample_values(
+        cfg.new_qlib_dir,
+        cfg.csv_dir,
+        symbols=cfg.sample_symbols or None,
+        source_close_fn=source_close_fn,
+    )
+    print(f"[gate2] ok symbols={reports['sample']['symbols']}")
+    print("[gate3] all.txt 无指数 …")
+    reports["no_index"] = gate_no_indices_in_all(cfg.new_qlib_dir)
+    print(f"[gate3] ok universe={reports['no_index']['universe_size']}")
+    print("[gate4] 宇宙 diff …")
+    reports["universe"] = gate_universe_diff(
+        cfg.qlib_dir,
+        cfg.new_qlib_dir,
+        expected_delist_max=cfg.expected_delist_max,
+        force=cfg.force,
+    )
+    print("[gate4] ok")
+    return reports
+
+
+def backup_name(qlib_dir: Path, today: date, tag: str = "refresh") -> Path:
+    return qlib_dir.parent / f"my_data_backup_{today.strftime('%Y%m%d')}_pre_{tag}"
+
+
+def atomic_swap(
+    qlib_dir: Path,
+    new_qlib_dir: Path,
+    *,
+    today: date | None = None,
+    renamer: Callable[[Path, Path], None] | None = None,
+) -> Path:
+    """原子 mv：目标 → backup，new → 目标；失败回滚。返回 backup 路径。"""
+    today = today or date.today()
+    qlib_dir = Path(qlib_dir)
+    new_qlib_dir = Path(new_qlib_dir)
+    if not new_qlib_dir.is_dir():
+        raise RefreshError(f"new_qlib_dir 不存在，拒绝 swap: {new_qlib_dir}")
+    backup = backup_name(qlib_dir, today)
+    if backup.exists():
+        raise RefreshError(f"备份目录已存在，拒绝覆盖: {backup}")
+    do_rename = renamer or (lambda a, b: a.rename(b))
+    moved_old = False
+    try:
+        if qlib_dir.exists():
+            do_rename(qlib_dir, backup)
+            moved_old = True
+        do_rename(new_qlib_dir, qlib_dir)
+    except Exception as exc:
+        # 回滚
+        if qlib_dir.exists() and moved_old and not new_qlib_dir.exists():
+            try:
+                do_rename(qlib_dir, new_qlib_dir)
+            except Exception:
+                pass
+        if moved_old and backup.exists() and not qlib_dir.exists():
+            try:
+                do_rename(backup, qlib_dir)
+            except Exception:
+                pass
+        raise RefreshError(f"原子 swap 失败并已尝试回滚: {exc}") from exc
+    print(f"swap 完成: {new_qlib_dir} → {qlib_dir}；备份 {backup}")
+    return backup
+
+
+def paths_ready_for_real_run(cfg: RefreshConfig) -> list[str]:
+    """真实跑需要的路径；返回缺失列表。"""
+    missing = []
+    if not cfg.skip_merge:
+        for p in (cfg.archive_dir, cfg.csv_dir):
+            if not Path(p).exists():
+                missing.append(str(p))
+    return missing
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -365,25 +667,31 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(format_dry_run(cfg, steps))
         return 0
 
-    # M1-A：真实执行只跑三件套；swap/门禁/归档在后续片接入。
-    # 路径缺失时明确报错，避免在无 F: 湖的 VM 上半写 ~/.qlib。
-    missing = [str(p) for p in (cfg.archive_dir, cfg.csv_dir) if not cfg.skip_merge and not Path(p).exists()]
-    if missing and not cfg.skip_merge:
+    missing = paths_ready_for_real_run(cfg)
+    if missing:
         raise RefreshError(
-            "源路径不存在，拒绝执行（可用 --dry-run 看计划，或在有数据的机器上跑）: "
+            "源路径不存在，拒绝执行（可用 --dry-run 看计划；门禁单测不依赖真湖）: "
             + ", ".join(missing)
         )
 
     for step in steps:
-        # 安全网：命令行里绝不能出现 dump_update
         if any("dump_update" in part for part in step.argv):
             raise RefreshError("内部错误：检测到 dump_update（已禁用）")
         if step.name.startswith("dump_bin") and f"--max_workers={DEFAULT_MAX_WORKERS}" not in step.argv:
             raise RefreshError("内部错误：dump_all 未钉死 max_workers=8")
         run_step(step)
 
-    print("M1-A 三件套完成。swap/门禁见 M1-B；--archive/--offsite 见 M1-C。")
+    # 门禁失败绝不能 swap
+    run_integrity_gates(cfg)
+
+    if cfg.skip_swap:
+        print("skip_swap：门禁已过，未换目录")
+        return 0
+
+    atomic_swap(cfg.qlib_dir, cfg.new_qlib_dir, today=cfg.today)
+    print("M1-B 完成：门禁通过并已原子 swap。--archive/--offsite 见 M1-C。")
     return 0
+
 
 
 if __name__ == "__main__":
