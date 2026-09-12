@@ -4,7 +4,7 @@
 - 数据目录：`C:\Users\Thinkpad\.qlib\qlib_data\my_data`
 - 归档备份：`~/.qlib/qlib_data/my_data_20260913_full.7z`（7-Zip，含本目录全部内容，212,924,772 字节 / 204 MiB）
 - 异地副本：`F:\my_data_20260913_full.7z`、`G:\my_data_20260913_full.7z`——三份 MD5 一致（`42f7ca758dd61fdfc9b85f96e3784a26`）
-- 相关工具：`qlib_scripts/merge_archive_and_csv.py`、`qlib_scripts/patch_index_data.py`、`qlib_scripts/dump_bin.py`（PR #6）
+- 相关工具：`qlib_scripts/refresh_mydata.py`（标准刷新编排器）+ `merge_archive_and_csv.py` / `dump_bin.py` / `patch_index_data.py`（PR #6 三件套）
 
 ## 规模与覆盖
 
@@ -28,7 +28,33 @@
 
 重建方案 = **拼接**：旧档作前缀 + CSV 批作尾段。前提校验：重叠段（2022-07-26~2026-04-10）逐位一致（close/adjclose 为 float32 舍入级差异，factor/zhangting/volume 完全相同）——两批是同一管道导出。晚于 2022-07 上市的股票自然走纯 CSV 分支；仅存档有的退市股整段保留。
 
-## 重建流程（可复现）
+## 标准刷新流程（= orchestrator）
+
+**唯一入口**：`qlib_scripts/refresh_mydata.py`。不要再手工串三件套；`~/.qlib` 数据只准经该编排器改动。
+
+```bash
+# 先看计划（本机无 F: 湖 / 无 ~/.qlib 时也安全）
+python qlib_scripts/refresh_mydata.py --dry-run
+
+# 全量刷新（merge → dump_all --max_workers 8 → patch_index → 四门禁 → 原子 swap）
+python qlib_scripts/refresh_mydata.py
+
+# 可选：打 7z 全量包并拷异地（MD5 三方校验）；异地根目录可配
+python qlib_scripts/refresh_mydata.py --archive --offsite \
+    --offsite-dir F:/ --offsite-dir G:/
+```
+
+编排器内部仍调用现有脚本（**不改它们 CLI**）：
+
+1. `merge_archive_and_csv.py` → staging parquet
+2. `dump_bin.py dump_all … --max_workers 8`（**禁止** `dump_update`；**禁止** 16 workers）
+3. `patch_index_data.py --no-backup`（指数进 `index.txt`，不得留在 `all.txt`）
+4. 完整性门禁：①日历 vs 湖 `000001_SH`（UTC ms→Asia/Shanghai）0 缺日 ②首/末日×3 标的 vs 源 CSV ③`all.txt` 无指数 ④宇宙 diff（退市超预期须 `--force`）
+5. 原子 `mv`：先备份 `my_data_backup_YYYYMMDD_pre_refresh`，失败回滚
+
+手工逐步命令仅作排障参考（见下一节历史「重建流程」）；日常刷新以 orchestrator 为准。
+
+## 历史手工重建流程（排障参考，勿作日常入口）
 
 ```bash
 # 1. 拼接出 staging（每股一个 parquet：date + 16 字段）
