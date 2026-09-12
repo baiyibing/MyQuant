@@ -165,7 +165,7 @@ if __name__ == '__main__':
     # market = "all"
     # market = "csi300"
 
-    benchmark = "SH601727"  # 设置业绩比较基准为沪深300指数代码
+    benchmark = "SH000300"  # 沪深300 / CSI300
     # market = ['SH600000','SH600010','SH600028','SH600025','SH600019','SH600900','SH600941','SZ300059','SZ300124','SZ300274']
 
     exp_name = "alpha158_cost_kdj_lgb"
