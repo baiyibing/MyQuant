@@ -140,7 +140,9 @@ def export_daily_pool(
             continue
         output.mkdir(parents=True, exist_ok=True)
         destination = output / f"{buy_date:%Y%m%d}.csv"
-        destination.write_text("".join(f"{code}\n" for code in codes), encoding="utf-8")
+        destination.write_text(
+            "".join(f"{code}\n" for code in codes), encoding="utf-8", newline="\n"
+        )
         written.append(destination)
 
     return written, illegal_count
