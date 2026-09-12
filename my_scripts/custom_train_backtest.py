@@ -44,6 +44,8 @@ from custom_utils import pprint_position_report, analyze_position_by_date, gener
 
 if __name__ == '__main__':
     multiprocessing.freeze_support() # 添加这一行，特别是在 Windows 上打包时可能有帮助
+    cli_args = parse_train_cli()
+    verify_filters = should_verify_filters(cli_args)
 
     print(qlib.__version__)  # 如果能够打印出版本号，说明安装成功
 
@@ -293,14 +295,29 @@ if __name__ == '__main__':
     print("[debug] after dataset_init", flush=True)
     print(u'根据dataset配置创建数据集实例', timer() - start)
 
-    # # 训练前强制验证过滤器是否真正生效，失败则中断
-    # print("[debug] before verify_limit_up_filter", flush=True)
-    # verify_limit_up_filter(
-    #     filtered_handler=handler,
-    #     unfiltered_handler=handler_no_limit_filter,
-    #     segments=task["dataset"]["kwargs"]["segments"],
-    # )
-    # print("[debug] after verify_limit_up_filter", flush=True)
+    # Q3-R4: verify_limit_up_filter only with --verify-filters / QLIB_VERIFY_FILTERS.
+    # Default path must NOT build the second ~900s contrast handler.
+    if verify_filters:
+        no_limit_instruments = D.instruments(
+            market="all",
+            start_time=start_time,
+            end_time=end_time,
+            filter_pipe=[exclude_filter],
+        )
+        no_limit_filter_config = copy.deepcopy(data_handler_config)
+        no_limit_filter_config["instruments"] = no_limit_instruments
+        no_limit_filter_config.pop("filter_pipe", None)
+        print("[debug] before handler_init(no_limit_filter)", flush=True)
+        with t_rec.timer("handler_init_no_limit_filter"):
+            handler_no_limit_filter = Alpha158CostKDJ(**no_limit_filter_config)
+        print("[debug] after handler_init(no_limit_filter)", flush=True)
+        print("[debug] before verify_limit_up_filter", flush=True)
+        verify_limit_up_filter(
+            filtered_handler=handler,
+            unfiltered_handler=handler_no_limit_filter,
+            segments=task["dataset"]["kwargs"]["segments"],
+        )
+        print("[debug] after verify_limit_up_filter", flush=True)
 
     # 定义投资组合分析（回测）的配置
     port_analysis_config = {
