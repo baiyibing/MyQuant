@@ -1,7 +1,7 @@
 # 中期落地计划：M1 全量 bin → M4 manifest → M2 筹码 parity → M3 ranking-only
 
 - 日期：2026-09-13
-- 状态：v1；M1 已合 #8；M4+M3-A 已合 #9；本波 `feat/m2-chip-parity` = M2-A→B→C（映射不可比，合法关门；不启 M3-B/C/D）
+- 状态：v1；M1 已合 #8；M4+M3-A 已合 #9；M2 已合 #10（不可比关门）；本波 `feat/m3-ranking-only` = M3-B→C 已交，M3-D **blocked**（无行业源）
 - 上游：`docs/plan-three-repo-roadmap-2026-09-12.md` v1.3 §0/§4（本轮 = 中期项落地）；数据现状见 `docs/qlib-data-state-2026-09-13.md`
 - 执行顺序：M1 → M4 → M2 → M3（M4 的 manifest 是 M3 sweep 的依赖）。L2 不在本计划
 
@@ -90,9 +90,9 @@ schema（`myquant.run-manifest/1`，JSON，UTF-8 无 BOM）：
 | 片 | 内容 | 验收 |
 |---|---|---|
 | M3-A | 涨停剔除训练集：learn 阶段丢 `$zhangting==1` 样本（processor 实现，勿动 infer/导出池）；与基线同窗重训对比 IC/IR | 单测（样本数变化断言）+ 合批重训的对比表；manifest 留档（依赖 M4-B） |
-| M3-B | sweep harness：配置（topk/n_drop/持有期网格）→ 逐配置训练/预测 → IC/IR 汇总表 + 每配置 manifest；`--limit 2` 调试档 | 小网格冒烟（limit 2）出汇总表 |
-| M3-C | 特征实验：仅限 bin 16 字段可算的新特征（如换手阻力近似）；逐特征 NaN 率检查 + 单窗 IC 增量 | 特征 NaN<1% 才入围；结果表 |
-| M3-D | 行业/市值中性化（**条件片**）：先盘点行业分类数据源（F:\disclosure_data、湖内有无 industry 表）；有则实现截面中性化后取 TopN，无源则记录 blocked 跳过 | 数据源盘点结论先行；实现则配单测 |
+| M3-B | sweep harness：配置（topk/n_drop/持有期网格）→ 逐配置训练/预测 → IC/IR 汇总表 + 每配置 manifest；`--limit 2` 调试档 | **已交** `sweep_ranking.py`（注入/fake；宿主 live 待跑） |
+| M3-C | 特征实验：仅限 bin 16 字段可算的新特征（如换手阻力近似）；逐特征 NaN 率检查 + 单窗 IC 增量 | **已交** `feature_experiments.py`（合成窗；宿主真 bin 待跑） |
+| M3-D | 行业/市值中性化（**条件片**）：先盘点行业分类数据源（F:\disclosure_data、湖内有无 industry 表）；有则实现截面中性化后取 TopN，无源则记录 blocked 跳过 | **blocked** 见 `docs/m3d-industry-source-inventory.md` |
 
 依赖：M3-A/B 依赖 M4-B（合批重训时顺带产出 manifest）；M3-B 先行于 C/D。
 
