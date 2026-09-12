@@ -1,13 +1,64 @@
 # 三仓协同路线图：信号厂 → 规则回测 → 执行栈
 
-- 日期：2026-09-12
-- 状态：v1.2。近期项已拍板；中远期为方向性共识，进入阶段时再细化。里程碑表当预期，不当承诺维护。长期保鲜的是 §1 定位、§2 决定、§6 负面清单，以及以后的两篇契约。
+- 日期：2026-09-12（v1.3 回写 2026-09-13）
+- 状态：**v1.3**。近期 R0–R5 与首轮 M5 已落地；中远期仍为方向性共识。里程碑表当预期，不当承诺维护。长期保鲜的是 §1 定位、§2 决定、§6 负面清单，以及名单/F 湖两篇契约。
 - 涉及仓库：MyQuant（本仓）/ MyQuant-backtrader / OSkhQuant1.3
 - 上游输入：2026-09-11~12 三仓架构讨论；本仓走查见 `my_docs/qlib_backtest_walkthrough_results.md`
 - 文档分放：计划进 `docs/`，笔记留 `my_docs/`。不合并。
 
+v1.3 相对 v1.2：把 2026-09-12~13 已合入的管道、训练厂、名单归因和 1.3 执行栈进展写回 §0 / §3 / §4 / §7 / §8。§1–§2–§6 决定不改。
 v1.2 相对 v1.1：名单多源（Qlib 不是唯一选股来源；技术分析出名单住 backtrader 仓）；弃用 Qlib PortAnaRecord 与 Cerebro/Backtrader 框架（不是弃用 MyQuant 仓或 MyQuant-backtrader 仓）；成交只保留向量化 + LEBS + MockQMT。
 v1.1 相对 v1：补三仓对照（含「不该再做」）、研究两层、Qlib 降成选股器、共享面收窄、R0 三条硬约束；§7 里程碑改名，避免和中期 M1–M5 撞号。
+
+---
+
+## 0. 2026-09-13 进度回写（新功能 / 已落地）
+
+只记已经合入或本机验收过的能力。PR 号：MyQuant `baiyibing/MyQuant`，backtrader `baiyibing/MyQuant-backtrader`，1.3 用其仓内编号。
+
+### 0.1 MyQuant-backtrader（研究脸：名单契约 + 向量化成交）
+
+| 能力 | 状态 | 落点 |
+|------|------|------|
+| 策略 1–8 共用向量化引擎；6/8 策略书；7 独立海龟仓位机 | 已合 | #11–#17；`csv_strategy_books` / `csv_minute_backtest_v7` |
+| A 股成交核：全卖因跌停 defer、板档 10/20/30 + ST 名 5%、Decimal 涨跌停价、停牌净值 last close | 已合 | #18；`engine-ashare-correctness.md` E-R1–E-R4 |
+| ST 名称按日 as-of（`ymd<=ds`，禁止看未来） | 已合 | #21 P-R2 |
+| 加载侧丢 `volume==0` 占位 K（≡ 缺 K） | 已合 | #21 P-R3 |
+| 名单契约 + `validate_pool_dir`（严格六位门） | 已合 | #21；`pool-csv-contract.md` |
+| R0 持仓 → 独立 `exports/r0_*`（忽略 `日期范围:`） | 已合 | #21 / #23；不写 `stock_pool/`，不喂 7 |
+| R2/R5 消费：`--pool-dir` + 无湖 fixture 回路 | 已合 | #24 |
+| `csv_daily --out-dir`；手工池截断 TopN | 已合 | #27 |
+| 三引擎定位 / README 不再写「主入口 LEBS」 | 已合 | #15 / U1；即原 R4 |
+| 首轮 M5：同一 version6 书比 pred Top10 / 手工原样 / 手工 Top10 | 本机 C 齐；报告 [#28](https://github.com/baiyibing/MyQuant-backtrader/pull/28) | 结论：**名单几乎不重叠**（pred∩hand10 = 15/15 空）。不是模型晋升 |
+
+### 0.2 MyQuant（信号厂）
+
+| 能力 | 状态 | 落点 |
+|------|------|------|
+| `--asof pred_minus_one`（文件名=买入日 T，内容=pred[T−1]） | 已合 | #2；`my_docs/pred_asof_r2_2026-09-12.md` |
+| `export_daily_pool.py`：pred → 日 TopN 裸六位 CSV；Windows 锁 LF | 已合 | #2 / #4 |
+| processors 传入 `Alpha158`/`DataHandlerLP` 父类 | 已合 | #3 slice A |
+| `D.instruments(..., filter_pipe=[exclude, $zhangting])`；默认不建第二 handler | 已合 | #3 slice B/C |
+| `benchmark = SH000300` | 已合 | #3 slice D |
+| pred vs PortAna report 对齐自检 | 已合 | #5；第 4 轮重训 16 日对齐 0 缺日 |
+| R3 后新 `预测结果.csv`（约 8.4 万行 / 16 日，过滤后少于 pre-R3） | 本机 2026-09-12 23:45 | 不入库 |
+| F 湖指数 → qlib bin 修补（000300/000001；指数不进 `all.txt`） | 脚本 [#6](https://github.com/baiyibing/MyQuant/pull/6)（当时未合）+ 本机已跑通 | **不是**完整 M1 |
+
+PortAna 第 4 轮用真沪深300 出过烟雾报告。按 §2.3 / §6：**不当产品、不当 M5 对照列。**
+
+### 0.3 OSkhQuant1.3（执行栈；不重写 6/8/7）
+
+近期（2026-09-11~12）仍在交易栈，不接研究名单管道：
+
+| 能力 | 状态 | 落点 |
+|------|------|------|
+| MockQMT / true-stack：海龟加仓 `max_units`、卖拒单节流、9-red 恢复 | 已合 | #992–#995 |
+| executor 进程心跳 + 死亡告警 | 已合 | #986 |
+| 日名单继续进本仓 `stock_pool/`（研究对照用，不是 Qlib TopN） | 例行 | 如 #989 |
+| 全仓行业对齐重构方案 | 文档 | #996 v1.1；**GO 前禁编码** |
+| 研究脸（向量化 / chip / L2 ETL） | 已迁出 | 2026-09 S1/S2 → MyQuant-backtrader |
+
+1.3 的完成定义仍是 LEBS / MockQMT / 真栈，不是本路线图 R0–R5。L2（名单 → trade_decision → LEBS）未开工。
 
 ---
 
@@ -26,7 +77,7 @@ v1.1 相对 v1：补三仓对照（含「不该再做」）、研究两层、Qli
 | 名单（多源，同一契约） | Qlib pred → 日 CSV（来源之一） | 技术分析 / chip / TR / 手工 CSV（来源之二及以后）；消费侧统一 `parse_pool_csv` | 海龟只认 stock_pool_turtle/；CSV 研究认 stock_pool/ |
 | 不该再做 | 分钟触价、T+1 抠成交、接 QMT；加强 Qlib 回测；把 6/7/8 写成 Qlib Strategy | 复刻 Redis / live、再造 LEBS；用 simulate_v7 跑 Alpha158；新策略写进 Cerebro | 接回 Cerebro、在 LEBS 里重写 6/8/7 |
 
-走查里过滤器没接到训练/回测、pred 和成交日可能错位，是 Qlib 日频组合的问题，不是 6/8/7 或 LEBS 的问题。
+走查里过滤器没接到训练、processors 没进父类，已在 R3 修。pred 与本仓买入日的错位用 `--asof pred_minus_one` 锁死。剩下的是 Qlib 日频组合器本身弱成交，不是 6/8/7 或 LEBS 的问题。
 
 行业惯例对照（我们踩的就是这套，不再重开）：
 
@@ -94,16 +145,16 @@ Qlib 里只变怎么排序、怎么出名单，不变成交：行业/市值中�
 
 ## 3. 近期（约两周）：契约落地 + 信号厂最小闭环
 
-目标一句话：**让「pred → 日名单 CSV → backtrader 仓 6/8 向量化回测」第一次跑通。**
+目标一句话：**让「pred → 日名单 CSV → backtrader 仓 6/8 向量化回测」第一次跑通。** **v1.3：已跑通。**
 
-| # | 任务 | 仓 | 交付物 | 验收 |
+| # | 任务 | 仓 | 状态 | 交付物 / 验收 |
 |---|---|---|---|---|
-| R0 | 贯通弹（先于一切工程投入） | 两仓 | 一次性脚本把 `my_scripts/position_analysis.txt` 有持仓的交易日转成 YYYYMMDD.csv（SZ300190→300190），写入独立目录，喂 6/8 **日线**策略书 | 管道走通：能被 parse_pool_csv 吃下、湖能读到、出 summary.txt。不看赚亏，不当 M5 |
-| R1 | 名单契约 v1 | backtrader 仓（canonical，挨着 parse_pool_csv）；本仓 docs/ 链接 | 30 行契约：格式（YYYYMMDD.csv、首列裸 6 位码、可带名称列、utf-8-sig、可有表头）+ as-of 语义 + 方言链；空文件 / 缺日 = 当日不买 | 三仓 README 均链接 |
-| R2 | 导出脚本 | MyQuant `my_scripts/export_daily_pool.py` | pred.pkl → 按日 TopN → YYYYMMDD.csv（Qlib SZ300190 → 裸 300190 在导出侧转换） | `my_tests/` 单测：无后缀、文件名=买入日、代码非空非 NaN |
-| R3 | 修走查三问题 | MyQuant `my_scripts/custom_train_backtest.py` | ① 过滤器接入训练与回测 ② processor 传父类 ③ pred/成交日对齐（R2 落地即闭环） | 单测 + 走查复跑确认 |
-| R4 | 文档修复 | backtrader 仓 | README「主入口 LEBS」腐烂句修正（LEBS 在 1.3）；三仓拓扑文档落其 docs/，MyQuant / 1.3 README 互链 | review 通过 |
-| R5 | 首次闭环 | 两仓 | 用现有 alpha158_cost_kdj_lgb 模型出 2026-03-02~03-23 一窗名单（与 position_analysis.txt 同窗），喂 6/8 策略书跑向量化 | 出回测报告；名单文件过 R1 契约校验 |
+| R0 | 贯通弹 | 两仓 | **✅** backtrader #21/#23 | `scripts/data/r0_positions_to_pool.py`；15 日 CSV；version6 `summary.txt`。不看赚亏 |
+| R1 | 名单契约 v1 | backtrader canonical | **✅** #21（本仓 README 链契约）。1.3 / 本仓 README 互链仍欠，不阻塞 | `pool-csv-contract.md` + `validate_pool_dir` |
+| R2 | 导出脚本 | MyQuant | **✅** #2/#4 | `export_daily_pool.py`；`--asof pred_minus_one`；LF |
+| R3 | 修走查 | MyQuant | **✅** #3/#5；第 4 轮重训本机绿 | processors 进父类；`D.instruments`+`$zhangting`；SH000300；pred/report 对齐自检 |
+| R4 | 文档修复 | backtrader | **✅** 主入口句 + 定位 SSOT。外仓互链仍欠 | `engine-positioning-ssot.md` |
+| R5 | 首次闭环 | 两仓 | **✅** #24 + 本机真 pred/F 湖 | R3 后 pred TopN → validate → version6。管道验收，不当模型结论 |
 
 ### 3.1 R0 硬约束（比「持仓 ≈ pred 前十」更要紧）
 
@@ -128,11 +179,11 @@ Qlib SZ300190  →  CSV 裸 300190  →  湖分区 300190_SZ  →  交易层 300
 
 | # | 任务 | 说明 |
 |---|---|---|
-| M1 | F 湖 → Qlib bin | `qlib_scripts/dump_bin.py` 走 parquet；bin 定性为**衍生品**（可从湖重建、不入库）；完整性检查对齐 backtrader 仓 oskh_data.integrity；刷新机制（手动/定时）进阶段时再定 |
-| M2 | 筹码 parity test | 选一段 bar，本仓 COST 特征 vs backtrader 仓 qlib_cost 输出对齐（容差内）；作晋升门，不做日常 CI |
-| M3 | 模型迭代（只动排序，不动成交） | 行业/市值中性化后取 TopN；topk / n_drop / 持有天数扫描；筹码、换手阻力当特征；涨停股剔出训练集 |
-| M4 | run manifest 约定 | 把 timing_*.json 升级为标准 manifest（配置 hash、代码版本、产物指纹、耗时）；三仓同格式，结果可追溯 |
-| M5 | 名单质量归因 | **严格导出的** Qlib 名单 vs 手工名单在同一 6/8 策略书下对照回测，隔离「名单本身的价值」。R0 持仓转名单不作此结论 |
+| M1 | F 湖 → Qlib bin | **部分**：指数修补脚本（#6）+ 本机 SH000300/SH000001 已进 bin，且不进 `all.txt`。**未做**：个股全量从 F 湖重建、完整性门对齐 `oskh_data.integrity`、定时刷新。`F:\qlibdata` 更新仍是本仓数据线，不是闭环完成定义 |
+| M2 | 筹码 parity test | **未做**。本仓 COST vs backtrader `qlib_cost` / 换手阻力 |
+| M3 | 模型迭代（只动排序，不动成交） | **未做**。中性化 / topk 扫描 / 筹码当特征。涨停剔除训练集：过滤侧已接 `$zhangting`，不是 M3 扫描 |
+| M4 | run manifest 约定 | **未做**。仍是 `timing_*.json` + `backtest_output` 雏形 |
+| M5 | 名单质量归因 | **首轮已做**（2026-03 version6 三列）。结论「几乎不重叠」，禁止读成模型优于手工。R0 不作此结论。加长窗 / 冻结手工快照 / 同宇宙排序对比 = 下一轮，不重开成交核 |
 
 ---
 
@@ -167,19 +218,21 @@ Qlib SZ300190  →  CSV 裸 300190  →  湖分区 300190_SZ  →  交易层 300
 
 | 阶段 | 内容 | 怎样算过 | 依赖 |
 |---|---|---|---|
-| 当天起 | R0 贯通弹；随后 R1–R4 | 日线管道先跑通一次；契约与文档合入，单测绿 | 无 |
-| 约两周 | R5 首次闭环 | 回测报告 + 契约校验通过 | R0–R4 |
-| 约 1 个月 | 中期 M1、M4 | bin 可从湖重建；manifest 落地 | R5 |
-| 约 2 个月 | 中期 M2、M5 | parity test 有结论；名单归因报告（非 R0 持仓） | 上一阶段 |
-| 季度级 | 远期 L1–L3 | paper 跑起来，对账日报 | 上一阶段 |
+| 当天起 | R0 贯通弹；随后 R1–R4 | **已过**（2026-09-12） | — |
+| 约两周 | R5 首次闭环 | **已过**（#24 + 本机真窗） | R0–R4 |
+| 约两周+ | 首轮 M5 | **已过**（工具 #27 + 本机三列；结论不重叠） | R3 后 pred |
+| 下一步 | 中期 M1 收口、M4 | bin 可从湖重建个股+指数；manifest 落地 | R5 |
+| 其后 | M2、M3、加长窗名单归因 | parity；只动排序；同宇宙再比 | M1 或现成特征 |
+| 季度级 | 远期 L1–L3 | paper；1.3 接名单 | 上一阶段 |
 
-建议先 commit 本文件，再跑 R0。plan 和回测数字分开：R0 的 CSV / summary.txt 另记。
+plan 和回测数字分开：R0/R5/M5 的 CSV / `summary.txt` 不入库。数字见 backtrader `docs/backtest/m5-list-attribution-2026-03.md`。
 
 ---
 
 ## 8. 风险与未决
 
-- **as-of 假设待实测**：R2 动手前先确认 Qlib pred 的 label 期（例如 close 的 Ref 平移）与「文件名=买入日」的假设一致，不一致以实测为准修契约，不硬套。
-- IC 阈值、bin 刷新机制：中期 M3 / 远期 L1 前再定。
-- 三仓净值差异属预期；任何时候不因「对不上」回退到统一引擎。
-- backtrader 仓仍待做、且不在本仓实施：市场层抽薄（不抽撮合）、1/2/5 做成 6/8 策略书、Cerebro 当对照化石。与本路线图并行，不阻塞 R0。
+- **as-of**：已锁 `--asof=pred_minus_one`（Qlib `shift=1` + Alpha158 `Ref($close,-2)/Ref($close,-1)-1`）。第 4 轮 pred 与 PortAna report 同 16 日，那是 Qlib 自己的索引，**不要**据此改成本仓 identity 买入日。要改须改契约 + 本文件 §2.4。
+- IC 阈值、bin 全量刷新：M3 / L1 / 收口后的 M1 再定。
+- 三仓净值差异属预期；任何时候不因「对不上」回退到统一引擎。PortAna 烟雾 ≠ version6。
+- v1.2 写的 backtrader「仍待做」三项 **已做完**（市场层 / 1–8 书 / Cerebro 化石门），不再当未决。
+- 1.3 行业对齐方案（#996）与 MockQMT 海龟修补并行于本路线图，不替代 L2。
