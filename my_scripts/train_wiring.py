@@ -9,6 +9,8 @@ from __future__ import annotations
 import argparse
 import os
 
+import pandas as pd
+
 from qlib.data import D
 from qlib.data.filter import NameDFilter
 
@@ -90,6 +92,46 @@ def verify_limit_up_filter(filtered_handler, unfiltered_handler, segments):
             )
 
     print("✅ UnifiedLimitUpFilter 验证通过：train/valid/test 均已生效。\n")
+
+
+def check_pred_report_alignment(pred_dates, report_dates):
+    """走查优先级5：pred.pkl 与 report_normal_1day 首尾对齐自检。
+
+    TopkDropoutStrategy 取信号 shift=1：交易日 T 用 T-1 的 pred。因此预期
+    report 首日 == pred 首日（首日无前日 pred、空仓属正常），report 交易日
+    应落在 pred 日期集合内。只对明显错位报错（report 早于 pred / 完全不相交），
+    其余打印观察值供人工核对。
+    """
+    pred_index = pd.DatetimeIndex(pd.unique(pd.to_datetime(list(pred_dates)))).sort_values()
+    report_index = pd.DatetimeIndex(pd.unique(pd.to_datetime(list(report_dates)))).sort_values()
+    if len(pred_index) == 0 or len(report_index) == 0:
+        raise ValueError("对齐自检失败：pred 或 report 日期为空。")
+
+    missing = report_index.difference(pred_index)
+    print(
+        f"[alignment] pred[{pred_index.min().date()}..{pred_index.max().date()}] "
+        f"({len(pred_index)}d) vs report[{report_index.min().date()}..{report_index.max().date()}] "
+        f"({len(report_index)}d), report 日期不在 pred 集合内: {len(missing)}"
+    )
+    if report_index.min() < pred_index.min():
+        raise ValueError(
+            f"对齐自检失败：report 首日 {report_index.min().date()} 早于 pred 首日 "
+            f"{pred_index.min().date()}，存在无信号先交易的风险。"
+        )
+    if len(missing) == len(report_index):
+        raise ValueError("对齐自检失败：report 与 pred 日期完全不相交。")
+    if len(missing) > 0:
+        print(
+            f"[alignment] 警告：{len(missing)} 个 report 交易日无对应 pred 日期"
+            f"（前3个: {[str(d.date()) for d in missing[:3]]}），请核对 segments 与回测区间。"
+        )
+    return {
+        "pred_first": pred_index.min(),
+        "pred_last": pred_index.max(),
+        "report_first": report_index.min(),
+        "report_last": report_index.max(),
+        "report_days_missing_from_pred": int(len(missing)),
+    }
 
 
 def parse_train_cli(argv=None):
