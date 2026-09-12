@@ -345,3 +345,102 @@ def test_load_lake_trading_days_utc_ms(tmp_path):
 
     days = load_lake_trading_days(tmp_path, "000001_SH", reader=reader)
     assert list(days.strftime("%Y-%m-%d")) == ["2026-03-03"]
+
+
+# ----- M1-C：archive / offsite -----
+
+from refresh_mydata import (  # noqa: E402
+    archive_qlib_dir,
+    discover_7z,
+    md5_file,
+    offsite_copy_and_verify,
+)
+
+
+def test_discover_7z_respects_explicit(tmp_path):
+    fake = tmp_path / "7z"
+    fake.write_text("#!/bin/sh\n", encoding="utf-8")
+    fake.chmod(0o755)
+    assert discover_7z(fake) == fake
+
+
+def test_archive_qlib_dir_missing_7z_clear_error(tmp_path, monkeypatch):
+    qlib = tmp_path / "my_data"
+    qlib.mkdir()
+    (qlib / "x").write_text("1", encoding="utf-8")
+    monkeypatch.setattr("refresh_mydata.discover_7z", lambda explicit=None: None)
+    with pytest.raises(RefreshError, match="未找到 7-Zip"):
+        archive_qlib_dir(qlib, today=date(2026, 9, 13), seven_zip=None)
+
+
+def test_archive_qlib_dir_mocked_runner(tmp_path):
+    qlib = tmp_path / "my_data"
+    qlib.mkdir()
+    (qlib / "x").write_text("1", encoding="utf-8")
+    fake7z = tmp_path / "7z.exe"
+    fake7z.write_text("x", encoding="utf-8")
+    calls = {}
+
+    class FakeProc:
+        returncode = 0
+
+    def runner(argv, cwd=None, check=False):
+        calls["argv"] = argv
+        calls["cwd"] = cwd
+        # 模拟 7z 写出归档
+        out = Path(cwd) / "my_data_20260913_full.7z"
+        out.write_bytes(b"7z-fake-bytes")
+        return FakeProc()
+
+    path = archive_qlib_dir(
+        qlib, today=date(2026, 9, 13), seven_zip=fake7z, out_dir=tmp_path, runner=runner
+    )
+    assert path.name == "my_data_20260913_full.7z"
+    assert path.is_file()
+    assert "a" in calls["argv"]
+    assert calls["argv"][0] == str(fake7z)
+
+
+def test_offsite_copy_md5_three_way(tmp_path):
+    archive = tmp_path / "my_data_20260913_full.7z"
+    archive.write_bytes(b"payload-abc")
+    f_root = tmp_path / "F"
+    g_root = tmp_path / "G"
+    f_root.mkdir()
+    g_root.mkdir()
+    report = offsite_copy_and_verify(archive, [f_root, g_root])
+    assert report["source_md5"] == md5_file(archive)
+    assert len(report["copies"]) == 2
+    assert report["mismatched"] == []
+    assert (f_root / archive.name).read_bytes() == b"payload-abc"
+    assert (g_root / archive.name).read_bytes() == b"payload-abc"
+
+
+def test_offsite_all_missing_roots_errors(tmp_path):
+    archive = tmp_path / "my_data_20260913_full.7z"
+    archive.write_bytes(b"x")
+    with pytest.raises(RefreshError, match="offsite 根目录都不存在"):
+        offsite_copy_and_verify(archive, [tmp_path / "noF", tmp_path / "noG"])
+
+
+def test_offsite_partial_missing_ok(tmp_path):
+    archive = tmp_path / "my_data_20260913_full.7z"
+    archive.write_bytes(b"x")
+    ok = tmp_path / "G"
+    ok.mkdir()
+    report = offsite_copy_and_verify(archive, [tmp_path / "noF", ok])
+    assert len(report["copies"]) == 1
+    assert report["missing"] == [str(tmp_path / "noF")]
+
+
+def test_offsite_md5_mismatch(tmp_path):
+    archive = tmp_path / "my_data_20260913_full.7z"
+    archive.write_bytes(b"good")
+    root = tmp_path / "F"
+    root.mkdir()
+
+    def bad_copy(src, dst):
+        Path(dst).write_bytes(b"tampered")
+
+    with pytest.raises(RefreshError, match="MD5"):
+        offsite_copy_and_verify(archive, [root], copy_fn=bad_copy)

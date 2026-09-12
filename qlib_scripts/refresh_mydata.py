@@ -574,6 +574,101 @@ def atomic_swap(
     return backup
 
 
+
+def md5_file(path: Path, chunk: int = 1024 * 1024) -> str:
+    h = hashlib.md5()
+    with Path(path).open("rb") as fh:
+        while True:
+            block = fh.read(chunk)
+            if not block:
+                break
+            h.update(block)
+    return h.hexdigest()
+
+
+def archive_qlib_dir(
+    qlib_dir: Path,
+    *,
+    today: date | None = None,
+    seven_zip: Path | None = None,
+    out_dir: Path | None = None,
+    runner: Callable[..., subprocess.CompletedProcess] | None = None,
+) -> Path:
+    """打 my_data_YYYYMMDD_full.7z。seven_zip 可注入；缺失时清晰报错。"""
+    today = today or date.today()
+    qlib_dir = Path(qlib_dir)
+    out_dir = Path(out_dir) if out_dir else qlib_dir.parent
+    out_dir.mkdir(parents=True, exist_ok=True)
+    archive_path = out_dir / f"my_data_{today.strftime('%Y%m%d')}_full.7z"
+    exe = discover_7z(seven_zip)
+    if exe is None:
+        raise RefreshError(
+            "未找到 7-Zip（已查 Windows 默认路径与 PATH 上的 7z/7za）。"
+            "请安装 7-Zip 或传 --seven-zip /path/to/7z"
+        )
+    if archive_path.exists():
+        raise RefreshError(f"归档已存在，拒绝覆盖: {archive_path}")
+    # 7z a -t7z archive.7z ./my_data/*
+    # 用目录名为根，便于解压还原
+    argv = [str(exe), "a", "-t7z", "-mx=5", str(archive_path), str(qlib_dir.name)]
+    run = runner or subprocess.run
+    print(f"→ archive: {subprocess.list2cmdline(argv)} (cwd={out_dir})")
+    proc = run(argv, cwd=str(out_dir), check=False)
+    code = proc.returncode if hasattr(proc, "returncode") else int(proc)
+    if code != 0:
+        raise RefreshError(f"7z 归档失败 exit={code}")
+    digest = md5_file(archive_path)
+    print(f"archive ok: {archive_path} md5={digest} size={archive_path.stat().st_size}")
+    return archive_path
+
+
+def offsite_copy_and_verify(
+    archive_path: Path,
+    offsite_dirs: Sequence[Path],
+    *,
+    copy_fn: Callable[[Path, Path], None] | None = None,
+    md5_fn: Callable[[Path], str] | None = None,
+) -> dict:
+    """拷贝归档到各异地根目录，三方（源+各地）MD5 一致才算过。
+
+    目录不存在时跳过并记入 missing（本 VM 无 F:/G: 属预期）；若全部缺失则报错。
+    """
+    archive_path = Path(archive_path)
+    if not archive_path.is_file():
+        raise RefreshError(f"归档不存在: {archive_path}")
+    md5 = md5_fn or md5_file
+    copy = copy_fn or shutil.copy2
+    src_md5 = md5(archive_path)
+    results = {"source_md5": src_md5, "copies": [], "missing": [], "mismatched": []}
+    for root in offsite_dirs:
+        root = Path(root)
+        if not root.exists():
+            results["missing"].append(str(root))
+            print(f"offsite skip (missing root): {root}")
+            continue
+        dest = root / archive_path.name
+        copy(archive_path, dest)
+        dest_md5 = md5(dest)
+        entry = {"path": str(dest), "md5": dest_md5}
+        results["copies"].append(entry)
+        if dest_md5 != src_md5:
+            results["mismatched"].append(entry)
+            print(f"offsite MD5 不一致: {dest} {dest_md5} != {src_md5}")
+        else:
+            print(f"offsite ok: {dest} md5={dest_md5}")
+    if not results["copies"] and results["missing"]:
+        raise RefreshError(
+            "所有 offsite 根目录都不存在（本机无 F:/G: 时请传 --offsite-dir 指向可写目录）: "
+            + ", ".join(results["missing"])
+        )
+    if results["mismatched"]:
+        raise RefreshError(f"offsite MD5 三方校验失败: {results['mismatched']}")
+    # 若部分缺失但至少一份成功：警告但不失败（硬件不全的 VM）
+    if results["missing"]:
+        print(f"offsite 警告：部分根目录缺失 {results['missing']}，已校验副本 {len(results['copies'])} 份")
+    return results
+
+
 def paths_ready_for_real_run(cfg: RefreshConfig) -> list[str]:
     """真实跑需要的路径；返回缺失列表。"""
     missing = []
@@ -686,10 +781,29 @@ def main(argv: list[str] | None = None) -> int:
 
     if cfg.skip_swap:
         print("skip_swap：门禁已过，未换目录")
-        return 0
+        live_dir = cfg.new_qlib_dir
+    else:
+        atomic_swap(cfg.qlib_dir, cfg.new_qlib_dir, today=cfg.today)
+        live_dir = cfg.qlib_dir
 
-    atomic_swap(cfg.qlib_dir, cfg.new_qlib_dir, today=cfg.today)
-    print("M1-B 完成：门禁通过并已原子 swap。--archive/--offsite 见 M1-C。")
+    archive_path = None
+    if cfg.archive:
+        archive_path = archive_qlib_dir(
+            live_dir, today=cfg.today, seven_zip=cfg.seven_zip, out_dir=Path(live_dir).parent
+        )
+    if cfg.offsite:
+        if archive_path is None:
+            # 允许只 offsite：若同日归档已在父目录则复用，否则先归档
+            candidate = Path(live_dir).parent / f"my_data_{cfg.today.strftime('%Y%m%d')}_full.7z"
+            if candidate.is_file():
+                archive_path = candidate
+            else:
+                archive_path = archive_qlib_dir(
+                    live_dir, today=cfg.today, seven_zip=cfg.seven_zip, out_dir=Path(live_dir).parent
+                )
+        offsite_copy_and_verify(archive_path, cfg.offsite_dirs)
+
+    print("refresh_mydata 完成。")
     return 0
 
 
