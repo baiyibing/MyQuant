@@ -299,3 +299,51 @@ def write_train_manifest(
         manifests_dir=manifests_dir,
         artifact_dirs=side_dirs,
     )
+
+
+def write_export_manifest(
+    *,
+    manifests_dir: Path | str,
+    config: Mapping[str, Any],
+    pred_path: Path | str | None = None,
+    out_dir: Path | str | None = None,
+    output_file_count: int | None = None,
+    timings: Mapping[str, Any] | None = None,
+    data: Mapping[str, Any] | None = None,
+    artifact_dirs: Iterable[Path | str] | None = None,
+    repo_root: Path | str | None = None,
+    git_commit_sha: str | None = None,
+    created_utc: str | None = None,
+    pred_rows: int | None = None,
+) -> list[Path]:
+    """Export-stage helper: pred md5, asof/topk in config, output file count."""
+    artifacts: list[dict[str, Any]] = []
+    side_dirs: list[Path] = []
+    cfg = dict(config)
+    if output_file_count is not None:
+        cfg.setdefault("output_file_count", int(output_file_count))
+    if pred_path is not None:
+        pred = Path(pred_path)
+        if pred.is_file():
+            artifacts.append(fingerprint_artifact(pred, rows=pred_rows, base_dir=pred.parent))
+            side_dirs.append(pred.parent)
+    if out_dir is not None:
+        side_dirs.append(Path(out_dir))
+    for d in artifact_dirs or []:
+        side_dirs.append(Path(d))
+
+    manifest = build_manifest(
+        stage="export",
+        config=cfg,
+        data=data,
+        artifacts=artifacts,
+        timings=timings or {"total_seconds": 0, "nodes": []},
+        git_commit_sha=git_commit_sha,
+        created_utc=created_utc,
+        repo_root=repo_root,
+    )
+    return write_manifest(
+        manifest,
+        manifests_dir=manifests_dir,
+        artifact_dirs=side_dirs,
+    )

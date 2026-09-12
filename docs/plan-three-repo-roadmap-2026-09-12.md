@@ -1,6 +1,6 @@
 # 三仓协同路线图：信号厂 → 规则回测 → 执行栈
 
-- 日期：2026-09-12（v1.3 回写 2026-09-13）
+- 日期：2026-09-12（v1.3 回写 2026-09-13；§0.2 补 M4/M3-A）
 - 状态：**v1.3**。近期 R0–R5 与首轮 M5 已落地；中远期仍为方向性共识。里程碑表当预期，不当承诺维护。长期保鲜的是 §1 定位、§2 决定、§6 负面清单，以及名单/F 湖两篇契约。
 - 涉及仓库：MyQuant（本仓）/ MyQuant-backtrader / OSkhQuant1.3
 - 上游输入：2026-09-11~12 三仓架构讨论；本仓走查见 `my_docs/qlib_backtest_walkthrough_results.md`
@@ -43,10 +43,14 @@ v1.1 相对 v1：补三仓对照（含「不该再做」）、研究两层、Qli
 | pred vs PortAna report 对齐自检 | 已合 | #5；第 4 轮重训 16 日对齐 0 缺日 |
 | R3 后新 `预测结果.csv`（约 8.4 万行 / 16 日，过滤后少于 pre-R3） | 本机 2026-09-12 23:45 | 不入库 |
 | F 湖指数 → qlib bin 修补（000300/000001；指数不进 `all.txt`） | 脚本 [#6](https://github.com/baiyibing/MyQuant/pull/6)（当时未合）+ 本机已跑通 | **不是**完整 M1 |
-| M1-A `refresh_mydata.py` 骨架 + `--dry-run`（三件套子进程编排；`max_workers=8`；禁 dump_update） | 本分支已提交 | 中期计划 §1 |
-| M1-B 原子 swap + 四门禁（日历/抽样/无指数/宇宙 diff；失败不换目录） | 本分支已提交 | 中期计划 §1 |
-| M1-C `--archive` / `--offsite`（7z + MD5；路径可配，缺 F/G 不挡 PR） | 本分支已提交 | 中期计划 §1 |
-| M1-D 文档：`qlib-data-state` 标准刷新=orchestrator；提示词指向它 | 本分支已提交 | **M1 轨道完成** |
+| M1-A `refresh_mydata.py` 骨架 + `--dry-run`（三件套子进程编排；`max_workers=8`；禁 dump_update） | 已合 | [#8](https://github.com/baiyibing/MyQuant/pull/8)；中期计划 §1 |
+| M1-B 原子 swap + 四门禁（日历/抽样/无指数/宇宙 diff；失败不换目录） | 已合 | #8 |
+| M1-C `--archive` / `--offsite`（7z + MD5；路径可配，缺 F/G 不挡 PR） | 已合 | #8 |
+| M1-D 文档：`qlib-data-state` 标准刷新=orchestrator；提示词指向它 | 已合 | #8；**M1 轨道完成** |
+| M4-A `run_manifest.py`（myquant.run-manifest/1 构建/校验/写盘） | 本分支已提交 | 中期计划 §2 |
+| M4-B 训练收尾写 train manifest（helper 可单测；VM 跳过 18min 重训） | 本分支已提交 | 中期计划 §2；宿主机合批验收 |
+| M3-A learn-only `DropLimitUpLearn`（infer/导出池 as-of 不动） | 本分支已提交 | 中期计划 §4；IC/IR 宿主机 pending |
+| M4-C 导出写 export manifest + `docs/run-manifest-spec.md` | 本分支已提交 | 中期计划 §2；BT 仓后续对齐用 |
 
 PortAna 第 4 轮用真沪深300 出过烟雾报告。按 §2.3 / §6：**不当产品、不当 M5 对照列。**
 
