@@ -29,6 +29,7 @@ from train_wiring import (
     build_exclude_name_filter,
     build_filtered_instruments,
     build_limit_up_filter,
+    check_pred_report_alignment,
     parse_train_cli,
     should_verify_filters,
     verify_limit_up_filter,
@@ -602,6 +603,11 @@ if __name__ == '__main__':
         # 2025-01-13  9.683369e+07 -2.517667e-03    2.522351e+08  0.276471  202686.771864  0.000277  9.613312e+07  7.005769e+05 -0.002671
         # 2025-01-14  9.919015e+07  2.462459e-02    2.802384e+08  0.289189  230718.374729  0.000289  9.846085e+07  7.293065e+05  0.026334
         # 2025-01-15  9.939273e+07  2.323229e-03    3.080876e+08  0.280766  258580.614262  0.000281  9.866534e+07  7.273911e+05 -0.006415
+        # 走查优先级5：pred 与回测报告首尾对齐自检（TopkDropout shift=1，report 首日无前日 pred 属预期）。
+        check_pred_report_alignment(
+            pred_df.index.get_level_values(0).unique(), report_normal_df.index
+        )
+
         returns = report_normal_df["return"]
         benchmark_returns = report_normal_df["bench"]
 
