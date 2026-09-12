@@ -292,6 +292,15 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Skip writing per-config train manifests",
     )
+    p.add_argument(
+        "--adapter",
+        default=None,
+        help=(
+            "Host live adapter module (e.g. sweep_live_adapter): imports it and "
+            "uses its train_predict_fn(config)->{ic,ir}. Real grids cost one "
+            "handler_init (~18min) total; the adapter caches pred/label per process."
+        ),
+    )
     return p
 
 
@@ -322,13 +331,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         out_dir = Path.cwd() / out_dir
     manifests_dir = out_dir / "manifests"
 
-    if args.dry_run_fake or (args.limit is not None and not args.dry_run_fake):
-        # --limit alone still needs a callable on VM: default to fake when limit set
-        # unless user explicitly wants live (which raises). Prefer fake for smoke.
-        train_fn: TrainPredictFn = _fake_train_predict
-        if not args.dry_run_fake and args.limit is not None:
-            # Explicit: limit path uses fake to avoid handler_init
-            train_fn = _fake_train_predict
+    if args.adapter:
+        import importlib
+
+        module = importlib.import_module(args.adapter)
+        train_fn: TrainPredictFn = getattr(module, "train_predict_fn")
+    elif args.dry_run_fake or args.limit is not None:
+        # --limit alone still needs a callable on VM: default to fake when limit set.
+        train_fn = _fake_train_predict
     else:
         train_fn = default_live_train_predict
 
