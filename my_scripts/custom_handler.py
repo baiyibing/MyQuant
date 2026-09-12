@@ -97,18 +97,24 @@ class Alpha158CostKDJ(Alpha158):
     """
 
     def __init__(self, *args, cost_window=250, learn_processors=None, infer_processors=None, include_alpha158=False, include_cost_kdj=False, include_signal=False, include_lz=False, **kwargs):
+        # Caller-passed lists override class defaults (_DEFAULT_*).
         if infer_processors is None:
             infer_processors = _DEFAULT_INFER_PROCESSORS
         if learn_processors is None:
             learn_processors = _DEFAULT_LEARN_PROCESSORS
         self.cost_window = cost_window
-        self.learn_processors = learn_processors
-        self.infer_processors = infer_processors
         self.include_alpha158 = include_alpha158
         self.include_cost_kdj = include_cost_kdj
         self.include_signal = include_signal
         self.include_lz = include_lz
-        super().__init__(*args, **kwargs)
+        # Q3-R2: pass processors into Alpha158/DataHandlerLP; assigning self.* then
+        # empty super().__init__(*args, **kwargs) never delivered them to the parent.
+        super().__init__(
+            *args,
+            infer_processors=infer_processors,
+            learn_processors=learn_processors,
+            **kwargs,
+        )
 
     def get_feature_config(self):
         rec = get_global_timer_recorder()
