@@ -45,7 +45,8 @@ v1.1 相对 v1：补三仓对照（含「不该再做」）、研究两层、Qli
 | F 湖指数 → qlib bin 修补（000300/000001；指数不进 `all.txt`） | 脚本 [#6](https://github.com/baiyibing/MyQuant/pull/6)（当时未合）+ 本机已跑通 | **不是**完整 M1 |
 | M1-A `refresh_mydata.py` 骨架 + `--dry-run`（三件套子进程编排；`max_workers=8`；禁 dump_update） | 本分支已提交 | 中期计划 §1 |
 | M1-B 原子 swap + 四门禁（日历/抽样/无指数/宇宙 diff；失败不换目录） | 本分支已提交 | 中期计划 §1 |
-| M1-C `--archive` / `--offsite`（7z + MD5；路径可配，缺 F/G 不挡 PR） | 进行中 feat/m1-refresh-pipeline | 中期计划 §1 |
+| M1-C `--archive` / `--offsite`（7z + MD5；路径可配，缺 F/G 不挡 PR） | 本分支已提交 | 中期计划 §1 |
+| M1-D 文档：`qlib-data-state` 标准刷新=orchestrator；提示词指向它 | 本分支已提交 | **M1 轨道完成** |
 
 PortAna 第 4 轮用真沪深300 出过烟雾报告。按 §2.3 / §6：**不当产品、不当 M5 对照列。**
 
@@ -182,7 +183,7 @@ Qlib SZ300190  →  CSV 裸 300190  →  湖分区 300190_SZ  →  交易层 300
 
 | # | 任务 | 说明 |
 |---|---|---|
-| M1 | F 湖 → Qlib bin | **部分**：指数修补脚本（#6）+ 本机 SH000300/SH000001 已进 bin，且不进 `all.txt`。**未做**：个股全量从 F 湖重建、完整性门对齐 `oskh_data.integrity`、定时刷新。`F:\qlibdata` 更新仍是本仓数据线，不是闭环完成定义 |
+| M1 | F 湖 → Qlib bin | **刷新管道已固化**（`refresh_mydata.py` A–D：dry-run / 四门禁+原子 swap / archive+offsite / 文档）。个股仍走 archive+CSV 拼接而非纯湖 7 列；定时刷新与 `oskh_data.integrity` 对齐仍后置 |
 | M2 | 筹码 parity test | **未做**。本仓 COST vs backtrader `qlib_cost` / 换手阻力 |
 | M3 | 模型迭代（只动排序，不动成交） | **未做**。中性化 / topk 扫描 / 筹码当特征。涨停剔除训练集：过滤侧已接 `$zhangting`，不是 M3 扫描 |
 | M4 | run manifest 约定 | **未做**。仍是 `timing_*.json` + `backtest_output` 雏形 |
