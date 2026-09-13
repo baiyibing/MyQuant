@@ -184,27 +184,42 @@ def _as_score_frame(scores: pd.DataFrame) -> pd.DataFrame:
     return frame.reset_index(drop=True)
 
 
-def _as_cap_series(log_float_cap: pd.DataFrame | pd.Series | Mapping[Any, Any]) -> pd.Series:
-    """Normalize a cap source into ``Series[(datetime, qlib code)] -> float``."""
-    if isinstance(log_float_cap, pd.DataFrame):
-        frame = log_float_cap.copy()
+def as_panel_series(
+    panel: pd.DataFrame | pd.Series | Mapping[Any, Any],
+    *,
+    value_column: str | None = None,
+    what: str = "panel",
+) -> pd.Series:
+    """Normalize a per-day per-name quantity into ``Series[(day, qlib code)]``.
+
+    Accepts a long frame (``datetime``/``instrument`` + a value column), a
+    ``(datetime, instrument)`` MultiIndex Series, or a mapping keyed by those
+    pairs.  Duplicate keys keep the last row.
+    """
+    if isinstance(panel, pd.DataFrame):
+        frame = panel.copy()
         if isinstance(frame.index, pd.MultiIndex) and frame.shape[1] == 1:
             frame = frame.reset_index()
-        value_columns = [c for c in frame.columns if c not in {"datetime", "instrument"}]
         if "datetime" not in frame.columns or "instrument" not in frame.columns:
-            raise ValueError("log_float_cap frame needs datetime and instrument columns")
-        if not value_columns:
-            raise ValueError("log_float_cap frame has no value column")
-        column = "log_float_cap" if "log_float_cap" in value_columns else value_columns[0]
+            raise ValueError(f"{what} frame needs datetime and instrument columns")
+        value_columns = [c for c in frame.columns if c not in {"datetime", "instrument"}]
+        if value_column is not None:
+            if value_column not in frame.columns:
+                raise ValueError(f"{what} frame missing column: {value_column}")
+            column = value_column
+        elif not value_columns:
+            raise ValueError(f"{what} frame has no value column")
+        else:
+            column = "log_float_cap" if "log_float_cap" in value_columns else value_columns[0]
         keys = list(zip(frame["datetime"], frame["instrument"]))
         values = pd.to_numeric(frame[column], errors="coerce").to_numpy()
-    elif isinstance(log_float_cap, pd.Series):
-        if not isinstance(log_float_cap.index, pd.MultiIndex):
-            raise ValueError("log_float_cap Series needs a (datetime, instrument) MultiIndex")
-        keys = list(log_float_cap.index)
-        values = pd.to_numeric(log_float_cap, errors="coerce").to_numpy()
+    elif isinstance(panel, pd.Series):
+        if not isinstance(panel.index, pd.MultiIndex):
+            raise ValueError(f"{what} Series needs a (datetime, instrument) MultiIndex")
+        keys = list(panel.index)
+        values = pd.to_numeric(panel, errors="coerce").to_numpy()
     else:
-        items = list(dict(log_float_cap).items())
+        items = list(dict(panel).items())
         keys = [key for key, _ in items]
         values = pd.to_numeric(pd.Series([value for _, value in items], dtype="float64")).to_numpy()
 
@@ -268,7 +283,7 @@ def size_residual(
     untouched rather than fitted on noise.
     """
     frame = _as_score_frame(scores)
-    caps = _as_cap_series(log_float_cap)
+    caps = as_panel_series(log_float_cap, what="log_float_cap")
 
     lookup_keys = pd.MultiIndex.from_arrays(
         [
