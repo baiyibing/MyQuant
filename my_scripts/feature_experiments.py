@@ -15,6 +15,9 @@ import argparse
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping, Optional, Sequence
 
+# 共享 mlflow 逃生口 / 静音（须在任何 qlib import 之前；--window 真筛会触碰 qlib）
+import host_env  # noqa: F401
+
 import numpy as np
 import pandas as pd
 

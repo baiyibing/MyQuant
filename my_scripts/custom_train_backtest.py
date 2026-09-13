@@ -4,9 +4,8 @@ import logging
 import os
 import copy
 
-# 本机新版 mlflow 将 file store(./mlruns) 置于 maintenance mode，R.start 创建实验时直接抛
-# MlflowException。历史实验都在 my_scripts/mlruns，继续走 file store（mlflow 官方逃生口）。
-os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
+# 共享 mlflow 逃生口 / 静音（须在任何 qlib import 之前）
+import host_env  # noqa: F401
 
 from timeit import default_timer as timer
 

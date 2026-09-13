@@ -20,6 +20,8 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
+# 共享 mlflow 逃生口 / 静音（adapter 路径会触碰 qlib）
+import host_env  # noqa: E402,F401
 from run_manifest import write_train_manifest  # noqa: E402
 
 TrainPredictFn = Callable[["SweepConfig"], Mapping[str, Any]]

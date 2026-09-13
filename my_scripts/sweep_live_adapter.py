@@ -25,7 +25,6 @@ label 沿用 Alpha158 口径 Ref($close,-2)/Ref($close,-1)-1。
 from __future__ import annotations
 
 import math
-import os
 import sys
 from pathlib import Path
 from typing import Any, Mapping
@@ -33,14 +32,12 @@ from typing import Any, Mapping
 import numpy as np
 import pandas as pd
 
-# 与 custom_train_backtest.py 同因：本机新版 mlflow 把 file store(./mlruns) 置于
-# maintenance mode，qlib 工作流组件触发 MlflowClient 即抛异常。sweep 进程不走训练
-# 脚本，必须自带逃生口。（后续应集中到共享 env 模块，别再每脚本一份。）
-os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
-
 _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
+
+# 共享 mlflow 逃生口 / 静音（须在任何 qlib import 之前）
+import host_env  # noqa: E402,F401
 
 _STATE: dict[str, Any] = {}
 

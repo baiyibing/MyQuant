@@ -17,6 +17,9 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
+# 共享 mlflow 逃生口 / 静音（与其它工作流入口对齐；本脚本本身不 import qlib）
+import host_env  # noqa: F401
+
 import pandas as pd
 
 from run_manifest import write_export_manifest
