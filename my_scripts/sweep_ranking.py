@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import sys
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Sequence
 
@@ -72,6 +73,47 @@ def parse_int_list(text: str) -> list[int]:
         return []
     parts = [p.strip() for p in str(text).replace(" ", ",").split(",") if p.strip()]
     return [int(p) for p in parts]
+
+
+def parse_date_range(text: str) -> tuple[str, str]:
+    """Parse ``START:END`` (ISO dates). Illegal format raises ValueError.
+
+    Used as argparse ``type=`` so a bad token exits the CLI (argparse
+    converts ValueError → usage error).
+    """
+    if text is None:
+        raise ValueError("empty date range; expected START:END")
+    raw = str(text).strip()
+    if raw.count(":") != 1:
+        raise ValueError(f"illegal segment format {text!r}; expected START:END")
+    start, end = (part.strip() for part in raw.split(":", 1))
+    if not start or not end:
+        raise ValueError(f"illegal segment format {text!r}; expected START:END")
+    try:
+        d0 = date.fromisoformat(start)
+        d1 = date.fromisoformat(end)
+    except ValueError as exc:
+        raise ValueError(
+            f"illegal segment dates {text!r}; expected YYYY-MM-DD:YYYY-MM-DD"
+        ) from exc
+    if d0 > d1:
+        raise ValueError(f"segment start > end: {text!r}")
+    return start, end
+
+
+def maybe_segments_from_args(args: argparse.Namespace) -> dict[str, tuple[str, str]] | None:
+    """Return provided --train/--valid/--test windows, or None if none given.
+
+    Windows are a run-level dimension — never a SweepConfig / grid field.
+    """
+    out: dict[str, tuple[str, str]] = {}
+    if getattr(args, "train", None) is not None:
+        out["train"] = args.train
+    if getattr(args, "valid", None) is not None:
+        out["valid"] = args.valid
+    if getattr(args, "test", None) is not None:
+        out["test"] = args.test
+    return out or None
 
 
 def iter_config_grid(
@@ -305,6 +347,27 @@ def build_arg_parser() -> argparse.ArgumentParser:
             "handler_init (~18min) total; the adapter caches pred/label per process."
         ),
     )
+    p.add_argument(
+        "--train",
+        default=None,
+        type=parse_date_range,
+        metavar="START:END",
+        help="Train window YYYY-MM-DD:YYYY-MM-DD (default: adapter March window)",
+    )
+    p.add_argument(
+        "--valid",
+        default=None,
+        type=parse_date_range,
+        metavar="START:END",
+        help="Valid window YYYY-MM-DD:YYYY-MM-DD (default: adapter March window)",
+    )
+    p.add_argument(
+        "--test",
+        default=None,
+        type=parse_date_range,
+        metavar="START:END",
+        help="Test window YYYY-MM-DD:YYYY-MM-DD (default: adapter March window)",
+    )
     return p
 
 
@@ -335,13 +398,28 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         out_dir = Path.cwd() / out_dir
     manifests_dir = out_dir / "manifests"
 
+    user_segs = maybe_segments_from_args(args)
+
     if args.adapter:
         import importlib
 
         module = importlib.import_module(args.adapter)
         train_fn: TrainPredictFn = getattr(module, "train_predict_fn")
+        # 窗口是运行维度：仅用户给了任一段才调 adapter.set_segments；
+        # 缺省不调用，adapter 用模块常量三月窗。--dry-run-fake 不走此分支。
+        if user_segs is not None:
+            defaults = dict(getattr(module, "SEGMENTS", {}) or {})
+            full = {}
+            for key in ("train", "valid", "test"):
+                if key in user_segs:
+                    full[key] = user_segs[key]
+                elif key in defaults:
+                    val = defaults[key]
+                    full[key] = (str(val[0]), str(val[1]))
+            getattr(module, "set_segments")(full)
     elif args.dry_run_fake or args.limit is not None:
         # --limit alone still needs a callable on VM: default to fake when limit set.
+        # fake 不走 adapter，即使传了 --train/--valid/--test 也不调 set_segments。
         train_fn = _fake_train_predict
     else:
         train_fn = default_live_train_predict
