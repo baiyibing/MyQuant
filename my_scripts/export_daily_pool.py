@@ -7,6 +7,10 @@ file; ``--asof identity`` writes it to D's file.  The default is
 The output intentionally has no stock-name column.  Consequently unnamed ST
 stocks are assigned a board limit by code prefix (10%/20%/30%), not the 5% ST
 limit; this validation window is not E-R2.
+
+``--neutralize`` (M3-D) cross-section neutralizes the pred scores *before* the
+TopN truncation.  It is off by default: without the flag the exported bytes
+are bit-for-bit what they were.
 """
 
 from __future__ import annotations
@@ -15,14 +19,26 @@ import argparse
 import re
 import sys
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
+
+_SCRIPT_DIR = Path(__file__).resolve().parent
+if str(_SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPT_DIR))
 
 # 共享 mlflow 逃生口 / 静音（与其它工作流入口对齐；本脚本本身不 import qlib）
-import host_env  # noqa: F401
+import host_env  # noqa: E402,F401
 
-import pandas as pd
+import pandas as pd  # noqa: E402
 
-from run_manifest import write_export_manifest
+from float_cap_gate import (  # noqa: E402
+    AMOUNT_COLUMN,
+    CLOSE_COLUMN,
+    FLOAT_SHARE_COLUMN,
+    derive_log_float_cap,
+    verify_float_cap,
+)
+from ranking_neutralize import METHODS, load_industry_map, neutralize  # noqa: E402
+from run_manifest import write_export_manifest  # noqa: E402
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -54,6 +70,28 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_OUT_DIR,
         help="output directory (the default is resolved from the repository root)",
     )
+    parser.add_argument(
+        "--neutralize",
+        choices=METHODS,
+        default=None,
+        help="cross-section neutralize scores before TopN (default: off)",
+    )
+    parser.add_argument(
+        "--industry-map",
+        type=Path,
+        default=None,
+        help="SW L1 map CSV (code_qlib,sw_l1) for --neutralize industry/both",
+    )
+    parser.add_argument(
+        "--float-cap",
+        type=Path,
+        default=None,
+        help=(
+            "float cap CSV for --neutralize size/both: either "
+            f"datetime,instrument,log_float_cap or the raw {CLOSE_COLUMN}/"
+            f"{FLOAT_SHARE_COLUMN} fields, plus {AMOUNT_COLUMN} for the gate"
+        ),
+    )
     return parser
 
 
@@ -84,6 +122,61 @@ def load_predictions(path: Path) -> pd.DataFrame:
     result["instrument"] = result["instrument"].astype(str)
     result["score"] = pd.to_numeric(result["score"], errors="raise")
     return result
+
+
+def load_float_cap(path: Path) -> pd.DataFrame:
+    """Load a cap panel, deriving ``log_float_cap`` from bin-16 fields if given."""
+    frame = pd.read_csv(path, dtype={"instrument": str})
+    if CLOSE_COLUMN in frame.columns and FLOAT_SHARE_COLUMN in frame.columns:
+        return derive_log_float_cap(frame)
+    missing = sorted({"datetime", "instrument", "log_float_cap"}.difference(frame.columns))
+    if missing:
+        raise ValueError(
+            f"float cap input needs {CLOSE_COLUMN}+{FLOAT_SHARE_COLUMN} or a "
+            f"log_float_cap column; missing: {', '.join(missing)}"
+        )
+    return frame
+
+
+def apply_neutralization(
+    predictions: pd.DataFrame,
+    *,
+    method: str | None,
+    industry_map: Path | None = None,
+    float_cap: Path | None = None,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Neutralize scores before ranking; returns the frame and manifest config.
+
+    ``method=None`` is the default path and returns the input untouched.  For
+    ``size``/``both`` the derived cap has to clear :func:`verify_float_cap`
+    first — a failing gate raises instead of falling back to a fit nobody
+    verified (``--neutralize industry`` stays available).
+    """
+    if method is None:
+        return predictions, {"neutralize": "none"}
+
+    sw_l1 = None
+    config: dict[str, Any] = {}
+    if method in {"industry", "both"}:
+        if industry_map is None:
+            raise ValueError(f"--neutralize {method} requires --industry-map")
+        sw_l1 = load_industry_map(industry_map)
+        config["neutralize_industry_map"] = str(industry_map)
+
+    caps = None
+    if method in {"size", "both"}:
+        if float_cap is None:
+            raise ValueError(f"--neutralize {method} requires --float-cap")
+        caps = load_float_cap(float_cap)
+        gate = verify_float_cap(caps)
+        config.update(gate.as_manifest_fields())
+        config["neutralize_float_cap"] = str(float_cap)
+        if not gate.passed:
+            raise ValueError(gate.blocked_message())
+
+    frame, report = neutralize(predictions, method, sw_l1=sw_l1, log_float_cap=caps)
+    config.update(report.as_manifest_fields())
+    return frame, config
 
 
 def _safe_output_dir(path: Path) -> Path:
@@ -161,6 +254,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(f"prediction file does not exist: {pred_path}")
     try:
         predictions = load_predictions(pred_path)
+        pred_rows = int(len(predictions))
+        # M3-D: 中性化只改排序用的 score，必须在 TopN 截取之前。
+        predictions, neutralize_config = apply_neutralization(
+            predictions,
+            method=args.neutralize,
+            industry_map=args.industry_map,
+            float_cap=args.float_cap,
+        )
         written, illegal_count = export_daily_pool(
             predictions, args.out_dir, topk=args.topk, asof=args.asof
         )
@@ -179,11 +280,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "pred": str(pred_path),
                 "out_dir": str(Path(args.out_dir).expanduser()),
                 "output_file_count": len(written),
+                **neutralize_config,
             },
             pred_path=pred_path,
             out_dir=args.out_dir,
             output_file_count=len(written),
-            pred_rows=int(len(predictions)),
+            pred_rows=pred_rows,
             data={
                 "calendar_first": str(predictions["datetime"].min().date())
                 if len(predictions)
