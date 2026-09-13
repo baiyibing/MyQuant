@@ -31,6 +31,7 @@ v1.1 相对 v1：补三仓对照（含「不该再做」）、研究两层、Qli
 | 三引擎定位 / README 不再写「主入口 LEBS」 | 已合 | #15 / U1；即原 R4 |
 | 首轮 M5：同一 version6 书比 pred Top10 / 手工原样 / 手工 Top10 | 本机 C 齐；报告 [#28](https://github.com/baiyibing/MyQuant-backtrader/pull/28) | 结论：**名单几乎不重叠**（pred∩hand10 = 15/15 空）。不是模型晋升 |
 | M5 二轮（长窗三源归因） | 已合 [#30](https://github.com/baiyibing/MyQuant-backtrader/pull/30) | 窗 20260303–20260908、version6 必跑 / v8 另目录；三源 = pred Top10 / 手工冻结(129日) / 手工 Top10；**对齐 129 日 pred∩hand 与 pred∩hand10 全空，按月亦空**；跨日宇宙有交集（148/107 只）但**从不同日**——「偶尔同票，从不同日」；长窗坐实两套选股宇宙；报告 `docs/backtest/m5-list-attribution-2026-03-09.md` |
+| 策略 9/10 宿主烟测（底量超顶量 / 源 B TR 布林带） | 本机烟测（其仓 `docs/backtest/s9-s10-host-smoke-2026-09-13.md` 随 PR 入库） | 9（第三套规则）：131 个契约日 CSV 与 pred 日历对齐、0 空日、382 只不重复，`version9` 书已能吃名单；同日 ∩predTop10 仅 1 天（20260624/600615）、∩手工两列全 0——**又一套独立选股宇宙**。10：规则能出票，但活 Store 缺 TR 布林带、默认湖宇宙遇「湖有 Store 无」**fail-closed 拒跑**（行为正确）。两份名单**都不当冠军**，不是 M5 第四列，不改 topk |
 
 ### 0.2 MyQuant（信号厂）
 
