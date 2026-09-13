@@ -34,6 +34,7 @@ from train_wiring import (
     build_limit_up_filter,
     check_pred_report_alignment,
     parse_train_cli,
+    resolve_segments,
     should_verify_filters,
     verify_limit_up_filter,
 )
@@ -124,17 +125,15 @@ if __name__ == '__main__':
     # 设置显示宽度，防止自动换行
     pd.set_option('display.width', None)
 
-    start_time="2026-01-01"
-    end_time="2026-03-23"
+    # 三窗由 CLI --train/--valid/--test（START:END）覆盖；全缺省 = 现役三月窗（向后兼容）。
+    # 段序校验（train.start <= valid.start <= test.start）在 resolve_segments 内做。
+    _segments = resolve_segments(cli_args)
+    fit_start_time, fit_end_time = _segments["train"]
+    valid_start_time, valid_end_time = _segments["valid"]
+    test_start_time, test_end_time = _segments["test"]
 
-    fit_start_time=start_time
-    fit_end_time="2026-01-31"
-
-    valid_start_time="2026-02-01"
-    valid_end_time="2026-02-28"
-
-    test_start_time="2026-03-01"
-    test_end_time=end_time
+    start_time = fit_start_time
+    end_time = test_end_time
 
     # 2. 定义动态过滤规则：排除过去5日涨幅超过10%的股票
     # 注意：表达式中的 $close 等字段需要确保在你的数据中存在

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from datetime import datetime
 
 import pandas as pd
 
@@ -15,6 +16,13 @@ from qlib.data import D
 from qlib.data.filter import NameDFilter
 
 from custom_filter import UnifiedLimitUpFilter
+
+# 缺省三月窗 = 现役 m5r2 窗；--train/--valid/--test 全缺省时维持向后兼容。
+DEFAULT_SEGMENTS = {
+    "train": ("2026-01-01", "2026-01-31"),
+    "valid": ("2026-02-01", "2026-02-28"),
+    "test": ("2026-03-01", "2026-03-23"),
+}
 
 
 def build_exclude_name_filter(exclude_stocks):
@@ -134,6 +142,36 @@ def check_pred_report_alignment(pred_dates, report_dates):
     }
 
 
+def parse_segment(value: str, name: str) -> tuple[str, str]:
+    """'2026-01-01:2026-03-23' -> ("2026-01-01", "2026-03-23")；非法格式/倒序直接 SystemExit。"""
+    try:
+        start, end = value.split(":", 1)
+        start, end = start.strip(), end.strip()
+        if not start or not end:
+            raise ValueError
+        datetime.strptime(start, "%Y-%m-%d")
+        datetime.strptime(end, "%Y-%m-%d")
+    except ValueError:
+        raise SystemExit(f"--{name} 需要 START:END 格式（YYYY-MM-DD:YYYY-MM-DD），收到: {value!r}")
+    if start > end:
+        raise SystemExit(f"--{name} 起始晚于截止: {value!r}")
+    return start, end
+
+
+def resolve_segments(args) -> dict[str, tuple[str, str]]:
+    """三段全缺省 = DEFAULT_SEGMENTS（向后兼容）；任一给出则三段必须齐全且段序合法。"""
+    given = {n: getattr(args, n) for n in ("train", "valid", "test") if getattr(args, n)}
+    if not given:
+        return dict(DEFAULT_SEGMENTS)
+    missing = [n for n in ("train", "valid", "test") if n not in given]
+    if missing:
+        raise SystemExit(f"--train/--valid/--test 必须三段齐全给出，缺少: {', '.join(missing)}")
+    segs = {n: parse_segment(v, n) for n, v in given.items()}
+    if not (segs["train"][0] <= segs["valid"][0] <= segs["test"][0]):
+        raise SystemExit(f"段序非法，要求 train.start <= valid.start <= test.start: {segs}")
+    return segs
+
+
 def parse_train_cli(argv=None):
     """CLI for custom_train_backtest. --verify-filters gates the ~900s contrast handler."""
     parser = argparse.ArgumentParser(description="Qlib custom train/backtest (MyQuant)")
@@ -144,6 +182,21 @@ def parse_train_cli(argv=None):
             "Build a second contrast handler (exclude only) and run verify_limit_up_filter. "
             "Also enabled when env QLIB_VERIFY_FILTERS=1. Default path uses a single handler."
         ),
+    )
+    parser.add_argument(
+        "--train",
+        default=None,
+        help="训练窗 START:END（YYYY-MM-DD:YYYY-MM-DD）。三段全缺省=现役三月窗；任一给出则三段必填。",
+    )
+    parser.add_argument(
+        "--valid",
+        default=None,
+        help="验证窗 START:END（YYYY-MM-DD:YYYY-MM-DD）。",
+    )
+    parser.add_argument(
+        "--test",
+        default=None,
+        help="测试/回测窗 START:END（YYYY-MM-DD:YYYY-MM-DD）。",
     )
     return parser.parse_args(argv)
 
