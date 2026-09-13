@@ -135,6 +135,83 @@ def trades_frame(snapshots: dict, tier: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def pnl_by_stock(snapshots: dict, tier: str) -> pd.DataFrame:
+    """按股票统计盈亏：每段连续持仓（stint）一个回合，开仓价=段首收盘，平仓价=段后首日收盘。
+
+    realized_pnl  = Σ 已平仓回合 amount×(exit-entry) - 买/卖估算成本
+    unrealized_pnl = 期末仍持有：amount×(末日收盘-entry) - 买入成本（未扣卖出费）
+    平仓价从 D.features 批量取 $close（与回测 deal_price=close 同源，非段末日持仓价）。
+    """
+    from qlib.data import D  # 延迟导入：依赖 main 里已 qlib.init
+
+    days = sorted(snapshots.keys())
+    all_insts = sorted({i for snap in snapshots.values() for i in snap})
+    close_df = D.features(all_insts, ["$close"], days[0], days[-1])["$close"]
+
+    def close_of(inst: str, day: pd.Timestamp) -> float | None:
+        try:
+            v = close_df.loc[(inst, day)]
+        except KeyError:
+            return None
+        return float(v) if v == v else None  # NaN 检查
+
+    open_rate = COST_TIERS[tier]["open_cost"]
+    close_rate = COST_TIERS[tier]["close_cost"]
+
+    # 把每只股票的出现日切成连续段
+    rows = []
+    for inst in all_insts:
+        present = [i for i, d in enumerate(days) if inst in snapshots[d]]
+        stints, run = [], []
+        for i in present:
+            if run and i == run[-1] + 1:
+                run.append(i)
+            else:
+                if run:
+                    stints.append(run)
+                run = [i]
+        if run:
+            stints.append(run)
+
+        agg = {
+            "round_trips": 0, "wins": 0, "losses": 0,
+            "realized_pnl": 0.0, "unrealized_pnl": 0.0,
+            "est_costs": 0.0, "total_entry_value": 0.0,
+            "held_days_sum": 0, "first_date": days[present[0]].date().isoformat(),
+            "last_date": days[present[-1]].date().isoformat(), "still_held": False,
+        }
+        for run_days in stints:
+            d0, d1 = days[run_days[0]], days[run_days[-1]]
+            amount, entry_price, _ = snapshots[d0][inst]
+            entry_value = amount * entry_price
+            buy_cost = max(entry_value * open_rate, 5.0)
+            agg["total_entry_value"] += entry_value
+            agg["est_costs"] += buy_cost
+            agg["held_days_sum"] += len(run_days)
+            if run_days[-1] == len(days) - 1:  # 期末仍持有
+                last_amount, last_price, _ = snapshots[d1][inst]
+                agg["still_held"] = True
+                agg["unrealized_pnl"] += last_amount * (last_price - entry_price) - buy_cost
+                continue
+            exit_day = days[run_days[-1] + 1]
+            exit_price = close_of(inst, exit_day)
+            if exit_price is None:  # 数据缺行时退回段末日持仓价
+                exit_price = snapshots[d1][inst][1]
+            sell_value = amount * exit_price
+            sell_cost = max(sell_value * close_rate, 5.0)
+            agg["est_costs"] += sell_cost
+            pnl = amount * (exit_price - entry_price) - buy_cost - sell_cost
+            agg["realized_pnl"] += pnl
+            agg["round_trips"] += 1
+            agg["wins" if exit_price > entry_price else "losses"] += 1
+        rows.append({"instrument": inst, **agg})
+
+    df = pd.DataFrame(rows)
+    df["total_pnl"] = df["realized_pnl"] + df["unrealized_pnl"]
+    df["return_on_cost"] = df["total_pnl"] / df["total_entry_value"]
+    return df.sort_values("total_pnl", ascending=False, ignore_index=True)
+
+
 def parse_cli(argv=None):
     parser = argparse.ArgumentParser(description="导出回测逐日持仓/买卖记录（复用 pred.pkl，不重训）")
     parser.add_argument("--exp-name", default="alpha158_cost_kdj_lgb")
@@ -209,8 +286,26 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
     pos_path = os.path.join(out_dir, f"positions_daily_{tag}_{stamp}.csv")
     trd_path = os.path.join(out_dir, f"trades_daily_{tag}_{stamp}.csv")
+    pnl_path = os.path.join(out_dir, f"pnl_by_stock_{tag}_{stamp}.csv")
     pos_df.to_csv(pos_path, index=False, encoding="utf-8-sig")
     trd_df.to_csv(trd_path, index=False, encoding="utf-8-sig")
+
+    print(f"[export] computing per-stock pnl ...", flush=True)
+    pnl_df = pnl_by_stock(snapshots, args.cost_tier)
+    pnl_df.to_csv(pnl_path, index=False, encoding="utf-8-sig")
+
+    # 交叉验证：Σ(已实现+未实现) 与组合净值变动对账（成交价/成本口径一致时应接近）
+    days_sorted = sorted(snapshots.keys())
+    last_total = pos_df[pos_df["date"] == days_sorted[-1].date().isoformat()]["total_value"].iloc[-1]
+    sum_pnl = float(pnl_df["total_pnl"].sum())
+    nav_delta = float(last_total - args.account)
+    print(
+        f"[pnl] stocks={len(pnl_df)} win={int((pnl_df['total_pnl'] > 0).sum())} "
+        f"loss={int((pnl_df['total_pnl'] <= 0).sum())} "
+        f"total_pnl={sum_pnl:,.0f} nav_delta={nav_delta:,.0f} "
+        f"diff={sum_pnl - nav_delta:,.0f} ({abs(sum_pnl - nav_delta) / max(abs(nav_delta), 1):.2%})",
+        flush=True,
+    )
 
     n_days = len(snapshots)
     buys = int((trd_df["side"] == "buy").sum()) if len(trd_df) else 0
@@ -223,6 +318,7 @@ def main():
     )
     print(f"=== Positions saved: {pos_path} ===")
     print(f"=== Trades saved: {trd_path} ===")
+    print(f"=== PnL by stock saved: {pnl_path} ===")
 
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     try:
@@ -242,9 +338,11 @@ def main():
                 "limit_threshold": None if args.no_limit_threshold else 0.095,
                 "positions_rows": int(len(pos_df)),
                 "trades_rows": int(len(trd_df)),
+                "pnl_rows": int(len(pnl_df)),
+                "pnl_total": sum_pnl,
             },
             out_dir=out_dir,
-            output_file_count=2,
+            output_file_count=3,
             repo_root=base_dir,
             git_commit_sha=capture_git_provenance(base_dir).get("git_commit"),
         )
