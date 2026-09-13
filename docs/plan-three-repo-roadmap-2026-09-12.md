@@ -30,6 +30,7 @@ v1.1 相对 v1：补三仓对照（含「不该再做」）、研究两层、Qli
 | `csv_daily --out-dir`；手工池截断 TopN | 已合 | #27 |
 | 三引擎定位 / README 不再写「主入口 LEBS」 | 已合 | #15 / U1；即原 R4 |
 | 首轮 M5：同一 version6 书比 pred Top10 / 手工原样 / 手工 Top10 | 本机 C 齐；报告 [#28](https://github.com/baiyibing/MyQuant-backtrader/pull/28) | 结论：**名单几乎不重叠**（pred∩hand10 = 15/15 空）。不是模型晋升 |
+| M5 二轮（长窗三源归因） | 已合 [#30](https://github.com/baiyibing/MyQuant-backtrader/pull/30) | 窗 20260303–20260908、version6 必跑 / v8 另目录；三源 = pred Top10 / 手工冻结(129日) / 手工 Top10；**对齐 129 日 pred∩hand 与 pred∩hand10 全空，按月亦空**；跨日宇宙有交集（148/107 只）但**从不同日**——「偶尔同票，从不同日」；长窗坐实两套选股宇宙；报告 `docs/backtest/m5-list-attribution-2026-03-09.md` |
 
 ### 0.2 MyQuant（信号厂）
 
@@ -60,7 +61,7 @@ v1.1 相对 v1：补三仓对照（含「不该再做」）、研究两层、Qli
 | M3-D 行业/市值中性化 | **源就绪（实现片待开）** | gildata 申万 L1 全量 5210 只映射入 git（`exports/m3d_industry/sw_l1_map.csv`，PR #19，.gitignore 例外）；wind 复核 35/53+ 批后 Kimi 5h 额度中断，续跑指引 `docs/kimi-wind-m3d-resume-2026-09-13.md`（PR #17），续跑点 q0035..q0053；`M3D_STATUS=ready`（Kimi 未提交遗作，随实现片一并提交） |
 | 宿主事故根治（followups） | 已合 #14 | ① 共享 `host_env`（mlflow file-store 逃生口，告别每脚本一份） ② manifest `git_commit` 改为**启动时** HEAD + `git_branch`/`git_dirty`（中途切分支不再污染溯源） |
 | Kimi 行业采集中断封存 | 已处理 | 现场 242 文件 / 2.3MB 入 git（PR #19）+ `m3d_industry_kimi_20260913.7z` 本地与 F: 备份；**续跑必须回 Kimi**（wind MCP 只在它那） |
-| M5 二轮任务书 | 已派 | PR #18：六个月长窗（20260303~20260908）三源归因——Codex 出 `predict_extended.py`（不跑 PortAna），BT 仓跑三源对照；判读预锁（不据此改参；重叠度变化本身是结论） |
+| M5 二轮 Qlib 臂 | **已交付（宿主实跑）** | 任务书 #18 → `predict_extended.py` #22（CI 绿）→ 本机实跑：`预测结果_ext.csv` **713,548 行 / 132 预测日（2026-03-02~09-08）**，导出 131 文件（= 132−1，pred_minus_one 分毫不差、LF 无 BOM）；三源长窗结论见 §0.1「M5 二轮」行——**长窗重叠仍为零，两套选股宇宙坐实；非模型晋升、不改 topk** |
 | CI 启用 | 进行中 | 仓转 public 后走 PR #20：windows-latest + py3.12 + qlib 钉 79633dd9 源码装 + 全量 pytest；首跑失败根因=`custom_utils` 顶层 matplotlib/seaborn 未进 requirements，已修重跑 |
 
 PortAna 第 4 轮用真沪深300 出过烟雾报告。按 §2.3 / §6：**不当产品、不当 M5 对照列。**
