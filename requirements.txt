@@ -11,3 +11,6 @@ scikit-learn>=1.5
 mlflow>=3.0
 pyarrow
 loguru
+# custom_utils.py（测试经 TimerRecorder 引用）顶层绘图依赖
+matplotlib
+seaborn
