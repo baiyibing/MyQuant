@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # qlib 按开发基准 commit 源码安装（requirements.txt 注明的口径，勿用发布包）
+      - name: Install qlib (pinned source commit 79633dd9)
+        run: |
+          git clone https://github.com/microsoft/qlib.git qlib-dev
+          git -C qlib-dev checkout 79633dd9
+          pip install -e qlib-dev
+
+      - name: Install project deps
+        run: |
+          pip install -r requirements.txt pytest
+
+      - name: Run tests
+        shell: pwsh
+        run: |
+          python -m pytest my_tests my_scripts/test_zhangting_filter.py -q

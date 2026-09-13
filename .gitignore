@@ -40,7 +40,10 @@ logs/
 data/
 output/
 outputs/
-exports/
+exports/*
+# 例外：m3d_industry 采集成果（wind MCP 限额采集、来之不易），入库长期保存
+!exports/m3d_industry/
+!exports/m3d_industry/**
 *.output
 
 # 系统
