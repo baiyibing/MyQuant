@@ -80,6 +80,51 @@ def git_commit(repo_root: Path | str | None = None) -> str:
         return "UNKNOWN"
 
 
+def capture_git_provenance(repo_root: Path | str | None = None) -> dict[str, Any]:
+    """Capture HEAD / branch / dirty **once** at process start (before handler_init).
+
+    Returns keys: ``git_commit`` (str | None), ``git_branch`` (str | None),
+    ``git_dirty`` (bool). On git failure commit/branch are None and dirty is False.
+    Callers must pass these into ``write_train_manifest`` so end-of-run no longer
+    re-reads HEAD (mid-run branch switches would otherwise corrupt provenance).
+    """
+    cwd = str(repo_root) if repo_root is not None else None
+    commit: str | None = None
+    branch: str | None = None
+    dirty = False
+    try:
+        out = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=cwd,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+        commit = out or None
+    except (OSError, subprocess.CalledProcessError):
+        commit = None
+    try:
+        out = subprocess.check_output(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=cwd,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+        branch = out or None
+    except (OSError, subprocess.CalledProcessError):
+        branch = None
+    try:
+        out = subprocess.check_output(
+            ["git", "status", "--porcelain"],
+            cwd=cwd,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        dirty = bool(out.strip())
+    except (OSError, subprocess.CalledProcessError):
+        dirty = False
+    return {"git_commit": commit, "git_branch": branch, "git_dirty": dirty}
+
+
 def fingerprint_artifact(
     path: Path | str,
     *,
@@ -110,10 +155,18 @@ def build_manifest(
     artifacts: Sequence[Mapping[str, Any]] | None = None,
     timings: Mapping[str, Any] | None = None,
     git_commit_sha: str | None = None,
+    git_branch: str | None = None,
+    git_dirty: bool | None = None,
     created_utc: str | None = None,
     repo_root: Path | str | None = None,
 ) -> dict[str, Any]:
-    """Build a myquant.run-manifest/1 dict (not yet validated beyond stage)."""
+    """Build a myquant.run-manifest/1 dict (not yet validated beyond stage).
+
+    Prefer passing ``git_commit_sha`` / ``git_branch`` / ``git_dirty`` from a
+    startup ``capture_git_provenance`` call. When commit is omitted we still
+    fall back to a live ``git rev-parse`` (legacy); new optional fields are
+    only written when provided (no schema bump — additive).
+    """
     if stage not in ALLOWED_STAGES:
         raise ManifestError(f"unsupported stage: {stage!r}; allow {sorted(ALLOWED_STAGES)}")
 
@@ -130,6 +183,10 @@ def build_manifest(
         "artifacts": [dict(a) for a in (artifacts or [])],
         "timings": dict(timings or {"total_seconds": 0, "nodes": []}),
     }
+    if git_branch is not None:
+        manifest["git_branch"] = git_branch
+    if git_dirty is not None:
+        manifest["git_dirty"] = bool(git_dirty)
     validate_manifest(manifest)
     return manifest
 
@@ -262,13 +319,16 @@ def write_train_manifest(
     artifact_dirs: Iterable[Path | str] | None = None,
     repo_root: Path | str | None = None,
     git_commit_sha: str | None = None,
+    git_branch: str | None = None,
+    git_dirty: bool | None = None,
     created_utc: str | None = None,
     pred_rows: int | None = None,
 ) -> list[Path]:
     """Train-stage helper: fingerprint pred (+extras), attach timings, write manifest.
 
     Callable from custom_train_backtest end-of-run and from unit tests without
-    running handler_init / full train.
+    running handler_init / full train. Pass startup ``capture_git_provenance``
+    fields so ``git_commit`` means process-start HEAD.
     """
     artifacts: list[dict[str, Any]] = []
     side_dirs: list[Path] = []
@@ -291,6 +351,8 @@ def write_train_manifest(
         artifacts=artifacts,
         timings=timing_payload,
         git_commit_sha=git_commit_sha,
+        git_branch=git_branch,
+        git_dirty=git_dirty,
         created_utc=created_utc,
         repo_root=repo_root,
     )

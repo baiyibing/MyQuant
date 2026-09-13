@@ -25,7 +25,6 @@ label 沿用 Alpha158 口径 Ref($close,-2)/Ref($close,-1)-1。
 from __future__ import annotations
 
 import math
-import os
 import sys
 from pathlib import Path
 from typing import Any, Mapping
@@ -33,14 +32,13 @@ from typing import Any, Mapping
 import numpy as np
 import pandas as pd
 
-# 与 custom_train_backtest.py 同因：本机新版 mlflow 把 file store(./mlruns) 置于
-# maintenance mode，qlib 工作流组件触发 MlflowClient 即抛异常。sweep 进程不走训练
-# 脚本，必须自带逃生口。（后续应集中到共享 env 模块，别再每脚本一份。）
-os.environ.setdefault("MLFLOW_ALLOW_FILE_STORE", "true")
-
 _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
+
+# 共享 mlflow 逃生口 / 静音（须在任何 qlib import 之前）
+import host_env  # noqa: E402,F401
+from run_manifest import capture_git_provenance  # noqa: E402
 
 _STATE: dict[str, Any] = {}
 
@@ -56,6 +54,11 @@ def _predict_once() -> tuple[pd.Series, pd.Series]:
     """构建 handler/dataset/model 一次，产出 (pred, label)（MultiIndex 对齐）。"""
     if "pred" in _STATE:
         return _STATE["pred"], _STATE["label"]
+
+    # handler_init 之前一次性取 git 溯源（整次 sweep 共用）
+    if "git_prov" not in _STATE:
+        repo_root = _SCRIPT_DIR.parent
+        _STATE["git_prov"] = capture_git_provenance(repo_root)
 
     import qlib
     from qlib.data import D
@@ -147,9 +150,13 @@ def train_predict_fn(config) -> Mapping[str, Any]:
     hit = series > 0
     ic = float(hit.mean())
     ir = float(series.mean() / (series.std() + 1e-12) * math.sqrt(252))
+    git_prov = _STATE.get("git_prov") or {}
     return {
         "ic": ic,
         "ir": ir,
         "notes": f"ic=日命中率; ir=名单等权次日收益年化(未扣费); days={len(series)}",
         "pred_path": "",
+        "git_commit": git_prov.get("git_commit"),
+        "git_branch": git_prov.get("git_branch"),
+        "git_dirty": git_prov.get("git_dirty"),
     }

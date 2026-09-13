@@ -1,6 +1,6 @@
 # 三仓协同路线图：信号厂 → 规则回测 → 执行栈
 
-- 日期：2026-09-12（v1.3 回写 2026-09-13；§0.2 补 M4/M3-A/M2/M3-B/C/D）
+- 日期：2026-09-12（v1.3 回写 2026-09-13；§0.2 补 M4/M3-A/M2/M3-B/C/D + 宿主真跑结果）
 - 状态：**v1.3**。近期 R0–R5 与首轮 M5 已落地；中远期仍为方向性共识。里程碑表当预期，不当承诺维护。长期保鲜的是 §1 定位、§2 决定、§6 负面清单，以及名单/F 湖两篇契约。
 - 涉及仓库：MyQuant（本仓）/ MyQuant-backtrader / OSkhQuant1.3
 - 上游输入：2026-09-11~12 三仓架构讨论；本仓走查见 `my_docs/qlib_backtest_walkthrough_results.md`
@@ -14,7 +14,7 @@ v1.1 相对 v1：补三仓对照（含「不该再做」）、研究两层、Qli
 
 ## 0. 2026-09-13 进度回写（新功能 / 已落地）
 
-只记已经合入或本机验收过的能力。PR 号：MyQuant `baiyibing/MyQuant`，backtrader `baiyibing/MyQuant-backtrader`，1.3 用其仓内编号。
+只记已经合入或本机验收过的能力。PR 号：MyQuant `baiyibing/MyQuant`，backtrader `baiyibing/MyQuant-backtrader`，1.3 用其仓内编号。2026-09-13 宿主真跑：M3-A/B/C 数字与两起事故（DropLimitUpLearn module_path / mlflow 逃生口 + manifest 中途切分支）见 §0.2；事故随 followups 任务 1/2 根治。
 
 ### 0.1 MyQuant-backtrader（研究脸：名单契约 + 向量化成交）
 
@@ -49,14 +49,15 @@ v1.1 相对 v1：补三仓对照（含「不该再做」）、研究两层、Qli
 | M1-D 文档：`qlib-data-state` 标准刷新=orchestrator；提示词指向它 | 已合 | #8；**M1 轨道完成** |
 | M4-A `run_manifest.py`（myquant.run-manifest/1 构建/校验/写盘） | 本分支已提交 | 中期计划 §2 |
 | M4-B 训练收尾写 train manifest（helper 可单测；VM 跳过 18min 重训） | 本分支已提交 | 中期计划 §2；宿主机合批验收 |
-| M3-A learn-only `DropLimitUpLearn`（infer/导出池 as-of 不动） | 本分支已提交 | 中期计划 §4；IC/IR 宿主机 pending |
+| M3-A learn-only `DropLimitUpLearn`（infer/导出池 as-of 不动） | **宿主真跑** | IC **0.0183**（持平）/ RankIC **0.0048**（基线 3.4×）；**首个真 train manifest**；代码已合 #9 |
 | M4-C 导出写 export manifest + `docs/run-manifest-spec.md` | 本分支已提交 | 中期计划 §2；BT 仓后续对齐用 |
 | M2-A 筹码概念映射 `docs/chip-parity-map.md`（结论：不可比） | 本分支已提交 | 中期计划 §3；合法关门 |
 | M2-B `chip_parity_check.py` + 注入 fake bt 单测；live 报 not comparable | 本分支已提交 | 中期计划 §3；fixture-only |
 | M2-C 晋升门 + `chip-parity-report-2026-09-13.md`（closed as 不可比） | 本分支已提交 | 中期计划 §3；**M2 轨道完成** |
-| M3-B ranking sweep harness（`sweep_ranking.py`；注入 IC/IR + `--limit 2`；每配置 train manifest） | 本分支已提交 | 中期计划 §4；宿主 live 多配置重训 pending |
-| M3-C bin-16 特征实验（换手/阻力近似；NaN<1% + 单窗 ICΔ；合成帧单测） | 本分支已提交 | 中期计划 §4；宿主真 bin 窗 pending |
+| M3-B ranking sweep harness + 宿主 6 格真网格 | **宿主真跑** | 代码 #11/#12；6 格：`topk5_ndrop2` 双指标最佳（hit **0.5625** / ann **2.65**）；`topk10` 两指标皆最差；**16 日单窗线索**，出窗复验待做（OOS 建议 2026-04~09、改参前）；共享一次 handler_init |
+| M3-C bin-16 特征实验（换手/阻力近似） | **负结果（宿主真筛）** | 代码 #11/#12；`turnover_resist_approx` 三月 **+0.138** → 六至八月 **−0.069** 符号翻转；四候选不入选 |
 | M3-D 行业/市值中性化 | **blocked** | `docs/m3d-industry-source-inventory.md`（`M3D_STATUS=blocked`；无 F: / 湖 industry 表） |
+| 宿主事故根治（followups） | 计划 #13；本 PR | ① 共享 `host_env`（mlflow file-store 逃生口，告别每脚本一份） ② manifest `git_commit` 改为**启动时** HEAD + `git_branch`/`git_dirty`（中途切分支不再污染溯源） |
 
 PortAna 第 4 轮用真沪深300 出过烟雾报告。按 §2.3 / §6：**不当产品、不当 M5 对照列。**
 

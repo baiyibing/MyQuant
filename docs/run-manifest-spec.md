@@ -20,7 +20,9 @@
 {
   "schema": "myquant.run-manifest/1",
   "stage": "train | export | refresh",
-  "git_commit": "<HEAD sha or UNKNOWN>",
+  "git_commit": "<startup HEAD sha or UNKNOWN>",
+  "git_branch": "<optional; startup branch>",
+  "git_dirty": false,
   "created_utc": "2026-09-13T01:02:03Z",
   "config": {
     "key": "value",
@@ -48,6 +50,8 @@
 |------|------|
 | `schema` | 必须精确等于 `myquant.run-manifest/1` |
 | `stage` | 仅 `train` / `export` / `refresh` |
+| `git_commit` | **启动时** HEAD（handler_init 前一次 `capture_git_provenance`）；勿在收尾再读 |
+| `git_branch` / `git_dirty` | 可选；同一次启动快照。加字段不 bump schema |
 | `config.config_hash` | 对去掉自身后的 config 做 canonical JSON（`sort_keys`、无空白）再 sha256 |
 | `artifacts[].md5` | 文件字节 MD5，小写 32 hex |
 | `artifacts[].rows` | 可选；可知行数时填写 |

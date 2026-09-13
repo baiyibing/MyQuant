@@ -20,6 +20,8 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
+# 共享 mlflow 逃生口 / 静音（adapter 路径会触碰 qlib）
+import host_env  # noqa: E402,F401
 from run_manifest import write_train_manifest  # noqa: E402
 
 TrainPredictFn = Callable[["SweepConfig"], Mapping[str, Any]]
@@ -140,6 +142,8 @@ def run_one(
             data=data or {},
             repo_root=repo_root,
             git_commit_sha=payload.get("git_commit"),
+            git_branch=payload.get("git_branch"),
+            git_dirty=payload.get("git_dirty"),
             created_utc=payload.get("created_utc"),
             pred_rows=int(pred_rows) if pred_rows is not None else None,
         )
@@ -154,7 +158,7 @@ def run_one(
             manifest_path = str(primary)
 
     notes = str(payload.get("notes") or "")
-    extra = {k: v for k, v in payload.items() if k not in {"ic", "ir", "config", "data", "timings", "pred_path", "pred_rows", "git_commit", "created_utc", "notes"}}
+    extra = {k: v for k, v in payload.items() if k not in {"ic", "ir", "config", "data", "timings", "pred_path", "pred_rows", "git_commit", "git_branch", "git_dirty", "created_utc", "notes"}}
     return SweepResult(
         config=cfg,
         ic=ic,
