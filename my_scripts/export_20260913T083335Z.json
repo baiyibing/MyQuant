@@ -1,0 +1,51 @@
+{
+  "schema": "myquant.run-manifest/1",
+  "stage": "export",
+  "git_commit": "a032e5a98b668d842452304f82b72215783b13f6",
+  "created_utc": "2026-09-13T08:33:35Z",
+  "config": {
+    "asof": "pred_minus_one",
+    "topk": 10,
+    "pred": "my_scripts\\预测结果.csv",
+    "out_dir": "exports\\m3dd_mar_both",
+    "output_file_count": 15,
+    "neutralize_industry_map": "exports\\m3d_industry\\sw_l1_map.csv",
+    "float_cap_gate_passed": true,
+    "float_cap_gate_rows": 87738,
+    "float_cap_gate_days": 16,
+    "float_cap_gate_nan_rate": 0.001117,
+    "float_cap_gate_median_rank_corr": 0.709342,
+    "float_cap_gate_bellwethers": {
+      "SH600036": 0.998266,
+      "SH600519": 0.99927,
+      "SH601398": 1.0
+    },
+    "float_cap_gate_bellwethers_missing": [],
+    "float_cap_gate_reasons": [],
+    "neutralize_float_cap": "exports\\m3dd_float_cap_mar.csv",
+    "neutralize": "both",
+    "neutralize_rows": 83813,
+    "neutralize_days": 16,
+    "neutralize_industry_bypass_rows": 4850,
+    "neutralize_industry_bypass_instruments": 306,
+    "neutralize_size_bypass_rows": 0,
+    "neutralize_size_skipped_days": 0,
+    "config_hash": "b66764426dcd84e258e68b8aa07de8d4a9a616df039080d97507e333a4b3ed07"
+  },
+  "data": {
+    "calendar_first": "2026-03-02",
+    "calendar_last": "2026-03-23",
+    "calendar_days": 16
+  },
+  "artifacts": [
+    {
+      "path": "预测结果.csv",
+      "md5": "5d19f3919504ac66f1e982e214a8a6ae",
+      "rows": 83813
+    }
+  ],
+  "timings": {
+    "total_seconds": 0,
+    "nodes": []
+  }
+}

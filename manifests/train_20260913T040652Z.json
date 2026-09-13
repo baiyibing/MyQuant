@@ -1,0 +1,51 @@
+{
+  "schema": "myquant.run-manifest/1",
+  "stage": "train",
+  "git_commit": "0851bf4afaf9650eb29c227ac7f0e1b674d2735a",
+  "created_utc": "2026-09-13T04:06:52Z",
+  "config": {
+    "stage_kind": "predict_extended",
+    "exp_name": "predict_extended",
+    "segments": {
+      "train": [
+        "2026-01-01",
+        "2026-01-31"
+      ],
+      "valid": [
+        "2026-02-01",
+        "2026-02-28"
+      ],
+      "test": [
+        "2026-03-01",
+        "2026-09-08"
+      ]
+    },
+    "handler_start": "2026-01-01",
+    "handler_end": "2026-09-08",
+    "include_lz": true,
+    "drop_limit_up_learn": true,
+    "portana": false,
+    "alignment_check": false,
+    "pred_csv": "预测结果_ext.csv",
+    "config_hash": "778fc1c721d2cc8ae750e79c3d1c44857a84f381eb3cb434d9068f2f52d21312"
+  },
+  "data": {},
+  "artifacts": [
+    {
+      "path": "预测结果_ext.csv",
+      "md5": "124994ef449d424f214a5681526d16fe",
+      "rows": 713548
+    }
+  ],
+  "timings": {
+    "total_seconds": 1110.881235199995,
+    "nodes": [
+      {
+        "name": "predict_extended",
+        "seconds": 1110.881235199995
+      }
+    ]
+  },
+  "git_branch": "master",
+  "git_dirty": true
+}

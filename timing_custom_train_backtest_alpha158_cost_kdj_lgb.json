@@ -1,0 +1,50 @@
+{
+  "total_seconds": 1363.5805166000064,
+  "nodes": [
+    {
+      "name": "handler.get_feature_config.super",
+      "seconds": 0.00013929999840911478
+    },
+    {
+      "name": "handler.get_feature_config.kdj_expr",
+      "seconds": 5.4000120144337416e-06
+    },
+    {
+      "name": "handler_init",
+      "seconds": 1231.4726389999996
+    },
+    {
+      "name": "handler_fetch_feature",
+      "seconds": 0.20845529998769052
+    },
+    {
+      "name": "model_init",
+      "seconds": 4.2100000428035855e-05
+    },
+    {
+      "name": "dataset_init",
+      "seconds": 2.549999044276774e-05
+    },
+    {
+      "name": "model_fit",
+      "seconds": 6.151705700001912
+    },
+    {
+      "name": "SignalRecord.generate",
+      "seconds": 1.2762558000104036
+    },
+    {
+      "name": "SigAnaRecord.generate",
+      "seconds": 0.5253732999990461
+    },
+    {
+      "name": "PortAnaRecord.generate",
+      "seconds": 114.11497080000117
+    },
+    {
+      "name": "dataset_prepare_test_feature_label",
+      "seconds": 1.4504758999974001
+    }
+  ],
+  "exp_name": "alpha158_cost_kdj_lgb"
+}

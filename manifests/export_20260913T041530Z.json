@@ -1,0 +1,30 @@
+{
+  "schema": "myquant.run-manifest/1",
+  "stage": "export",
+  "git_commit": "0851bf4afaf9650eb29c227ac7f0e1b674d2735a",
+  "created_utc": "2026-09-13T04:15:30Z",
+  "config": {
+    "asof": "pred_minus_one",
+    "topk": 10,
+    "pred": "预测结果_ext.csv",
+    "out_dir": "..\\exports\\m5r2_pred_topn10_20260302_20260908",
+    "output_file_count": 131,
+    "config_hash": "f9499eb5691ad879d0d8b832f83d02c7ca6dc50e6201c803055a6e02c09464f8"
+  },
+  "data": {
+    "calendar_first": "2026-03-02",
+    "calendar_last": "2026-09-08",
+    "calendar_days": 132
+  },
+  "artifacts": [
+    {
+      "path": "预测结果_ext.csv",
+      "md5": "124994ef449d424f214a5681526d16fe",
+      "rows": 713548
+    }
+  ],
+  "timings": {
+    "total_seconds": 0,
+    "nodes": []
+  }
+}

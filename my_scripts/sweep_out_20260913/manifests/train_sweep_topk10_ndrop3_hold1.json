@@ -1,0 +1,20 @@
+{
+  "schema": "myquant.run-manifest/1",
+  "stage": "train",
+  "git_commit": "84d2ba2ad871da80c4e0475ba8755a0a6eaf970f",
+  "created_utc": "2026-09-13T01:00:08Z",
+  "config": {
+    "stage_kind": "ranking_sweep",
+    "grid_id": "topk10_ndrop3_hold1",
+    "topk": 10,
+    "n_drop": 3,
+    "hold_thresh": 1,
+    "config_hash": "f0dd4f2c7741757009c2b850afebcafa6f08b0bcb8c30676e244d351e3eaa018"
+  },
+  "data": {},
+  "artifacts": [],
+  "timings": {
+    "total_seconds": 0,
+    "nodes": []
+  }
+}

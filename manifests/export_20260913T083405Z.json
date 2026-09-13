@@ -1,0 +1,50 @@
+{
+  "schema": "myquant.run-manifest/1",
+  "stage": "export",
+  "git_commit": "a032e5a98b668d842452304f82b72215783b13f6",
+  "created_utc": "2026-09-13T08:34:05Z",
+  "config": {
+    "asof": "pred_minus_one",
+    "topk": 10,
+    "pred": "my_scripts\\预测结果_ext.csv",
+    "out_dir": "exports\\m3dd_ext_size",
+    "output_file_count": 131,
+    "float_cap_gate_passed": true,
+    "float_cap_gate_rows": 727706,
+    "float_cap_gate_days": 132,
+    "float_cap_gate_nan_rate": 0.001491,
+    "float_cap_gate_median_rank_corr": 0.719899,
+    "float_cap_gate_bellwethers": {
+      "SH600036": 0.998197,
+      "SH600519": 0.999097,
+      "SH601398": 1.0
+    },
+    "float_cap_gate_bellwethers_missing": [],
+    "float_cap_gate_reasons": [],
+    "neutralize_float_cap": "exports\\m3dd_float_cap_ext.csv",
+    "neutralize": "size",
+    "neutralize_rows": 713548,
+    "neutralize_days": 132,
+    "neutralize_industry_bypass_rows": 0,
+    "neutralize_industry_bypass_instruments": 0,
+    "neutralize_size_bypass_rows": 3,
+    "neutralize_size_skipped_days": 0,
+    "config_hash": "cd3b305a8ab1c7fdad7c01dd9a8857f2cca59a550d96af389e2586d3fb003d30"
+  },
+  "data": {
+    "calendar_first": "2026-03-02",
+    "calendar_last": "2026-09-08",
+    "calendar_days": 132
+  },
+  "artifacts": [
+    {
+      "path": "预测结果_ext.csv",
+      "md5": "124994ef449d424f214a5681526d16fe",
+      "rows": 713548
+    }
+  ],
+  "timings": {
+    "total_seconds": 0,
+    "nodes": []
+  }
+}
