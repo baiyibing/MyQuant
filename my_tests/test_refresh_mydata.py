@@ -444,3 +444,41 @@ def test_offsite_md5_mismatch(tmp_path):
 
     with pytest.raises(RefreshError, match="MD5"):
         offsite_copy_and_verify(archive, [root], copy_fn=bad_copy)
+
+
+# ----- day_future 重建（2026-09-13 回测末日越界事故的编排器修复） -----
+
+from refresh_mydata import (  # noqa: E402
+    next_weekdays_after,
+    refresh_day_future_calendar,
+)
+
+
+def test_next_weekdays_after_skips_weekend():
+    import pandas as pd
+
+    days = next_weekdays_after(pd.Timestamp("2026-09-08"), 5)  # 周二
+    assert [d.strftime("%Y-%m-%d") for d in days] == [
+        "2026-09-09", "2026-09-10", "2026-09-11", "2026-09-14", "2026-09-15",
+    ]
+    # 数据末日落在周五：下一天须跳过周末
+    days_fri = next_weekdays_after(pd.Timestamp("2026-04-10"), 5)
+    assert days_fri[0].strftime("%Y-%m-%d") == "2026-04-13"
+
+
+def test_refresh_day_future_extends_past_calendar_end(tmp_path):
+    qlib_dir = tmp_path / "my_data"
+    _write_calendar(qlib_dir, ["2020-01-02", "2026-09-07", "2026-09-08"])
+    out = refresh_day_future_calendar(qlib_dir)
+    lines = out.read_text(encoding="ascii").splitlines()
+    assert lines[:3] == ["2020-01-02", "2026-09-07", "2026-09-08"]
+    assert lines[3] == "2026-09-09"  # 数据末日 + 1：回测末日不越界的硬要求
+    assert len(lines) == 3 + 5
+    # 幂等：重跑结果一致
+    out2 = refresh_day_future_calendar(qlib_dir)
+    assert out2.read_text(encoding="ascii") == out.read_text(encoding="ascii")
+
+
+def test_refresh_day_future_requires_calendar(tmp_path):
+    with pytest.raises(RefreshError, match="日历不存在"):
+        refresh_day_future_calendar(tmp_path / "empty")

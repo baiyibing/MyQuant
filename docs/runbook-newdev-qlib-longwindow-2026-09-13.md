@@ -57,12 +57,21 @@ from qlib.data import D
 qlib.init(provider_uri='~/.qlib/qlib_data/my_data', region=REG_CN)
 cal = D.calendar()
 print('calendar:', cal[0].date(), '->', cal[-1].date(), len(cal), 'days')   # 期望 2020-01-02 -> 2026-09-08, 1621
+fut = D.calendar(future=True)
+print('future calendar:', len(fut), 'days, last =', fut[-1].date())   # 期望 last > 2026-09-08（day_future.txt 顺延；若 =2026-04-17 说明包内是陈旧文件，见下方注）
 df = D.features(['SH000300'], ['$close'], start_time='2026-09-01', end_time='2026-09-08')
 print(df)   # 期望 2026-09-08 close=4558.74（指数修复后的真值；数据无此行=解压不完整）
 inst = D.list_instruments(D.instruments(market='all'), as_list=True)
 print('universe:', len(inst))   # 期望 5583
 "
 ```
+
+> **注（2026-09-13 实踩）**：qlib 回测交易日历读的是 `calendars/day_future.txt`（`future=True`
+> 分支），不读 `day.txt`。原始数据包内该文件是 4 月旧档（止于 2026-04-17），当回测
+> `end_time` == 数据末日时，`get_step_time` 取「下一交易日」越界崩溃（IndexError 1524/1524）。
+> 修复：`day_future.txt` = `day.txt` 全量 + 末日后 5 个工作日（本机已重建，原文件备份为
+> `day_future.txt.bak_stale_20260417`）；编排器侧由 `refresh_mydata.py` 的
+> `refresh_day_future_calendar` 在门禁前自动重建，后续数据包不会再带出陈旧版本。
 
 ## 4. 跑 Phase 1：主实验（一次训练 + 默认成本回测）
 

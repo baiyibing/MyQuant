@@ -29,6 +29,7 @@ from qlib.data import D  # 导入数据模块
 from custom_handler import Alpha158CostKDJ
 from custom_filter import UnifiedLimitUpFilter
 from train_wiring import (
+    DEFAULT_LIMIT_THRESHOLD,
     build_exclude_name_filter,
     build_filtered_instruments,
     build_limit_up_filter,
@@ -90,6 +91,27 @@ if __name__ == '__main__':
     #     filter=lambda record: record["extra"].get("name") != "custom_strategy"
     # )
 
+    # 三层闸门状态（--no-exclude-filter / --no-limit-filter / --no-limit-threshold 均默认 False=闸门开）
+    exclude_filter_on = not cli_args.no_exclude_filter
+    limit_up_filter_on = not cli_args.no_limit_filter
+    limit_threshold_on = not cli_args.no_limit_threshold
+    print(
+        f"[stock-guards] blacklist(黑名单出池)={'ON' if exclude_filter_on else 'OFF'} "
+        f"limit_filter(涨停股出池)={'ON' if limit_up_filter_on else 'OFF'} "
+        f"limit_reject(涨跌停拒单)={'ON' if limit_threshold_on else 'OFF'}",
+        flush=True,
+    )
+
+    _init_extra = {}
+    if cli_args.dataset_cache:
+        # SimpleDatasetCache 不依赖 Redis；键含 instruments/fields/segment，结果不变只提速。
+        # 注意：my_data 数据刷新后必须清空缓存目录，否则会读到旧 bin 的陈旧切片。
+        _init_extra["dataset_cache"] = {"class": "SimpleDatasetCache"}
+    if cli_args.expr_cache:
+        # DiskExpressionCache 走本机 Redis 锁，文件落 <provider_uri>/features_cache；
+        # Redis 不可用时 qlib config 守卫自动摘除该缓存（只警告不报错）。
+        _init_extra["expression_cache"] = {"class": "DiskExpressionCache"}
+
     qlib.init(
         # 数据存储路径
         provider_uri = "~/.qlib/qlib_data/my_data",  # target_dir
@@ -113,7 +135,8 @@ if __name__ == '__main__':
         },
         # 设置日志级别，控制输出信息的详细程度：常用的日志级别有 DEBUG、INFO、WARNING、ERROR，级别从低到高，级别越低输出信息越详细。
         # logging_level=logging.DEBUG
-        logging_level=logging.INFO
+        logging_level=logging.INFO,
+        **_init_extra,
     )
 
     # 显示所有行
@@ -165,6 +188,8 @@ if __name__ == '__main__':
         start_time=start_time,
         end_time=end_time,
         exclude_stocks=exclude_stocks,
+        use_exclude=exclude_filter_on,
+        limit_up=limit_up_filter_on,
     )
 
     # 定义策略相关的市场和分析基准
@@ -368,7 +393,8 @@ if __name__ == '__main__':
             "benchmark": benchmark,  # 业绩比较基准（沪深300指数）
             "exchange_kwargs": {  # 交易所模拟参数（交易规则）
                 "freq": "day",  # 交易频率为日频
-                "limit_threshold": 0.095,  # 涨跌幅限制阈值（9.5%）
+                # --no-limit-threshold 时置 None：涨停可买、跌停可卖（qlib 会告警提示）
+                "limit_threshold": DEFAULT_LIMIT_THRESHOLD if limit_threshold_on else None,  # 涨跌幅限制阈值（9.5%）
                 "deal_price": "close",  # 交易价格使用收盘价
                 "open_cost": 0.0005,  # 开仓（买入）手续费率（万分之五）
                 "close_cost": 0.0015,  # 平仓（卖出）手续费率（千分之1.5）
@@ -810,6 +836,12 @@ if __name__ == '__main__':
                 "end_time": end_time,
                 "include_lz": bool(data_handler_config.get("include_lz")),
                 "recorder_id": rid,
+                # 三层闸门 + 缓存开关（False=闸门开，即生产默认）
+                "exclude_filter_on": exclude_filter_on,
+                "limit_up_filter_on": limit_up_filter_on,
+                "limit_threshold_on": limit_threshold_on,
+                "dataset_cache": bool(cli_args.dataset_cache),
+                "expr_cache": bool(cli_args.expr_cache),
             }
             _cal_data = {}
             try:
