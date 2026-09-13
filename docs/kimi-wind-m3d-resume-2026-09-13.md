@@ -38,9 +38,9 @@ exports/m3d_industry/
 
 ## 备份
 
-- `exports/m3d_industry_kimi_20260913.7z`（242 文件 / 228 KiB，2026-09-13 10:31 打包）
-- 异地副本：`F:\m3d_industry_kimi_20260913.7z`
-- 丢现场时：解压 7z 到 `exports/` 即原地续跑（`exports/*.csv` 不入 git，磁盘是唯一载体，7z 是唯一保险）
+- **采集成果已入 git**（PR #19，master）——git 为第一载体；**续跑新增批次直接 `git add exports/m3d_industry` 提交**（.gitignore 例外已立，无需再改规则）
+- `exports/m3d_industry_kimi_20260913.7z`（242 文件 / 228 KiB，2026-09-13 10:31 打包）+ 异地副本 `F:\`——降级为备份
+- 丢现场时：从 git 恢复（或解压 7z 到 `exports/`）即原地续跑
 
 ## 结果回写区（续跑完成后填）
 
