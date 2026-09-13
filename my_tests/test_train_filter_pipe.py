@@ -14,10 +14,13 @@ if _MY_SCRIPTS not in sys.path:
 
 from custom_filter import UnifiedLimitUpFilter  # noqa: E402
 from train_wiring import (  # noqa: E402
+    DEFAULT_SEGMENTS,
     build_filtered_instruments,
     build_limit_up_filter,
     build_production_filter_pipe,
+    parse_segment,
     parse_train_cli,
+    resolve_segments,
     should_verify_filters,
     verify_limit_up_filter,
 )
@@ -100,3 +103,57 @@ def test_verify_filters_env(monkeypatch):
     assert should_verify_filters(parse_train_cli([])) is True
     monkeypatch.setenv("QLIB_VERIFY_FILTERS", "0")
     assert should_verify_filters(parse_train_cli([])) is False
+
+
+def test_parse_segment_valid_and_invalid():
+    assert parse_segment("2026-01-01:2026-03-23", "train") == ("2026-01-01", "2026-03-23")
+    assert parse_segment(" 2026-01-01 : 2026-03-23 ", "train") == ("2026-01-01", "2026-03-23")
+    with pytest.raises(SystemExit):
+        parse_segment("2026-01-01", "train")  # 缺 END
+    with pytest.raises(SystemExit):
+        parse_segment("2026-1-1:2026-03-23", "train")  # 非 YYYY-MM-DD
+    with pytest.raises(SystemExit):
+        parse_segment("2026-03-23:2026-01-01", "train")  # 起始晚于截止
+
+
+def test_resolve_segments_default_backward_compatible():
+    """三段全缺省 = 现役三月窗（向后兼容硬要求）。"""
+    segs = resolve_segments(parse_train_cli([]))
+    assert segs == DEFAULT_SEGMENTS
+
+
+def test_resolve_segments_requires_all_three():
+    with pytest.raises(SystemExit):
+        resolve_segments(parse_train_cli(["--train", "2020-01-01:2024-12-31"]))
+    with pytest.raises(SystemExit):
+        resolve_segments(
+            parse_train_cli(["--train", "2020-01-01:2024-12-31", "--test", "2026-01-01:2026-09-08"])
+        )
+
+
+def test_resolve_segments_long_window_ordering():
+    segs = resolve_segments(
+        parse_train_cli(
+            [
+                "--train", "2020-01-01:2024-12-31",
+                "--valid", "2025-01-01:2025-12-31",
+                "--test", "2026-01-01:2026-09-08",
+            ]
+        )
+    )
+    assert segs["train"] == ("2020-01-01", "2024-12-31")
+    assert segs["valid"] == ("2025-01-01", "2025-12-31")
+    assert segs["test"] == ("2026-01-01", "2026-09-08")
+
+
+def test_resolve_segments_rejects_bad_ordering():
+    with pytest.raises(SystemExit):
+        resolve_segments(
+            parse_train_cli(
+                [
+                    "--train", "2026-01-01:2026-01-31",
+                    "--valid", "2025-01-01:2025-12-31",  # valid.start < train.start
+                    "--test", "2026-03-01:2026-03-23",
+                ]
+            )
+        )
