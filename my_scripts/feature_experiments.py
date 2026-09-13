@@ -259,7 +259,40 @@ def build_arg_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Run screen on built-in synthetic frame and print markdown table",
     )
+    p.add_argument(
+        "--window",
+        default=None,
+        help="Real bin screen: START:END, e.g. 2026-03-02:2026-03-23 (host only)",
+    )
+    p.add_argument(
+        "--market",
+        default="all",
+        help="qlib instruments market for --window (default all)",
+    )
     return p
+
+
+REAL_WINDOW_FIELDS = ["$volume", "$adfadfbasiccurhold", "$amount", "$volddx", "$bigddx", "$close", "$vwap", "$netcsfree"]
+REAL_LABEL_EXPR = "Ref($close,-2)/Ref($close,-1)-1"
+
+
+def run_real_window(window: str, market: str) -> int:
+    """真实 bin-16 一窗筛：qlib 取原始字段（列名去 $）→ 默认 specs 近似 → NaN/IC 筛表。"""
+    import qlib
+    from qlib.data import D
+
+    start, end = window.split(":")
+    qlib.init(provider_uri="C:/Users/Thinkpad/.qlib/qlib_data/my_data", region="cn")
+    insts = D.instruments(market=market)
+    df = D.features(insts, REAL_WINDOW_FIELDS, start_time=start, end_time=end)
+    df.columns = [c.lstrip("$") for c in df.columns]
+    y = D.features(insts, [REAL_LABEL_EXPR], start_time=start, end_time=end).iloc[:, 0]
+    df = df.replace([np.inf, -np.inf], np.nan)
+    y = y.replace([np.inf, -np.inf], np.nan).dropna()
+    print(f"[real] frame={df.shape} label={len(y)} window={start}..{end} market={market}")
+    table = run_feature_screen(df, y)
+    print(results_to_markdown(table))
+    return 0
 
 
 def _demo_frame(n_days: int = 30, n_inst: int = 8, seed: int = 42) -> tuple[pd.DataFrame, pd.Series]:
@@ -290,6 +323,8 @@ def _demo_frame(n_days: int = 30, n_inst: int = 8, seed: int = 42) -> tuple[pd.D
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = build_arg_parser().parse_args(argv)
+    if args.window:
+        return run_real_window(args.window, args.market)
     if args.demo_synthetic:
         df, y = _demo_frame()
         table = run_feature_screen(df, y)
