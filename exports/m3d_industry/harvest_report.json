@@ -1,0 +1,477 @@
+{
+ "total_raw_rows": 8729,
+ "unique_codes_shsz": 4830,
+ "sh_count": 2156,
+ "sz_count": 2674,
+ "bj_dropped_unique": 71,
+ "per_industry_rowlabel_counts": {
+  "电子": 1286,
+  "医药生物": 846,
+  "电力设备": 655,
+  "机械设备": 603,
+  "钢铁": 470,
+  "基础化工": 461,
+  "计算机": 450,
+  "汽车": 401,
+  "公用事业": 281,
+  "环保": 280,
+  "传媒": 227,
+  "通信": 213,
+  "有色金属": 206,
+  "建筑装饰": 201,
+  "轻工制造": 198,
+  "交通运输": 196,
+  "食品饮料": 166,
+  "房地产": 166,
+  "非银金融": 163,
+  "社会服务": 159,
+  "家用电器": 157,
+  "商贸零售": 155,
+  "农林牧渔": 151,
+  "国防军工": 143,
+  "纺织服饰": 137,
+  "建筑材料": 129,
+  "综合": 66,
+  "银行": 58,
+  "石油石化": 40,
+  "煤炭": 39,
+  "美容护理": 26
+ },
+ "final_map_label_counts": {
+  "医药生物": 463,
+  "电子": 463,
+  "机械设备": 411,
+  "电力设备": 379,
+  "计算机": 334,
+  "基础化工": 320,
+  "汽车": 290,
+  "轻工制造": 156,
+  "建筑装饰": 147,
+  "有色金属": 140,
+  "公用事业": 137,
+  "传媒": 130,
+  "交通运输": 127,
+  "通信": 122,
+  "食品饮料": 122,
+  "纺织服饰": 106,
+  "农林牧渔": 104,
+  "商贸零售": 99,
+  "环保": 97,
+  "房地产": 95,
+  "家用电器": 93,
+  "社会服务": 82,
+  "非银金融": 79,
+  "国防军工": 77,
+  "建筑材料": 72,
+  "钢铁": 44,
+  "银行": 42,
+  "煤炭": 32,
+  "石油石化": 27,
+  "综合": 20,
+  "美容护理": 20
+ },
+ "conflicts_count": 0,
+ "universe_total": 5583,
+ "covered": 4826,
+ "missing_count": 757,
+ "missing_sh": 175,
+ "missing_sz": 238,
+ "missing_bj_excluded": 344,
+ "missing_rate_shsz_pct": 7.88,
+ "calls_used": 64,
+ "retrieved_at": "2026-09-13T09:03:06+08:00",
+ "trading_ref_date": "2026-09-11",
+ "notes": {
+  "api_anomalies": [
+   "基础化工/食品饮料/纺织服饰/轻工制造/国防军工/石油石化/美容护理 单行业查询返回0条（NLU行业名映射缺陷）",
+   "workaround：和-组合的查询路径可绕过部分坏名（基础化工+钢铁、轻工制造+钢铁、纺织服饰+钢铁(坏名在前)）；国防军工/石油石化/美容护理所有尝试路径均失败",
+   "深交所/上交所限定词解析不稳定：'深交所...电子'被忽略返回全市场617(top500)，'上交所...医药生物'行业条件被忽略返回全部上交所2763(top500)",
+   "claimed N>500 时仅返回前500行（电子617/医药560/机械设备695/基础化工+钢铁723），尾部约100-220条/行业无法取回",
+   "查询结果含其他行业噪音行，已按行级第N列'所属申万行业名称'为准过滤",
+   "响应存在个别畸形代码（如60138X.SH/30XXXX.SZ多位数字），已按^\\d{6}\\.(SH|SZ|BJ)$严格校验丢弃"
+  ],
+  "missing_sample_probe": "对5个缺失代码(600078.SH/688081.SH/002092.SZ/300837.SZ/301036.SZ)单票查询：4个返回0条，1个退化为全市场top500 → 缺失主要是接口侧不可检索(退市/停牌/风险股)叠加>500截断尾部，非解析遗漏",
+  "universe_note": "训练宇宙含344只BJ北交所代码，按任务要求仅保留SH/SZ，BJ全部计入missing"
+ },
+ "files": [
+  {
+   "file": "probe_002092.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "probe_300837.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "probe_381036.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "probe_600078.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "probe_688081.csv",
+   "claimed": 5901,
+   "kept_rows": 500
+  },
+  {
+   "file": "sw_交通运输.csv",
+   "claimed": 164,
+   "kept_rows": 149
+  },
+  {
+   "file": "sw_传媒.csv",
+   "claimed": 210,
+   "kept_rows": 184
+  },
+  {
+   "file": "sw_公用事业.csv",
+   "claimed": 255,
+   "kept_rows": 242
+  },
+  {
+   "file": "sw_农林牧渔.csv",
+   "claimed": 159,
+   "kept_rows": 143
+  },
+  {
+   "file": "sw_医药生物.csv",
+   "claimed": 560,
+   "kept_rows": 500
+  },
+  {
+   "file": "sw_医药生物_上交所.csv",
+   "claimed": 2763,
+   "kept_rows": 500
+  },
+  {
+   "file": "sw_医药生物_深交所.csv",
+   "claimed": 298,
+   "kept_rows": 279
+  },
+  {
+   "file": "sw_商贸零售.csv",
+   "claimed": 185,
+   "kept_rows": 161
+  },
+  {
+   "file": "sw_国防军工.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "sw_国防军工_通信.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "sw_国防军工_钢铁.csv",
+   "claimed": 72,
+   "kept_rows": 64
+  },
+  {
+   "file": "sw_国防军工_钢铁2.csv",
+   "claimed": 72,
+   "kept_rows": 64
+  },
+  {
+   "file": "sw_基础化工.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "sw_基础化工_b.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "sw_基础化工_上交所.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "sw_基础化工_深交所.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "sw_基础化工_钢铁_test.csv",
+   "claimed": 723,
+   "kept_rows": 500
+  },
+  {
+   "file": "sw_家用电器.csv",
+   "claimed": 132,
+   "kept_rows": 125
+  },
+  {
+   "file": "sw_建筑材料.csv",
+   "claimed": 114,
+   "kept_rows": 108
+  },
+  {
+   "file": "sw_建筑装饰_钢铁.csv",
+   "claimed": 268,
+   "kept_rows": 247
+  },
+  {
+   "file": "sw_房地产.csv",
+   "claimed": 214,
+   "kept_rows": 171
+  },
+  {
+   "file": "sw_有色金属.csv",
+   "claimed": 214,
+   "kept_rows": 195
+  },
+  {
+   "file": "sw_机械设备.csv",
+   "claimed": 695,
+   "kept_rows": 500
+  },
+  {
+   "file": "sw_汽车.csv",
+   "claimed": 330,
+   "kept_rows": 319
+  },
+  {
+   "file": "sw_煤炭_石油石化.csv",
+   "claimed": 51,
+   "kept_rows": 47
+  },
+  {
+   "file": "sw_煤炭_石油石化_环保.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "sw_环保_美容护理.csv",
+   "claimed": 89,
+   "kept_rows": 78
+  },
+  {
+   "file": "sw_电力设备.csv",
+   "claimed": 418,
+   "kept_rows": 418
+  },
+  {
+   "file": "sw_电子.csv",
+   "claimed": 617,
+   "kept_rows": 500
+  },
+  {
+   "file": "sw_电子_上交所.csv",
+   "claimed": 265,
+   "kept_rows": 259
+  },
+  {
+   "file": "sw_电子_深交所.csv",
+   "claimed": 617,
+   "kept_rows": 500
+  },
+  {
+   "file": "sw_石油石化.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "sw_石油石化_煤炭2.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "sw_石油石化_钢铁3.csv",
+   "claimed": 108,
+   "kept_rows": 98
+  },
+  {
+   "file": "sw_社会服务.csv",
+   "claimed": 86,
+   "kept_rows": 86
+  },
+  {
+   "file": "sw_纺织服饰.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "sw_纺织服饰_钢铁.csv",
+   "claimed": 72,
+   "kept_rows": 64
+  },
+  {
+   "file": "sw_纺织服饰_钢铁2.csv",
+   "claimed": 252,
+   "kept_rows": 223
+  },
+  {
+   "file": "sw_综合.csv",
+   "claimed": 175,
+   "kept_rows": 133
+  },
+  {
+   "file": "sw_美容护理.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "sw_美容护理_环保2.csv",
+   "claimed": 89,
+   "kept_rows": 78
+  },
+  {
+   "file": "sw_美容护理_钢铁3.csv",
+   "claimed": 72,
+   "kept_rows": 64
+  },
+  {
+   "file": "sw_计算机.csv",
+   "claimed": 389,
+   "kept_rows": 369
+  },
+  {
+   "file": "sw_轻工制造.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "sw_轻工制造_钢铁.csv",
+   "claimed": 320,
+   "kept_rows": 294
+  },
+  {
+   "file": "sw_通信_钢铁.csv",
+   "claimed": 243,
+   "kept_rows": 218
+  },
+  {
+   "file": "sw_钢铁.csv",
+   "claimed": 72,
+   "kept_rows": 64
+  },
+  {
+   "file": "sw_银行_非银金融.csv",
+   "claimed": 147,
+   "kept_rows": 129
+  },
+  {
+   "file": "sw_食品饮料.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "sw_食品饮料_v1.csv",
+   "claimed": 0,
+   "kept_rows": 0
+  },
+  {
+   "file": "sw_食品饮料_v2.csv",
+   "claimed": 161,
+   "kept_rows": 156
+  }
+ ],
+ "calls_used_total": 95,
+ "fin_query": {
+  "per_industry_counts_finquery": {
+   "农林牧渔": 104,
+   "基础化工": 411,
+   "钢铁": 44,
+   "有色金属": 147,
+   "电子": 493,
+   "家用电器": 108,
+   "食品饮料": 134,
+   "纺织服饰": 106,
+   "轻工制造": 172,
+   "医药生物": 478,
+   "公用事业": 137,
+   "交通运输": 129,
+   "房地产": 95,
+   "商贸零售": 102,
+   "社会服务": 90,
+   "综合": 20,
+   "建筑材料": 78,
+   "建筑装饰": 156,
+   "电力设备": 439,
+   "国防军工": 140,
+   "计算机": 366,
+   "传媒": 134,
+   "通信": 122,
+   "银行": 42,
+   "非银金融": 79,
+   "汽车": 355,
+   "机械设备": 680,
+   "煤炭": 33,
+   "石油石化": 49,
+   "环保": 141,
+   "美容护理": 33
+  },
+  "final_map_label_counts_finquery": {
+   "机械设备": 539,
+   "电子": 493,
+   "医药生物": 478,
+   "基础化工": 411,
+   "电力设备": 377,
+   "计算机": 331,
+   "汽车": 291,
+   "轻工制造": 156,
+   "建筑装饰": 147,
+   "有色金属": 140,
+   "公用事业": 137,
+   "国防军工": 137,
+   "环保": 130,
+   "传媒": 129,
+   "交通运输": 126,
+   "通信": 122,
+   "食品饮料": 122,
+   "纺织服饰": 106,
+   "农林牧渔": 104,
+   "商贸零售": 99,
+   "房地产": 95,
+   "家用电器": 93,
+   "社会服务": 82,
+   "非银金融": 79,
+   "建筑材料": 72,
+   "石油石化": 47,
+   "钢铁": 44,
+   "银行": 42,
+   "煤炭": 33,
+   "美容护理": 28,
+   "综合": 20
+  },
+  "total_rows_finquery": 5617,
+  "total_unique_finquery": 5210,
+  "sh_count": 2317,
+  "sz_count": 2893,
+  "bj_dropped_unique_finquery": 407,
+  "covered_finquery": 5207,
+  "missing_finquery": 376,
+  "missing_finquery_shsz": 32,
+  "missing_finquery_bj_excluded": 344,
+  "missing_rate_shsz_pct": 0.61,
+  "cross_source_conflicts": 0,
+  "cross_source_conflicts_detail_count": 0,
+  "codes_only_in_smart_selection": 10,
+  "codes_only_in_finquery": 390,
+  "row_label_mismatch_anomalies": 0,
+  "multi_industry_code_anomalies": 0,
+  "calls_used_finquery": 31,
+  "retrieved_at": "2026-09-13T09:03:06+08:00",
+  "trading_ref_date": "2026-09-11",
+  "notes": [
+   "fin_query 每行业一句「申万X行业成分股」全部一次成功，0 重试",
+   "响应路由两种格式：行业成分股(裸6位码+行级行业名称) 与 指数成分股(带后缀码+指数简称801xxx.SI)，均为精确成分表无噪音无截断；解析按列名自适应",
+   "行级标签与查询行业一致性：0 例不一致",
+   "同代码跨行业行：0 例",
+   "trading_ref_date 说明：fin_query 响应不含交易日期字段，沿用同批次采集时 smart_selection 响应标注的最近交易日 2026-09-11",
+   "code_qlib 前缀规则：6->SH, 0/3->SZ, 8/4/9->BJ；BJ 全部剔除（含 43xxxx/83xxxx/87xxxx/92xxxx/400003 老三板）",
+   "数据artifact：约10只原三板转板股（久其软件430007/世纪瑞尔430001/华宇软件430008/安控科技430030等）在 fin_query 成分表中仍以旧三板代码出现，对应现行 SZ 代码（002279/300150/300271/300370 等）未能覆盖，记为 codes_only_in_smart_selection",
+   "宇宙内 32 只 SH/SZ 未覆盖（0.61%<3% 无需补采）：多为退市/风险股或宇宙侧代码artifact（SZ371036/SZ381036 为异常宇宙代码）",
+   "codes_only_in_smart_selection 明细: SH600087,SH688801,SZ002181,SZ002279,SZ300150,SZ300271,SZ300370,SZ300444,SZ300445,SZ300477"
+  ]
+ }
+}
