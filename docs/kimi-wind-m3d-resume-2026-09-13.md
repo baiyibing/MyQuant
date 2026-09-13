@@ -44,4 +44,9 @@ exports/m3d_industry/
 
 ## 结果回写区（续跑完成后填）
 
-- （待填：批次数/覆盖率/与 gildata 冲突数/最终行业表路径）
+- 批次数：54/54 全部完成（batch_0000–0053；其中 0029–0033、0035、0037、0041、0042、0043 共 10 批首采返回 canned 演示数据，已标 `.bogus.csv` 并用 20/50 码 retry 子块补齐，最终校验 0 丢码）
+- 覆盖率：wind_returned=5240（含 q0053 的 30 只 sw_l1_map 之外退市股），对齐 sw_l1_map 的 5210 只 overlap=5210，wind_missing=0
+- 与 gildata 冲突数：raw 口径 0 冲突，归一化口径 0 冲突；agreement_rate_raw=1.000000，agreement_rate_normalized=1.000000
+- 最终行业表路径：`exports/m3d_industry/wind_l1_map.csv`（5240 行=表头+5240 代码，列 code_gildata,name,wind_sw_l1）
+- 比对产物：`exports/m3d_industry/wind_conflicts.csv`（仅表头，0 行冲突）、`exports/m3d_industry/wind_crosscheck.json`（含 wind_missing、agreement、progress_note）
+- 抽查：600519.SH=食品饮料、000001.SZ=银行、300750.SZ=电力设备、601857.SH=石油石化、002594.SZ=汽车，全部与主源一致；wind 侧 31 个申万一级行业分布正常

@@ -58,7 +58,7 @@ v1.1 相对 v1：补三仓对照（含「不该再做」）、研究两层、Qli
 | M3-B ranking sweep harness + 宿主 6 格真网格 | **宿主真跑** | 代码 #11/#12；6 格：`topk5_ndrop2` 双指标最佳（hit **0.5625** / ann **2.65**）；`topk10` 两指标皆最差；**16 日单窗线索**；共享一次 handler_init |
 | M3-B OOS 出窗复验（2026-04~08，104 交易日；--segments 参数化 #15/#16） | **宿主真跑** | **三月冠军 `topk5_ndrop2` 出窗垫底（hit 0.4712 / 年化 −0.39）= 窗口依赖出局**；两窗 IR 同正者仅 ndrop3 大名单族（topk20_ndrop3 / topk10_ndrop3），无一配置两窗同排序；按预锁纪律**不改线上 topk 默认**（改参需第三窗佐证） |
 | M3-C bin-16 特征实验（换手/阻力近似） | **负结果（宿主真筛）** | 代码 #11/#12；`turnover_resist_approx` 三月 **+0.138** → 六至八月 **−0.069** 符号翻转；四候选不入选 |
-| M3-D 行业/市值中性化 | **源就绪（实现片待开）** | gildata 申万 L1 全量 5210 只映射入 git（`exports/m3d_industry/sw_l1_map.csv`，PR #19，.gitignore 例外）；wind 复核 35/53+ 批后 Kimi 5h 额度中断，续跑指引 `docs/kimi-wind-m3d-resume-2026-09-13.md`（PR #17），续跑点 q0035..q0053；`M3D_STATUS=ready`（Kimi 未提交遗作，随实现片一并提交） |
+| M3-D 行业/市值中性化 | **行业源复核完成（实现片可开工）** | gildata 主源 `sw_l1_map.csv`（5210 只）经万得权威源全量复核 **100% 一致**：54/54 批、0 丢码、双口径 0 冲突（`wind_crosscheck.json`；首采 10 批 canned 演示数据标 .bogus 重采、一次误码补采修正）；Kimi 额度恢复当日续完直接提交 master（`92642ff`，含此前遗作 inventory/测试）；`test_m3d_industry_source_ready.py` 5/5 锁定；中性化实现片待派 |
 | 宿主事故根治（followups） | 已合 #14 | ① 共享 `host_env`（mlflow file-store 逃生口，告别每脚本一份） ② manifest `git_commit` 改为**启动时** HEAD + `git_branch`/`git_dirty`（中途切分支不再污染溯源） |
 | Kimi 行业采集中断封存 | 已处理 | 现场 242 文件 / 2.3MB 入 git（PR #19）+ `m3d_industry_kimi_20260913.7z` 本地与 F: 备份；**续跑必须回 Kimi**（wind MCP 只在它那） |
 | M5 二轮 Qlib 臂 | **已交付（宿主实跑）** | 任务书 #18 → `predict_extended.py` #22（CI 绿）→ 本机实跑：`预测结果_ext.csv` **713,548 行 / 132 预测日（2026-03-02~09-08）**，导出 131 文件（= 132−1，pred_minus_one 分毫不差、LF 无 BOM）；三源长窗结论见 §0.1「M5 二轮」行——**长窗重叠仍为零，两套选股宇宙坐实；非模型晋升、不改 topk** |
