@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import datetime
 import json
 import re
 import sys
@@ -193,7 +194,7 @@ def compare_with_ref(
             )
 
     report = {
-        "generated_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat().replace("+00:00", "Z"),
         "expected": len(ref_by_code),
         "wind_returned": len(wind_map),
         "wind_missing": wind_missing,
@@ -241,8 +242,10 @@ def main() -> int:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    ref_map_path = Path(args.map)
+
     if args.generate_questions or args.all:
-        ref_rows = load_ref_map(map_path)
+        ref_rows = load_ref_map(ref_map_path)
         batches = generate_questions(ref_rows, wind_dir, args.batch_size)
         print(f"generated {len(batches)} question files in {wind_dir}")
         # 打印最后一批大小作为尾部检查
@@ -252,11 +255,11 @@ def main() -> int:
     if args.merge or args.compare or args.all:
         wind_map = merge_wind_csvs(wind_dir)
         print(f"merged {len(wind_map)} valid codes from {wind_dir}")
-        map_path = write_wind_map(wind_map, output_dir)
-        print(f"wrote {map_path}")
+        wind_map_path = write_wind_map(wind_map, output_dir)
+        print(f"wrote {wind_map_path}")
 
     if args.compare or args.all:
-        ref_rows = load_ref_map(map_path if not args.generate_questions else Path(args.map))
+        ref_rows = load_ref_map(ref_map_path)
         report = compare_with_ref(wind_map, ref_rows, output_dir)
         if report["agreement_rate_normalized"] < 0.98:
             print("WARN normalized agreement < 98%; inspect wind_conflicts.csv", file=sys.stderr)
