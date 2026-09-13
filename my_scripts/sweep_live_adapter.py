@@ -38,6 +38,7 @@ if str(_SCRIPT_DIR) not in sys.path:
 
 # 共享 mlflow 逃生口 / 静音（须在任何 qlib import 之前）
 import host_env  # noqa: E402,F401
+from run_manifest import capture_git_provenance  # noqa: E402
 
 _STATE: dict[str, Any] = {}
 
@@ -53,6 +54,11 @@ def _predict_once() -> tuple[pd.Series, pd.Series]:
     """构建 handler/dataset/model 一次，产出 (pred, label)（MultiIndex 对齐）。"""
     if "pred" in _STATE:
         return _STATE["pred"], _STATE["label"]
+
+    # handler_init 之前一次性取 git 溯源（整次 sweep 共用）
+    if "git_prov" not in _STATE:
+        repo_root = _SCRIPT_DIR.parent
+        _STATE["git_prov"] = capture_git_provenance(repo_root)
 
     import qlib
     from qlib.data import D
@@ -144,9 +150,13 @@ def train_predict_fn(config) -> Mapping[str, Any]:
     hit = series > 0
     ic = float(hit.mean())
     ir = float(series.mean() / (series.std() + 1e-12) * math.sqrt(252))
+    git_prov = _STATE.get("git_prov") or {}
     return {
         "ic": ic,
         "ir": ir,
         "notes": f"ic=日命中率; ir=名单等权次日收益年化(未扣费); days={len(series)}",
         "pred_path": "",
+        "git_commit": git_prov.get("git_commit"),
+        "git_branch": git_prov.get("git_branch"),
+        "git_dirty": git_prov.get("git_dirty"),
     }

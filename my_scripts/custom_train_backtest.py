@@ -43,7 +43,7 @@ import plotly.graph_objects as go
 from pprint import pprint
 from custom_utils import pprint_position_report, analyze_position_by_date, generate_position_report, \
     pprint_risk_analysis, TimerRecorder, set_global_timer_recorder
-from run_manifest import write_train_manifest
+from run_manifest import capture_git_provenance, write_train_manifest
 
 
 
@@ -59,6 +59,8 @@ if __name__ == '__main__':
     # Make recorder visible to other modules in the same process (strategy/handler timing).
     set_global_timer_recorder(t_rec)
     base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    # 启动时一次性取 git 溯源（收尾写 manifest 不再读 HEAD，避免中途切分支失真）
+    _git_prov = capture_git_provenance(base_dir)
     exp_name = None
     timing_path = None
 
@@ -828,6 +830,9 @@ if __name__ == '__main__':
                 timer_recorder=t_rec,
                 data=_cal_data,
                 repo_root=base_dir,
+                git_commit_sha=_git_prov.get("git_commit"),
+                git_branch=_git_prov.get("git_branch"),
+                git_dirty=_git_prov.get("git_dirty"),
                 pred_rows=_pred_rows,
             )
             print(f"=== Train manifest saved: {_written[0]} ===")
