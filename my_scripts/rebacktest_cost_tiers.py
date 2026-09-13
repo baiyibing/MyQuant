@@ -46,11 +46,15 @@ EXECUTOR_CONFIG = {
 }
 
 
-def build_exchange_kwargs(tier_costs: dict) -> dict:
-    """与主线 custom_train_backtest 的 exchange 同构，只差成本两档参数。"""
+def build_exchange_kwargs(tier_costs: dict, no_limit_threshold: bool = False) -> dict:
+    """与主线 custom_train_backtest 的 exchange 同构，只差成本两档参数。
+
+    no_limit_threshold=True（--no-limit-threshold）时 limit_threshold 置 None：
+    涨停可买、跌停可卖，与主线的执行端开关同语义。
+    """
     return {
         "freq": "day",
-        "limit_threshold": 0.095,  # 近似涨跌停不可成交
+        "limit_threshold": None if no_limit_threshold else 0.095,  # 近似涨跌停不可成交
         "deal_price": "close",
         "min_cost": 5,
         **tier_costs,
@@ -119,6 +123,7 @@ def run_tiers(args) -> dict:
         "topk": args.topk,
         "n_drop": args.n_drop,
         "hold_thresh": args.hold_thresh,
+        "limit_threshold": None if args.no_limit_threshold else 0.095,
         "tiers": {},
     }
     for tier, costs in COST_TIERS.items():
@@ -130,7 +135,7 @@ def run_tiers(args) -> dict:
             executor=EXECUTOR_CONFIG,
             account=args.account,
             benchmark=args.benchmark,
-            exchange_kwargs=build_exchange_kwargs(costs),
+            exchange_kwargs=build_exchange_kwargs(costs, no_limit_threshold=args.no_limit_threshold),
         )
         ew_aligned = ew.reindex(report.index)
         summary["tiers"][tier] = {
@@ -154,6 +159,11 @@ def parse_cli(argv=None):
     parser.add_argument("--topk", type=int, default=10)
     parser.add_argument("--n-drop", dest="n_drop", type=int, default=3)
     parser.add_argument("--hold-thresh", dest="hold_thresh", type=int, default=1)
+    parser.add_argument(
+        "--no-limit-threshold",
+        action="store_true",
+        help="关掉执行端涨跌停拒单（limit_threshold=None）：涨停可买、跌停可卖。默认 0.095 拒单。",
+    )
     return parser.parse_args(argv)
 
 

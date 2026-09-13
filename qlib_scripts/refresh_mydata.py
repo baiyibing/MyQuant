@@ -265,6 +265,10 @@ def format_dry_run(cfg: RefreshConfig, steps: Sequence[StepPlan]) -> str:
         lines.append(f"  cwd: {step.cwd}")
         lines.append(f"  cmd: {subprocess.list2cmdline(step.argv)}")
     lines.append("--- post ---")
+    lines.append(
+        f"day_future: rebuild calendars/day_future.txt = day.txt + {DEFAULT_DAY_FUTURE_EXTRA} weekdays "
+        "(回测交易日历 future=True 依赖；陈旧文件会导致回测末日越界)"
+    )
     lines.append("integrity gates: calendar / sample values / no-index-in-all / universe diff (fail → no swap)")
     lines.append("atomic swap: backup my_data_backup_YYYYMMDD_pre_* then mv; rollback on error")
     if cfg.archive:
@@ -297,6 +301,53 @@ def read_calendar(qlib_dir: Path) -> pd.DatetimeIndex:
         raise RefreshError(f"日历不存在: {cal_path}")
     frame = pd.read_csv(cal_path, header=None, parse_dates=[0])
     return pd.DatetimeIndex(frame[0])
+
+
+DEFAULT_DAY_FUTURE_EXTRA = 5  # 数据末日之后再顺延的工作日数（与 2026-04 旧档口径一致）
+
+
+def next_weekdays_after(last_day: pd.Timestamp, n: int) -> list[pd.Timestamp]:
+    """last_day 之后的前 n 个工作日（周一~周五）。
+
+    近似：不含 A 股节假日。day_future 只被回测交易日历（Cal.calendar(future=True)）
+    使用、绝不参与数据加载，且策略仅在最后一根 bar 取「下一交易日」做 epsilon_change，
+    因此工作日近似足够；n 取 5 留出冗余。
+    """
+    days: list[pd.Timestamp] = []
+    cur = pd.Timestamp(last_day)
+    while len(days) < n:
+        cur = cur + pd.Timedelta(days=1)
+        if cur.weekday() < 5:
+            days.append(cur)
+    return days
+
+
+def refresh_day_future_calendar(qlib_dir: Path, extra_days: int = DEFAULT_DAY_FUTURE_EXTRA) -> Path:
+    """重建 calendars/day_future.txt = day.txt 全量 + 末日后 n 个工作日。
+
+    背景（2026-09-13 实踩）：qlib 回测交易日历走 future=True 读 day_future.txt；
+    该文件若停在旧档日期（或缺失后回落到 day.txt），当回测 end_time == 数据末日时，
+    TradeCalendarManager.get_step_time 取 calendar[index+1] 越界崩溃。数据刷新流程
+    此前不重建该文件，陈旧版本会随数据包流转（Thinkpad 4 月旧档即如此）。
+    """
+    qlib_dir = Path(qlib_dir)
+    calendar = read_calendar(qlib_dir)
+    if len(calendar) == 0:
+        raise RefreshError("day.txt 为空，拒绝生成 day_future.txt")
+    extra = next_weekdays_after(calendar[-1], extra_days)
+    full = list(calendar) + extra
+
+    cal_path = qlib_dir / "calendars" / "day.txt"
+    raw = cal_path.read_bytes()
+    newline = "\r\n" if b"\r\n" in raw else "\n"
+    out_path = qlib_dir / "calendars" / "day_future.txt"
+    body = newline.join(d.strftime("%Y-%m-%d") for d in full) + newline
+    out_path.write_text(body, encoding="ascii", newline="")
+    print(
+        f"[day_future] rebuilt: {len(full)} days "
+        f"({full[0].date()} ~ {full[-1].date()}，数据末日 {calendar[-1].date()} 后顺延 {len(extra)} 个工作日)"
+    )
+    return out_path
 
 
 def load_lake_trading_days(
@@ -776,7 +827,8 @@ def main(argv: list[str] | None = None) -> int:
             raise RefreshError("内部错误：dump_all 未钉死 max_workers=8")
         run_step(step)
 
-    # 门禁失败绝不能 swap
+    # 门禁失败绝不能 swap；swap 前先重建 day_future（数据加载不用它，只服务回测日历）
+    refresh_day_future_calendar(cfg.new_qlib_dir)
     run_integrity_gates(cfg)
 
     if cfg.skip_swap:

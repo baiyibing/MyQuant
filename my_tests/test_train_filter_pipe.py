@@ -77,6 +77,56 @@ def test_limit_up_filter_keeps_zhangting_zero():
     assert "$close" not in f2.rule_expression
 
 
+def test_filter_pipe_switches_drop_layers():
+    """--no-exclude-filter / --no-limit-filter 对应层不进 pipe，全关时 pipe 为空。"""
+    # 只关黑名单
+    pipe = build_production_filter_pipe(EXCLUDE_SAMPLE, use_exclude=False)
+    assert len(pipe) == 1
+    assert isinstance(pipe[0], UnifiedLimitUpFilter)
+    # 只关涨停过滤
+    pipe = build_production_filter_pipe(EXCLUDE_SAMPLE, limit_up=False)
+    assert len(pipe) == 1
+    assert pipe[0].__class__.__name__ == "NameDFilter"
+    # 全关
+    assert build_production_filter_pipe(EXCLUDE_SAMPLE, use_exclude=False, limit_up=False) == []
+
+
+def test_filtered_instruments_switches_passthrough():
+    captured = {}
+
+    def fake_instruments(market="all", filter_pipe=None, start_time=None, end_time=None):
+        captured["filter_pipe"] = list(filter_pipe or [])
+        return {"market": market, "filter_pipe": list(filter_pipe or [])}
+
+    instruments = build_filtered_instruments(
+        start_time="2026-01-01",
+        end_time="2026-03-23",
+        exclude_stocks=EXCLUDE_SAMPLE,
+        instruments_fn=fake_instruments,
+        use_exclude=False,
+        limit_up=False,
+    )
+    assert instruments["filter_pipe"] == []
+    assert captured["filter_pipe"] == []
+
+
+def test_guard_and_cache_cli_flags_default_off():
+    args = parse_train_cli([])
+    assert args.no_exclude_filter is False
+    assert args.no_limit_filter is False
+    assert args.no_limit_threshold is False
+    assert args.dataset_cache is False
+    assert args.expr_cache is False
+    args_off = parse_train_cli(
+        ["--no-exclude-filter", "--no-limit-filter", "--no-limit-threshold", "--dataset-cache", "--expr-cache"]
+    )
+    assert args_off.no_exclude_filter is True
+    assert args_off.no_limit_filter is True
+    assert args_off.no_limit_threshold is True
+    assert args_off.dataset_cache is True
+    assert args_off.expr_cache is True
+
+
 def test_verify_missing_zhangting_error_mentions_field():
     class _FakeHandler:
         def fetch(self, col_set="feature"):

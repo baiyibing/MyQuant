@@ -35,9 +35,21 @@ def build_limit_up_filter():
     return UnifiedLimitUpFilter(use_field="$zhangting", keep=False)
 
 
-def build_production_filter_pipe(exclude_stocks):
-    """Exclude blacklist then $zhangting limit-up. Order is part of the contract."""
-    return [build_exclude_name_filter(exclude_stocks), build_limit_up_filter()]
+# 与交易所执行层同源的涨跌停阈值；--no-limit-threshold 时回测侧传 None（不拒单）。
+DEFAULT_LIMIT_THRESHOLD = 0.095
+
+
+def build_production_filter_pipe(exclude_stocks, use_exclude=True, limit_up=True):
+    """Exclude blacklist then $zhangting limit-up. Order is part of the contract.
+
+    use_exclude/limit_up 对应 --no-exclude-filter / --no-limit-filter（关掉的层不挂进 pipe）。
+    """
+    pipe = []
+    if use_exclude:
+        pipe.append(build_exclude_name_filter(exclude_stocks))
+    if limit_up:
+        pipe.append(build_limit_up_filter())
+    return pipe
 
 
 def build_filtered_instruments(
@@ -46,6 +58,8 @@ def build_filtered_instruments(
     exclude_stocks,
     market="all",
     instruments_fn=None,
+    use_exclude=True,
+    limit_up=True,
 ):
     """Production instruments: D.instruments(..., filter_pipe=[exclude, limit_up]).
 
@@ -53,7 +67,9 @@ def build_filtered_instruments(
     Does not hang filter_pipe on the handler dict — that key is not the live path.
     instruments_fn is injectable for unit tests (defaults to D.instruments).
     """
-    filter_pipe = build_production_filter_pipe(exclude_stocks)
+    filter_pipe = build_production_filter_pipe(
+        exclude_stocks, use_exclude=use_exclude, limit_up=limit_up
+    )
     fn = D.instruments if instruments_fn is None else instruments_fn
     return fn(
         market=market,
@@ -197,6 +213,44 @@ def parse_train_cli(argv=None):
         "--test",
         default=None,
         help="测试/回测窗 START:END（YYYY-MM-DD:YYYY-MM-DD）。",
+    )
+    parser.add_argument(
+        "--no-exclude-filter",
+        action="store_true",
+        help="关掉黑名单剔除：filter_pipe 不再挂 NameDFilter。默认开启剔除。",
+    )
+    parser.add_argument(
+        "--no-limit-filter",
+        action="store_true",
+        help=(
+            "关掉第一层涨停过滤：filter_pipe 不再剔除 T 日涨停股"
+            "（黑名单剔除保留）。默认开启过滤。"
+        ),
+    )
+    parser.add_argument(
+        "--no-limit-threshold",
+        action="store_true",
+        help=(
+            "关掉第四层涨跌停拒单：交易所 limit_threshold 置 None，"
+            "涨停可买、跌停可卖。默认 0.095 拒单。"
+        ),
+    )
+    parser.add_argument(
+        "--dataset-cache",
+        action="store_true",
+        help=(
+            "启用 qlib SimpleDatasetCache（本地文件，默认 ~/.cache/qlib_simple_cache）。"
+            "同配置二次运行跳过数据加载大头；数据目录刷新后须清空缓存目录。"
+        ),
+    )
+    parser.add_argument(
+        "--expr-cache",
+        action="store_true",
+        help=(
+            "启用 qlib DiskExpressionCache（本机 Redis 做锁，缓存文件写在"
+            " <provider_uri>/features_cache）。按 股票×表达式 粒度复用，跨窗口/跨股票池"
+            "生效；数据目录原子换名时缓存随之失效。Redis 不可用时 qlib 自动降级关闭。"
+        ),
     )
     return parser.parse_args(argv)
 
