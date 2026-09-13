@@ -12,12 +12,14 @@
 | # | 内容 | 位置 | 校验 |
 |---|------|------|------|
 | 1 | 代码 | git 分支 `feat/fullmarket-longwindow`（`git pull` 即可） | 以 CI/pytest 绿为准 |
-| 2 | qlib 数据包 | `C:\Users\Thinkpad\.qlib\qlib_data\my_data_20260913_longwin.7z`（203 MiB / 212,924,254 字节） | **MD5 `35acc693b36cde4fd1f20e84f86483f3`** |
+| 2 | qlib 数据包 | `C:\Users\Thinkpad\.qlib\qlib_data\my_data_20260913_longwin.7z`（203 MiB / 212,935,952 字节） | **MD5 `2e8d7e26a2baf8ab3a8196af353e2813`** |
 | 3 | （仅重建数据才需要）F 湖 + `F:\qlibdata` CSV 批 + `my_data_20260410_archived` 前缀 | F:/G: 盘 | 本次实验**不需要**，数据包已是最终态 |
 
-数据包内容 = 2026-09-13 17:52 指数修复验收通过后的最终 `my_data`
-（日历 2020-01-02~2026-09-08 共 1621 天、5583 只股票、指数 SH000300/SH000001 全覆盖；
-比早上的 `my_data_20260913_full.7z` 多了 index.txt 登记范围修复）。
+数据包内容 = 2026-09-13 22:10 的最终 `my_data`
+（日历 2020-01-02~2026-09-08 共 1621 天、5583 只股票、指数 SH000300/SH000001 全覆盖、
+含重建后的 `calendars/day_future.txt`——day.txt 全量 + 末日后 5 个工作日（至 2026-09-15），
+回测交易日历 `future=True` 依赖；比早上的版本多了指数 `index.txt` 登记范围修复与
+day_future 重建两项。**旧 MD5 `35acc693…` 的包缺 day_future.txt，勿再使用**）。
 
 数据传输方式任选：U盘/移动硬盘、局域网共享（scp/robocopy）、网盘。传完先对 MD5 再解压。
 

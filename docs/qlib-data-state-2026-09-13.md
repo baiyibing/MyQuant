@@ -91,6 +91,13 @@ python qlib_scripts/patch_index_data.py --no-backup
 - 脚本修复：`move_indices_out_of_all_txt` 合并语义由「旧行优先」改为「本次 dump 新行覆盖旧登记」，否则 index.txt 登记范围永远停在首次写入日期；补单测 `test_move_replaces_stale_index_row`
 - 验收：SH000300/SH000001 均 1621/1621、缺日 0、nan_close 0、首末收盘与湖一致（4152.24→4558.74 / 3085.20→3940.55）；`index.txt` 登记范围刷新为 2020-01-02~2026-09-08；`market="all"` 5583 只无指数泄漏；`my_tests/test_patch_index_data.py` 6/6 绿
 
+## day_future 日历重建（2026-09-13 22:10，同步新机修复）
+
+- 背景：qlib 回测交易日历走 `future=True` 读 `calendars/day_future.txt`；本地 `my_data` 此前**无**该文件——回测 `end_time == 数据末日（2026-09-08）` 时 `TradeCalendarManager` 取 `calendar[index+1]` 越界崩溃（新机同日实踩，修复随 PR #33 固化进编排器 `refresh_day_future_calendar`）
+- 动作：直接调用 `refresh_mydata.refresh_day_future_calendar`（与新机同一代码路径，幂等）
+- 验证：`day_future.txt` 1626 天（2020-01-02 ~ 2026-09-15，数据末日 2026-09-08 后顺延 5 个工作日）；`D.calendar(future=True)` 读回一致。注意为工作日近似（不含 A 股节假日）——该文件仅用于回测取「下一交易日」epsilon，不参与数据加载
+- 数据包：`my_data_20260913_longwin.7z` 已重打（含 day_future.txt），新 MD5 以 `docs/runbook-newdev-qlib-longwindow-2026-09-13.md` 为准
+
 ## 磁盘目录清单（`~/.qlib/qlib_data/`）
 
 | 目录/文件 | 状态 | 建议 |
