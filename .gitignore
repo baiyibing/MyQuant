@@ -16,6 +16,7 @@ venv/
 .vscode/
 .cursor/
 .aider*
+.zcode/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
