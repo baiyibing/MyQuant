@@ -106,8 +106,15 @@ def move_indices_out_of_all_txt(qlib_dir: Path, codes: list[str]) -> list[str]:
     merged: list[str] = []
     if index_path.exists():
         merged = [ln for ln in index_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
-    existing = {ln.split("\t", 1)[0].strip().upper() for ln in merged}
-    merged.extend(ln for ln in moved if ln.split("\t", 1)[0].strip().upper() not in existing)
+    # moved 行来自本次 dump，区间必然新于 index.txt 旧登记（旧登记可能是上次裁剪的陈旧区间），
+    # 同名以新行覆盖，否则 index.txt 的登记范围永远停在首次写入的日期。
+    by_symbol: dict[str, str] = {
+        ln.split("\t", 1)[0].strip().upper(): ln
+        for ln in merged
+    }
+    for ln in moved:
+        by_symbol[ln.split("\t", 1)[0].strip().upper()] = ln
+    merged = list(by_symbol.values())
 
     index_path.write_text("\n".join(merged) + "\n", encoding="utf-8", newline="\n")
     all_path.write_text("\n".join(keep) + ("\n" if keep else ""), encoding="utf-8", newline="\n")

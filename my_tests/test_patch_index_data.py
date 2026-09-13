@@ -79,3 +79,18 @@ def test_move_indices_out_of_all_txt(tmp_path):
     # 幂等：重跑不再挪
     assert move_indices_out_of_all_txt(tmp_path, ["SH000300", "SH000001"]) == []
     assert len((tmp_path / "instruments" / "index.txt").read_text(encoding="utf-8").splitlines()) == 2
+
+
+def test_move_replaces_stale_index_row(tmp_path):
+    """index.txt 里的旧登记（如上次裁剪的陈旧区间）须被本次 dump 的新行覆盖。"""
+    (tmp_path / "instruments").mkdir()
+    (tmp_path / "instruments" / "all.txt").write_text(
+        "SH000300\t2020-01-02\t2026-09-08\n", encoding="utf-8"
+    )
+    (tmp_path / "instruments" / "index.txt").write_text(
+        "SH000300\t2020-01-02\t2026-04-10\n", encoding="utf-8"
+    )
+    moved = move_indices_out_of_all_txt(tmp_path, ["SH000300"])
+    assert len(moved) == 1
+    index_lines = (tmp_path / "instruments" / "index.txt").read_text(encoding="utf-8").splitlines()
+    assert index_lines == ["SH000300\t2020-01-02\t2026-09-08"]

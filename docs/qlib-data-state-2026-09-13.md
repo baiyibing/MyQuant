@@ -81,7 +81,15 @@ python qlib_scripts/patch_index_data.py --no-backup
 - 日历 1621 天，对湖上证指数真实交易日缺失 0
 - SH600000 双端抽验：2021-06-30 close=91.4607（恢复段）、2026-09-08 close=87.6463（新尾，与源 CSV 逐位一致）、`zhangting` 字段正常流转
 - SH000300/SH000001：1621/1621 行、0 NaN、首末收盘与湖一致（4152.24→4636.57 / 3085.20→3940.55）
+  - 更正（2026-09-13 17:52 复验）：上行的 4636.57 实为 **2026-04-10 收盘**（旧档前缀末日，当时的验证恰好止于该行）；全日历末收（2026-09-08）应为 **沪深300 4558.74 / 上证 3940.55**。bin 数据本身自重建起即覆盖全日历，无缺日、无 NaN
 - `market="all"` 宇宙 5583 只，指数泄漏：无
+
+## 指数补丁复跑记录（2026-09-13 17:48 / 17:52）
+
+- 背景：`instruments/index.txt` 登记范围曾停在 2026-04-10（09-13 重建挪移时旧行优先所致；bin 实际覆盖全日历，benchmark 查询不受影响，但 `market="index"` 池语义失真）
+- 动作：重跑 `qlib_scripts/patch_index_data.py`（自动备份 `my_data_backup_20260913_pre_index`；F 湖裁剪 → dump_fix → 挪移 → 读回验证）
+- 脚本修复：`move_indices_out_of_all_txt` 合并语义由「旧行优先」改为「本次 dump 新行覆盖旧登记」，否则 index.txt 登记范围永远停在首次写入日期；补单测 `test_move_replaces_stale_index_row`
+- 验收：SH000300/SH000001 均 1621/1621、缺日 0、nan_close 0、首末收盘与湖一致（4152.24→4558.74 / 3085.20→3940.55）；`index.txt` 登记范围刷新为 2020-01-02~2026-09-08；`market="all"` 5583 只无指数泄漏；`my_tests/test_patch_index_data.py` 6/6 绿
 
 ## 磁盘目录清单（`~/.qlib/qlib_data/`）
 
