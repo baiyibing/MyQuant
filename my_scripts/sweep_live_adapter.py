@@ -76,7 +76,11 @@ def _predict_once() -> tuple[pd.Series, pd.Series]:
             {"class": "Fillna", "kwargs": {"fields_group": "feature"}},
         ],
         learn_processors=[
-            {"class": "DropLimitUpLearn"},
+            {
+                "class": "DropLimitUpLearn",
+                "module_path": "custom_handler",
+                "kwargs": {"col": "LIMIT_STATUS", "value": 1},
+            },
             {"class": "DropnaLabel"},
             {"class": "CSZScoreNorm", "kwargs": {"fields_group": "label"}},
         ],
