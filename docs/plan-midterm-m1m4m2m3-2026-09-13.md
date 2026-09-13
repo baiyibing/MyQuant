@@ -27,9 +27,9 @@
 11. 测试门槛 = 全量：`python -m pytest my_tests my_scripts/test_zhangting_filter.py`（当前基线 **25 passed + 18 subtests**），不是只跑新文件
 12. 每片完成回写路线图 §0 进度（一行即可）
 13. `~/.qlib` 数据只准通过 M1 的 orchestrator 动，动手前自动备份（命名 `my_data_backup_YYYYMMDD_pre_*`）
-
 **判优纪律**
 14. 模型好坏只看 IC/IR/名单命中率；PortAna 净值、单窗 M5 NAV 都不是产品（首轮 M5 已证明三源名单几乎不重叠）
+15. 补（2026-09-13 M3D-D 备料实踩）：**任何直接/间接触发 qlib joblib 多进程的入口脚本**（`D.features`、`DatasetH` 等）**必须 `if __name__ == "__main__":` + `multiprocessing.freeze_support()`**——Windows spawn 下 worker 会重执行主脚本，顶层裸跑 = 每个 worker 递归再拉数据、无限喷 `RuntimeError`。训练脚本历来带 guard 即此因；一次性备料/分析脚本同样适用。失控时按命令行特征定位进程树（`multiprocessing.spawn`/`loky`）定点 `taskkill /T`，勿盲杀全仓 python
 
 ---
 
