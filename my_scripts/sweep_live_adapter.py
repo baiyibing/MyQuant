@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import math
 import sys
+from datetime import date
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -42,12 +43,72 @@ from run_manifest import capture_git_provenance  # noqa: E402
 
 _STATE: dict[str, Any] = {}
 
-# 与 custom_train_backtest.py 同窗同配置（改窗时两处同步）
+# 与 custom_train_backtest.py 同窗同配置（缺省三月窗；改默认时两处同步）
 SEGMENTS = {
     "train": ("2026-01-01", "2026-01-31"),
     "valid": ("2026-02-01", "2026-02-28"),
     "test": ("2026-03-01", "2026-03-23"),
 }
+
+# 当前生效段（set_segments 写入；缺省 = SEGMENTS 拷贝，不污染常量）
+_ACTIVE_SEGMENTS: dict[str, tuple[str, str]] = {
+    k: (v[0], v[1]) for k, v in SEGMENTS.items()
+}
+
+
+def get_segments() -> dict[str, tuple[str, str]]:
+    """当前生效 train/valid/test 窗口（拷贝）。"""
+    return {k: (v[0], v[1]) for k, v in _ACTIVE_SEGMENTS.items()}
+
+
+def _validate_pair(key: str, val: Any) -> tuple[str, str]:
+    if isinstance(val, str):
+        raw = val.strip()
+        if raw.count(":") != 1:
+            raise ValueError(f"illegal {key} format {val!r}; expected START:END or (start, end)")
+        start, end = (part.strip() for part in raw.split(":", 1))
+    elif isinstance(val, (list, tuple)) and len(val) == 2:
+        start, end = str(val[0]).strip(), str(val[1]).strip()
+    else:
+        raise ValueError(f"segment {key} must be (start, end)")
+    if not start or not end:
+        raise ValueError(f"illegal {key} dates: empty start/end")
+    try:
+        d0 = date.fromisoformat(start)
+        d1 = date.fromisoformat(end)
+    except ValueError as exc:
+        raise ValueError(f"illegal {key} dates: {start!r} {end!r}") from exc
+    if d0 > d1:
+        raise ValueError(f"{key} start > end: {start} > {end}")
+    return start, end
+
+
+def set_segments(segments: Mapping[str, Any]) -> None:
+    """校验并切换生效窗口。须三段齐全、起止合法、train.start <= valid.start <= test.start。
+
+    切窗后清掉 pred/label 缓存，避免沿用上一窗的 handler 结果。
+    """
+    if not isinstance(segments, Mapping):
+        raise ValueError("segments must be a mapping with train/valid/test")
+    missing = [k for k in ("train", "valid", "test") if k not in segments]
+    if missing:
+        raise ValueError(f"segments missing {missing}")
+    parsed: dict[str, tuple[str, str]] = {}
+    for key in ("train", "valid", "test"):
+        parsed[key] = _validate_pair(key, segments[key])
+    if not (parsed["train"][0] <= parsed["valid"][0] <= parsed["test"][0]):
+        raise ValueError("require train.start <= valid.start <= test.start")
+    _ACTIVE_SEGMENTS.clear()
+    _ACTIVE_SEGMENTS.update(parsed)
+    _STATE.pop("pred", None)
+    _STATE.pop("label", None)
+
+
+def _handler_span(segments: Mapping[str, tuple[str, str]]) -> tuple[str, str]:
+    """handler start/end = 三段最小 start / 最大 end。"""
+    start_time = min(segments[k][0] for k in ("train", "valid", "test"))
+    end_time = max(segments[k][1] for k in ("train", "valid", "test"))
+    return start_time, end_time
 
 
 def _predict_once() -> tuple[pd.Series, pd.Series]:
@@ -70,15 +131,21 @@ def _predict_once() -> tuple[pd.Series, pd.Series]:
 
     qlib.init(provider_uri="C:/Users/Thinkpad/.qlib/qlib_data/my_data", region="cn")
 
+    segs = get_segments()
+    # handler 覆盖三段 min start / max end。label 用 Ref($close,-2)，
+    # 末尾 1-2 天 label 为 NaN 会被 dropna——与三月窗现行为一致。
+    start_time, end_time = _handler_span(segs)
+    fit_start, fit_end = segs["train"]
+
     instruments = build_filtered_instruments(
-        start_time="2026-01-01", end_time="2026-03-23", exclude_stocks=["SZ000004", "SH600107"]
+        start_time=start_time, end_time=end_time, exclude_stocks=["SZ000004", "SH600107"]
     )
     handler = Alpha158CostKDJ(
         instruments=instruments,
-        start_time="2026-01-01",
-        end_time="2026-03-23",
-        fit_start_time="2026-01-01",
-        fit_end_time="2026-01-31",
+        start_time=start_time,
+        end_time=end_time,
+        fit_start_time=fit_start,
+        fit_end_time=fit_end,
         infer_processors=[
             {"class": "ProcessInf"},
             {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature"}},
@@ -97,7 +164,7 @@ def _predict_once() -> tuple[pd.Series, pd.Series]:
         include_cost_kdj=True,
         include_lz=True,
     )
-    dataset = DatasetH(handler=handler, segments=dict(SEGMENTS))
+    dataset = DatasetH(handler=handler, segments=dict(segs))
     model = LGBModel(loss="mse", num_boost_round=200, learning_rate=0.05, max_depth=6)
     model.fit(dataset)
 
@@ -151,6 +218,7 @@ def train_predict_fn(config) -> Mapping[str, Any]:
     ic = float(hit.mean())
     ir = float(series.mean() / (series.std() + 1e-12) * math.sqrt(252))
     git_prov = _STATE.get("git_prov") or {}
+    segs = get_segments()
     return {
         "ic": ic,
         "ir": ir,
@@ -159,4 +227,12 @@ def train_predict_fn(config) -> Mapping[str, Any]:
         "git_commit": git_prov.get("git_commit"),
         "git_branch": git_prov.get("git_branch"),
         "git_dirty": git_prov.get("git_dirty"),
+        # 生效窗口写入 payload.config，manifest 才能区分三月窗 vs OOS 窗
+        "config": {
+            "segments": {
+                "train": [segs["train"][0], segs["train"][1]],
+                "valid": [segs["valid"][0], segs["valid"][1]],
+                "test": [segs["test"][0], segs["test"][1]],
+            }
+        },
     }

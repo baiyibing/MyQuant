@@ -19,9 +19,12 @@ if _MY_SCRIPTS not in sys.path:
 from run_manifest import load_manifest  # noqa: E402
 from sweep_ranking import (  # noqa: E402
     SweepConfig,
+    build_arg_parser,
     default_live_train_predict,
     iter_config_grid,
     main,
+    maybe_segments_from_args,
+    parse_date_range,
     parse_int_list,
     run_sweep,
     summarize_ic_ir,
@@ -137,3 +140,230 @@ def test_cli_limit_2_dry_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     assert not raw.startswith(b"\xef\xbb\xbf")
     data = json.loads(raw.decode("utf-8"))
     assert data["config"]["stage_kind"] == "ranking_sweep"
+
+
+def test_parse_date_range_ok():
+    assert parse_date_range("2026-01-01:2026-01-31") == ("2026-01-01", "2026-01-31")
+    assert parse_date_range(" 2026-04-01 : 2026-08-31 ") == ("2026-04-01", "2026-08-31")
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        "2026-01-01",
+        "2026-01-01-2026-01-31",
+        "foo:bar",
+        "2026-01-31:2026-01-01",
+        "",
+        "2026-01-01:",
+        ":2026-01-31",
+        "2026-13-01:2026-13-31",
+    ],
+)
+def test_parse_date_range_rejects_illegal(bad: str):
+    with pytest.raises(ValueError):
+        parse_date_range(bad)
+
+
+def test_cli_parses_train_valid_test():
+    args = build_arg_parser().parse_args(
+        [
+            "--train",
+            "2026-01-01:2026-01-31",
+            "--valid",
+            "2026-02-01:2026-02-28",
+            "--test",
+            "2026-04-01:2026-08-31",
+        ]
+    )
+    assert args.train == ("2026-01-01", "2026-01-31")
+    assert args.valid == ("2026-02-01", "2026-02-28")
+    assert args.test == ("2026-04-01", "2026-08-31")
+    segs = maybe_segments_from_args(args)
+    assert segs == {
+        "train": ("2026-01-01", "2026-01-31"),
+        "valid": ("2026-02-01", "2026-02-28"),
+        "test": ("2026-04-01", "2026-08-31"),
+    }
+
+
+def test_cli_default_segments_none():
+    args = build_arg_parser().parse_args([])
+    assert args.train is None and args.valid is None and args.test is None
+    assert maybe_segments_from_args(args) is None
+
+
+def test_cli_rejects_illegal_train_format(tmp_path: Path):
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "--dry-run-fake",
+                "--limit",
+                "1",
+                "--train",
+                "2026-01-01",
+                "--out-dir",
+                str(tmp_path / "out"),
+            ]
+        )
+
+
+def test_sweep_config_has_no_window_fields():
+    from dataclasses import fields
+
+    names = {f.name for f in fields(SweepConfig)}
+    assert names == {"topk", "n_drop", "hold_thresh", "grid_id"}
+    cfg = SweepConfig(10, 3, 1).as_manifest_config()
+    assert "train" not in cfg and "valid" not in cfg and "test" not in cfg
+    assert "segments" not in cfg
+
+
+def test_default_adapter_path_does_not_call_set_segments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """缺省不调 set_segments（向后兼容：adapter 用三月窗常量）。"""
+    import importlib
+    import types
+
+    calls: list = []
+    fake = types.ModuleType("fake_adapter_no_segs")
+
+    def train_predict_fn(cfg):
+        return {
+            "ic": 0.01,
+            "ir": 0.1,
+            "notes": "fake-adapter",
+            "timings": {"total_seconds": 0, "nodes": []},
+            "data": {},
+        }
+
+    def set_segments(segs):
+        calls.append(segs)
+
+    fake.train_predict_fn = train_predict_fn
+    fake.set_segments = set_segments
+    fake.SEGMENTS = {
+        "train": ("2026-01-01", "2026-01-31"),
+        "valid": ("2026-02-01", "2026-02-28"),
+        "test": ("2026-03-01", "2026-03-23"),
+    }
+    real_import = importlib.import_module
+
+    def _import(name, package=None):
+        if name == "fake_adapter_no_segs":
+            return fake
+        return real_import(name, package)
+
+    monkeypatch.setattr(importlib, "import_module", _import)
+    monkeypatch.chdir(tmp_path)
+    rc = main(
+        [
+            "--adapter",
+            "fake_adapter_no_segs",
+            "--limit",
+            "1",
+            "--out-dir",
+            str(tmp_path / "out"),
+        ]
+    )
+    assert rc == 0
+    assert calls == []
+
+
+def test_adapter_path_calls_set_segments_when_any_window_given(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    import importlib
+    import types
+
+    calls: list = []
+    fake = types.ModuleType("fake_adapter_with_segs")
+
+    def train_predict_fn(cfg):
+        return {
+            "ic": 0.02,
+            "ir": 0.2,
+            "notes": "fake-adapter",
+            "config": {"segments": {"train": ["2026-01-01", "2026-01-31"]}},
+            "timings": {"total_seconds": 0, "nodes": []},
+            "data": {},
+        }
+
+    def set_segments(segs):
+        calls.append(segs)
+
+    fake.train_predict_fn = train_predict_fn
+    fake.set_segments = set_segments
+    fake.SEGMENTS = {
+        "train": ("2026-01-01", "2026-01-31"),
+        "valid": ("2026-02-01", "2026-02-28"),
+        "test": ("2026-03-01", "2026-03-23"),
+    }
+    real_import = importlib.import_module
+
+    def _import(name, package=None):
+        if name == "fake_adapter_with_segs":
+            return fake
+        return real_import(name, package)
+
+    monkeypatch.setattr(importlib, "import_module", _import)
+    monkeypatch.chdir(tmp_path)
+    rc = main(
+        [
+            "--adapter",
+            "fake_adapter_with_segs",
+            "--train",
+            "2026-01-01:2026-01-31",
+            "--valid",
+            "2026-02-01:2026-02-28",
+            "--test",
+            "2026-04-01:2026-08-31",
+            "--limit",
+            "1",
+            "--out-dir",
+            str(tmp_path / "out"),
+        ]
+    )
+    assert rc == 0
+    assert len(calls) == 1
+    assert calls[0]["train"] == ("2026-01-01", "2026-01-31")
+    assert calls[0]["valid"] == ("2026-02-01", "2026-02-28")
+    assert calls[0]["test"] == ("2026-04-01", "2026-08-31")
+
+
+def test_dry_run_fake_with_windows_does_not_need_adapter(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """--dry-run-fake 不走 adapter，传窗口也不调 set_segments，冒烟不受影响。"""
+    monkeypatch.chdir(tmp_path)
+    out = tmp_path / "sweep_out_fake_win"
+    rc = main(
+        [
+            "--topk",
+            "5,10",
+            "--n-drop",
+            "3",
+            "--hold",
+            "1",
+            "--limit",
+            "2",
+            "--out-dir",
+            str(out),
+            "--dry-run-fake",
+            "--train",
+            "2026-01-01:2026-01-31",
+            "--valid",
+            "2026-02-01:2026-02-28",
+            "--test",
+            "2026-04-01:2026-08-31",
+        ]
+    )
+    assert rc == 0
+    assert (out / "sweep_summary.csv").is_file()
+    df = pd.read_csv(out / "sweep_summary.csv")
+    assert len(df) == 2
+    mans = list((out / "manifests").glob("train_sweep_*.json"))
+    assert len(mans) == 2
+    data = json.loads(mans[0].read_text(encoding="utf-8"))
+    assert data["config"]["stage_kind"] == "ranking_sweep"
+    # fake payload 不含窗口；窗口不得渗进 SweepConfig
+    assert "train" not in data["config"]
+    assert "valid" not in data["config"]
+    assert "test" not in data["config"]
+    assert "segments" not in data["config"]
