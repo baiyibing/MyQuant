@@ -272,27 +272,20 @@ def build_arg_parser() -> argparse.ArgumentParser:
     return p
 
 
-REAL_WINDOW_EXPRS = {
-    "turnover": "$volume/($adfadfbasiccurhold+1)",
-    "amount_per_vol": "$amount/($volume+1)",
-    "close_vwap": "$close/($vwap+1)",
-    "volddx": "$volddx",
-    "bigddx": "$bigddx",
-    "netcsfree_close": "$netcsfree/($close+1)",
-}
+REAL_WINDOW_FIELDS = ["$volume", "$adfadfbasiccurhold", "$amount", "$volddx", "$bigddx", "$close", "$vwap", "$netcsfree"]
 REAL_LABEL_EXPR = "Ref($close,-2)/Ref($close,-1)-1"
 
 
 def run_real_window(window: str, market: str) -> int:
-    """真实 bin-16 一窗筛：qlib 表达式取数 → NaN/IC 筛表（host 入口）。"""
+    """真实 bin-16 一窗筛：qlib 取原始字段（列名去 $）→ 默认 specs 近似 → NaN/IC 筛表。"""
     import qlib
     from qlib.data import D
 
     start, end = window.split(":")
     qlib.init(provider_uri="C:/Users/Thinkpad/.qlib/qlib_data/my_data", region="cn")
     insts = D.instruments(market=market)
-    df = D.features(insts, list(REAL_WINDOW_EXPRS.values()), start_time=start, end_time=end)
-    df.columns = list(REAL_WINDOW_EXPRS)
+    df = D.features(insts, REAL_WINDOW_FIELDS, start_time=start, end_time=end)
+    df.columns = [c.lstrip("$") for c in df.columns]
     y = D.features(insts, [REAL_LABEL_EXPR], start_time=start, end_time=end).iloc[:, 0]
     df = df.replace([np.inf, -np.inf], np.nan)
     y = y.replace([np.inf, -np.inf], np.nan).dropna()
