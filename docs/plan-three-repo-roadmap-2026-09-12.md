@@ -54,10 +54,14 @@ v1.1 相对 v1：补三仓对照（含「不该再做」）、研究两层、Qli
 | M2-A 筹码概念映射 `docs/chip-parity-map.md`（结论：不可比） | 本分支已提交 | 中期计划 §3；合法关门 |
 | M2-B `chip_parity_check.py` + 注入 fake bt 单测；live 报 not comparable | 本分支已提交 | 中期计划 §3；fixture-only |
 | M2-C 晋升门 + `chip-parity-report-2026-09-13.md`（closed as 不可比） | 本分支已提交 | 中期计划 §3；**M2 轨道完成** |
-| M3-B ranking sweep harness + 宿主 6 格真网格 | **宿主真跑** | 代码 #11/#12；6 格：`topk5_ndrop2` 双指标最佳（hit **0.5625** / ann **2.65**）；`topk10` 两指标皆最差；**16 日单窗线索**，出窗复验待做（OOS 建议 2026-04~09、改参前）；共享一次 handler_init |
+| M3-B ranking sweep harness + 宿主 6 格真网格 | **宿主真跑** | 代码 #11/#12；6 格：`topk5_ndrop2` 双指标最佳（hit **0.5625** / ann **2.65**）；`topk10` 两指标皆最差；**16 日单窗线索**；共享一次 handler_init |
+| M3-B OOS 出窗复验（2026-04~08，104 交易日；--segments 参数化 #15/#16） | **宿主真跑** | **三月冠军 `topk5_ndrop2` 出窗垫底（hit 0.4712 / 年化 −0.39）= 窗口依赖出局**；两窗 IR 同正者仅 ndrop3 大名单族（topk20_ndrop3 / topk10_ndrop3），无一配置两窗同排序；按预锁纪律**不改线上 topk 默认**（改参需第三窗佐证） |
 | M3-C bin-16 特征实验（换手/阻力近似） | **负结果（宿主真筛）** | 代码 #11/#12；`turnover_resist_approx` 三月 **+0.138** → 六至八月 **−0.069** 符号翻转；四候选不入选 |
-| M3-D 行业/市值中性化 | **blocked** | `docs/m3d-industry-source-inventory.md`（`M3D_STATUS=blocked`；无 F: / 湖 industry 表） |
-| 宿主事故根治（followups） | 计划 #13；本 PR | ① 共享 `host_env`（mlflow file-store 逃生口，告别每脚本一份） ② manifest `git_commit` 改为**启动时** HEAD + `git_branch`/`git_dirty`（中途切分支不再污染溯源） |
+| M3-D 行业/市值中性化 | **源就绪（实现片待开）** | gildata 申万 L1 全量 5210 只映射入 git（`exports/m3d_industry/sw_l1_map.csv`，PR #19，.gitignore 例外）；wind 复核 35/53+ 批后 Kimi 5h 额度中断，续跑指引 `docs/kimi-wind-m3d-resume-2026-09-13.md`（PR #17），续跑点 q0035..q0053；`M3D_STATUS=ready`（Kimi 未提交遗作，随实现片一并提交） |
+| 宿主事故根治（followups） | 已合 #14 | ① 共享 `host_env`（mlflow file-store 逃生口，告别每脚本一份） ② manifest `git_commit` 改为**启动时** HEAD + `git_branch`/`git_dirty`（中途切分支不再污染溯源） |
+| Kimi 行业采集中断封存 | 已处理 | 现场 242 文件 / 2.3MB 入 git（PR #19）+ `m3d_industry_kimi_20260913.7z` 本地与 F: 备份；**续跑必须回 Kimi**（wind MCP 只在它那） |
+| M5 二轮任务书 | 已派 | PR #18：六个月长窗（20260303~20260908）三源归因——Codex 出 `predict_extended.py`（不跑 PortAna），BT 仓跑三源对照；判读预锁（不据此改参；重叠度变化本身是结论） |
+| CI 启用 | 进行中 | 仓转 public 后走 PR #20：windows-latest + py3.12 + qlib 钉 79633dd9 源码装 + 全量 pytest；首跑失败根因=`custom_utils` 顶层 matplotlib/seaborn 未进 requirements，已修重跑 |
 
 PortAna 第 4 轮用真沪深300 出过烟雾报告。按 §2.3 / §6：**不当产品、不当 M5 对照列。**
 
