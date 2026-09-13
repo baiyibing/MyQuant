@@ -1,0 +1,15 @@
+{
+  "generated_at": "2026-09-13T07:32:35Z",
+  "expected": 5210,
+  "wind_returned": 5240,
+  "wind_missing": [],
+  "overlap": 5210,
+  "agree_raw": 5210,
+  "agree_normalized": 5210,
+  "agreement_rate_raw": 1.0,
+  "agreement_rate_normalized": 1.0,
+  "conflicts_raw_count": 0,
+  "conflicts_normalized_count": 0,
+  "conflicts_preview": [],
+  "progress_note": "全部 54 批采集完成(0000-0053)，其中 0029-0033/0035/0037/0041/0042/0043 共 10 个百码批首采返回 canned 演示数据已标 .bogus 并用 20/50 码子块补齐，校验 0 丢码；q0053 的 30 个代码为 sw_l1_map 之外的退市股，不计入 expected；retry_0042_b 曾误写 300300.SZ(已用 retry_0042_c 补回 300536.SZ)，300300.SZ 在合并去重时按 batch_0038 口径保留。wind_missing 限于 sw_l1_map 的 5210 只口径。"
+}
