@@ -29,7 +29,13 @@ from qlib.contrib.evaluate import backtest_daily, risk_analysis
 from qlib.data import D
 from qlib.workflow import R
 
-from buy_eligibility import BuyEligibilityFilter, TopkDropoutStrategyWithBuyEligibility, load_age_map, load_extra_exclude
+from buy_eligibility import (
+    BuyEligibilityFilter,
+    TopkDropoutStrategyWithBuyEligibility,
+    load_age_map,
+    load_extra_exclude,
+    load_winner_ratio_map,
+)
 from custom_ops import SMA
 from train_wiring import EXCLUDE_STOCKS_DEFAULT, parse_segment
 
@@ -118,6 +124,10 @@ def build_strategy_config(args) -> dict:
         st_codes |= load_extra_exclude(args.extra_exclude_file)
     st_arg = st_codes if args.st_filter else None
     age_arg = load_age_map(Path.home() / ".qlib" / "qlib_data" / "my_data") if args.age_filter else None
+    wr_map = {}
+    if args.buy_state_filter and getattr(args, "winner_ratio_file", None):
+        wr_map = load_winner_ratio_map(args.winner_ratio_file)
+        print(f"[rebacktest] 精确盈筹率: {len(wr_map)} 条 ({args.winner_ratio_file})", flush=True)
     eligibility = BuyEligibilityFilter(
         st_codes=st_arg,
         age_map=age_arg,
@@ -125,6 +135,7 @@ def build_strategy_config(args) -> dict:
         check_buy_state=args.buy_state_filter,
         calendar=list(D.calendar(future=True)),
         st_daily_file=getattr(args, "st_daily_file", None) if args.st_filter else None,
+        winner_ratio_map=wr_map,
     )
     test_start, test_end = args.test_window
     n_st = len(eligibility.st_codes_of_date(test_end) if eligibility._st_by_date is not None else eligibility.st_codes)
@@ -132,7 +143,8 @@ def build_strategy_config(args) -> dict:
         f"[rebacktest] 资格过滤: ST={args.st_filter}({n_st} 只"
         f"{', PIT+fallback' if eligibility._st_by_date is not None else ', 静态'}) "
         f"age>={args.age_days}日={args.age_filter}({len(eligibility.min_trade_date)} 只有起始登记) "
-        f"buy_state={args.buy_state_filter}",
+        f"buy_state={args.buy_state_filter}"
+        f"{f'(精确盈筹率 {len(wr_map)} 条)' if wr_map else ''}",
         flush=True,
     )
     if args.buy_state_filter:
@@ -231,6 +243,14 @@ def parse_cli(argv=None):
         "--st-daily-file",
         default=None,
         help="st_daily.parquet：PIT 按日 ST；未覆盖/unknown_end 仍走静态黑名单",
+    )
+    parser.add_argument(
+        "--winner-ratio-file",
+        default=None,
+        help=(
+            "build_winner_ratio.py 产物 parquet：精确 CYQ 盈筹率（对 QMT 真值 Spearman 0.92）。"
+            "命中替代 Quantile 代理做深洗判定，缺失回退代理。"
+        ),
     )
     return parser.parse_args(argv)
 
