@@ -156,6 +156,40 @@ QMT 真值来源 `F:/stock_data/vendor_qmt_winner_chips.parquet`（9 个日期�
 只会少放。维持代理口径跑本次实验，精确版升级路径：QMT winner_chips 恢复日常采集 +
 回填（任务书 `docs/task-st-wind-feed-2026-09-14.md` 同族），或 backtrader 仓 CYQ 算法本地化。
 
+### §7.3.1 精确盈筹率落地（CYQ 本地化，2026-09-14 当日完成）
+
+升级路径三（CYQ 本地化）当晚落地：`my_scripts/build_winner_ratio.py` 复用 backtrader 仓
+SSOT 递推（numba 内核，与 Rust turnover-resist 同族），数据全取自 qlib bins：
+
+- 价格用后复权 `$close/$high/$low`（窗内与前复权只差全局尺度，winner_ratio 不变）。
+  不要用 `$adjclose` 不复权价——除权后旧筹码会错位。`$volume` 含后复权漂移，
+  真实成交股数 = `$amount/$adjclose`
+- 换手默认自由流通：`$amount/($adjclose*$netcsfree)`（贴 QMT）。`--shares circ`
+  改 `$basiccurhold*10000`（万股→股，贴 Rust `cyqk_T`）
+- 后复权跨度过大（茅台/恒瑞/老窖等）自动放宽网格步长，避免丢票
+- 全市场 5569/5583 只 × 166 测试日 = 912,350 行，**101 秒**
+- 产物：`F:/stock_data/cyq_winner_ratio_daily_2026.parquet`（外部 parquet，与 ST
+  `st_daily` 同级；**不进 bins**）。已接入 `--winner-ratio-file`，命中精确值、
+  缺失回退 Quantile 代理
+- 校准脚本：`my_scripts/calibrate_winner_ratio_cyq.py`
+- 算法 vs SSOT/Rust、全市场 vs 券商 `winratio`、vs QMT：`docs/winner-ratio-cyq-parity-2026-09-14.md`
+
+**vs QMT 真值校准（31,684 配对）**：
+
+| 指标 | Quantile 代理 | **CYQ 精确版** |
+|---|---|---|
+| Spearman | 0.652 | **0.921** |
+| MAE | 0.303 | **0.066** |
+| 阈值 <10% 召回率 | 0.420 | **0.950** |
+| 阈值 <10% 精确率 | 0.873 | 0.789 |
+| 一致率 | 0.689 | **0.852** |
+
+召回率 0.42→0.95 = 近似版的核心缺陷已修复；精确率略降（CYQ 比 QMT 略激进）。
+Rust 锚点（20260908，流通股本 `cyqk_T`）：昊海生科 0.0690 / 华兰生物 0.2608。
+本产物默认自由流通，同日为 0.1293 / 0.3482（残差 0.06~0.09，口径差）。
+`--shares circ` 冒烟：0.0661 / 0.2401，贴 SSOT Python；剩余 rust 差来自
+F 湖前复权量与 bins 后复权量、静态 FloatVolume vs 逐日 `basiccurhold`。
+
 ## 八、下一步候选（未排期，仅记录）
 
 1. ~~加大名单：topk=20/50 同 pred 重回测~~ **已完成，见 §七**；~~topk50 系在 2025 验证窗复验~~ **已完成（§7.2，预锁判读反号，证据不闭环）**。
