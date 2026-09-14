@@ -148,8 +148,18 @@ Wind ST PIT 接线；若已合并则 master 等价）。
 |---|---|---|
 | `MyQuant/my_scripts/mlruns/312677471335446378/4410e4a3a4714f4f9e261120449232d1/` | `MyQuant/my_scripts/mlruns/312677471335446378/…`（同路径） | 15 MB |
 | `F:/stock_data/vendor_wind_st_status/`（整个目录） | `F:/stock_data/vendor_wind_st_status/` | <1 MB |
+| `F:/stock_data/cyq_winner_ratio_20260914.7z`（或整个 `cyq_winner_ratio/` 目录） | `F:/stock_data/` 下解压，得到 `cyq_winner_ratio/` | 7z **6.57 MiB**；parquet MD5 `644750b32010922b7721795359b98620` |
 
-（recorder = 2026 窗现有 pred，重回测免重训；ST PIT 数据为 Wind 收割产物。）
+（recorder = 2026 窗现有 pred，重回测免重训；ST PIT 为 Wind 收割产物；盈筹率为本仓 CYQ 外部 parquet，与 ST 同级，不进 bins。）
+
+盈筹率包解压与校验：
+
+```bat
+7z x cyq_winner_ratio_20260914.7z -oF:\stock_data -y
+certutil -hashfile F:\stock_data\cyq_winner_ratio\cyq_winner_ratio_daily_2026.parquet MD5
+:: 期望 644750b32010922b7721795359b98620
+:: 7z 本身 MD5 ababd3798e17db48f602caf4ac85277f
+```
 
 ### ② 宇宙文件现生成（不传文件，重跑脚本即得）
 
@@ -163,19 +173,22 @@ python build_tradable_universe.py
 只读 `all.txt` + `day.txt` 两个文本（秒级、零外部依赖）。说明：ST 剔除用静态
 EXCLUDE_STOCKS_DEFAULT；PIT 精确层由 ③ 的 `--st-daily-file` 在策略级承担。
 
-### ②b 精确盈筹率现生成（CYQ 本地化，2026-09-14 追加；约 1 分钟）
+### ②b 精确盈筹率（优先拷包，与 ST 同级；不必在新机重算）
+
+① 已含 `cyq_winner_ratio/`。消费文件：
+
+`F:/stock_data/cyq_winner_ratio/cyq_winner_ratio_daily_2026.parquet`
+
+期望：912,350 行、5569 只、166 日（2026-01-05～09-08）、列 `stock_code/date/winner_ratio`。
+对拍见 `docs/winner-ratio-cyq-parity-2026-09-14.md`。
+
+新机若已有完整 my_data 且想复核，才重跑（约 1～3 分钟，依赖 numba）：
 
 ```bash
-python build_winner_ratio.py --test 2026-01-01:2026-09-08 --workers 8
-# 期望输出: DONE stocks≈5569/5583 rows≈912350 elapsed≈100s
-#           → F:/stock_data/cyq_winner_ratio_daily_2026.parquet
+python build_winner_ratio.py --test 2026-01-01:2026-09-08 --workers 8 \
+    --out F:/stock_data/cyq_winner_ratio/cyq_winner_ratio_daily_2026.parquet
+# 期望: DONE stocks≈5569/5583 rows≈912350
 ```
-
-数据全取自 my_data bins：后复权 `$close/$high/$low`；真实成交股数 `$amount/$adjclose`；
-换手分母默认 `$netcsfree`（自由流通，`--shares circ` 改流通股本）。产物是外部 parquet
-（`--winner-ratio-file`，与 `--st-daily-file` 同级），**不进 qlib bins**。对 QMT 真值
-Spearman 0.92、召回率 0.95（对照代理 0.65/0.42）。对拍全文见
-`docs/winner-ratio-cyq-parity-2026-09-14.md`。依赖 numba（vanna312 环境已装）。
 
 ### ③ 四开关全开重回测（topk10 与 topk50 各一轮）
 
@@ -186,13 +199,13 @@ python rebacktest_cost_tiers.py \
     --test 2026-01-01:2026-09-08 --topk 10 --n-drop 3 \
     --buy-state-filter --st-filter --age-filter \
     --st-daily-file "F:/stock_data/vendor_wind_st_status/st_daily.parquet" \
-    --winner-ratio-file "F:/stock_data/cyq_winner_ratio_daily_2026.parquet"
+    --winner-ratio-file "F:/stock_data/cyq_winner_ratio/cyq_winner_ratio_daily_2026.parquet"
 python rebacktest_cost_tiers.py \
     --recorder-id 4410e4a3a4714f4f9e261120449232d1 \
     --test 2026-01-01:2026-09-08 --topk 50 --n-drop 5 \
     --buy-state-filter --st-filter --age-filter \
     --st-daily-file "F:/stock_data/vendor_wind_st_status/st_daily.parquet" \
-    --winner-ratio-file "F:/stock_data/cyq_winner_ratio_daily_2026.parquet"
+    --winner-ratio-file "F:/stock_data/cyq_winner_ratio/cyq_winner_ratio_daily_2026.parquet"
 ```
 
 无过滤基线（同机同 pred，qlib 默认档）：topk10 净年化 **-46.5%** / topk50 **+0.6%**。
