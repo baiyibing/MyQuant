@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import sys
 
@@ -14,9 +15,12 @@ if _MY_SCRIPTS not in sys.path:
     sys.path.insert(0, _MY_SCRIPTS)
 
 from buy_eligibility import (  # noqa: E402
+    MA5_SLOPE_MIN_DEG,
     BuyEligibilityFilter,
     buy_state_ok,
     load_extra_exclude,
+    ma5_slope_deg,
+    ma20_stand_ok,
 )
 from build_tradable_universe import drop_excluded, shift_start_for_age  # noqa: E402
 
@@ -27,16 +31,40 @@ CAL = list(pd.DatetimeIndex(pd.to_datetime(
 )))
 
 
+def _ma5_pair(deg: float, ma5: float = 10.0) -> tuple[float, float]:
+    """构造使通达信斜率恰好为 deg 的 (MA5, 昨日MA5)。"""
+    prev = ma5 / (1.0 + math.tan(math.radians(deg)) / 100.0)
+    return ma5, prev
+
+
+def _feat(close, ma20, ma60, q10, ma5=10.0, ma5_prev=10.0):
+    return [close, ma20, ma60, q10, ma5, ma5_prev]
+
+
+def test_ma5_slope_deg():
+    assert ma5_slope_deg(10.0, 10.0) == pytest.approx(0.0)
+    ma5, prev = _ma5_pair(-30.0)
+    assert ma5_slope_deg(ma5, prev) == pytest.approx(-30.0)
+    assert math.isnan(ma5_slope_deg(10.0, float("nan")))
+    assert math.isnan(ma5_slope_deg(10.0, 0.0))
+
+
 def test_buy_state_ok_truth_table():
-    # 站上 MA20 → 可买（无论 MA60/盈筹率）
-    assert buy_state_ok(11.0, 10.0, 9.0, 12.0) is True
-    # MA20 之下：需同时深于 MA60 且低于 Q10（盈筹率<10% 近似）
-    assert buy_state_ok(8.0, 10.0, 9.0, 8.5) is True
-    assert buy_state_ok(8.0, 10.0, 7.0, 7.5) is False   # 未深于 MA60
-    assert buy_state_ok(8.5, 10.0, 7.0, 8.0) is False   # 未低于 Q10
+    flat = _ma5_pair(0.0)
+    # 条件2：站上 MA20 且斜率未跌破 -30° → 可买（不要求条件1）
+    assert buy_state_ok(11.0, 10.0, 9.0, 12.0, *flat) is True
+    assert buy_state_ok(11.0, 10.0, 9.0, 12.0, *_ma5_pair(MA5_SLOPE_MIN_DEG)) is True
+    assert buy_state_ok(11.0, 10.0, 9.0, 12.0, *_ma5_pair(-31.0)) is False
+    assert ma20_stand_ok(11.0, 10.0, *flat) is True
+    assert ma20_stand_ok(11.0, 10.0, *_ma5_pair(-45.0)) is False
+    # 条件1：MA20/MA60 之下且低于 Q10；与条件2 为 OR，斜率不参与
+    assert buy_state_ok(8.0, 10.0, 9.0, 8.5, *_ma5_pair(-45.0)) is True
+    assert buy_state_ok(8.0, 10.0, 7.0, 7.5, *flat) is False   # 未深于 MA60
+    assert buy_state_ok(8.5, 10.0, 7.0, 8.0, *flat) is False   # 未低于 Q10
     # NaN → 不可买
-    assert buy_state_ok(float("nan"), 10.0, 9.0, 8.0) is False
-    assert buy_state_ok(11.0, float("nan"), 9.0, 8.0) is False
+    assert buy_state_ok(float("nan"), 10.0, 9.0, 8.0, *flat) is False
+    assert buy_state_ok(11.0, float("nan"), 9.0, 8.0, *flat) is False
+    assert buy_state_ok(11.0, 10.0, 9.0, 12.0, float("nan"), 10.0) is False
 
 
 def _make_filter(**kw):
@@ -66,11 +94,13 @@ def test_eligibility_unknown_age_passes():
 
 def test_eligibility_buy_state_filter():
     def fake_features(codes, start, end):
-        # 逐码全窗特征：close, MA20, MA60, Q10
+        # 逐码全窗特征：close, MA20, MA60, Q10, MA5, 昨日MA5
+        steep = _ma5_pair(-45.0)
         data = {
-            "SH600000": [11.0, 10.0, 9.0, 12.0],   # 站上 MA20 → 可买
-            "SH600001": [8.0, 10.0, 9.0, 8.5],     # 深坑+低盈筹率 → 可买
-            "SH600002": [8.5, 10.0, 7.0, 8.0],     # 中间态 → 不可买
+            "SH600000": _feat(11.0, 10.0, 9.0, 12.0),              # 站上 MA20 + 斜率 0 → 可买
+            "SH600001": _feat(8.0, 10.0, 9.0, 8.5, *steep),        # 深坑+低盈筹率（斜率再差也放行）
+            "SH600002": _feat(8.5, 10.0, 7.0, 8.0),                # 中间态 → 不可买
+            "SH600003": _feat(11.0, 10.0, 9.0, 12.0, *steep),      # 站上 MA20 但斜率过陡 → 不可买
         }
         dates = pd.DatetimeIndex(pd.to_datetime(["2026-03-02", "2026-03-03"]))
         rows, index = [], []
@@ -82,11 +112,12 @@ def test_eligibility_buy_state_filter():
                 index.append((d, c))
         return pd.DataFrame(rows, index=pd.MultiIndex.from_tuples(index, names=["datetime", "instrument"]))
 
+    codes = ["SH600000", "SH600001", "SH600002", "SH600003"]
     f = BuyEligibilityFilter(check_buy_state=True, features_fn=fake_features)
-    f.preload(["SH600000", "SH600001", "SH600002"], "2026-03-01", "2026-03-05")
-    out = f.eligible(["SH600000", "SH600001", "SH600002"], pd.Timestamp("2026-03-02"))
+    f.preload(codes, "2026-03-01", "2026-03-05")
+    out = f.eligible(codes, pd.Timestamp("2026-03-02"))
     assert out == ["SH600000", "SH600001"]
-    out2 = f.eligible(["SH600000", "SH600001", "SH600002"], pd.Timestamp("2026-03-03"))
+    out2 = f.eligible(codes, pd.Timestamp("2026-03-03"))
     assert out2 == ["SH600000", "SH600001"]
 
 
@@ -134,8 +165,8 @@ def test_eligibility_precise_winner_ratio_overrides_proxy():
 
     def fake_features(codes, start, end):
         data = {
-            "SH600001": [8.0, 10.0, 9.0, 8.5],   # 代理判深洗（close<q10）
-            "SH600002": [8.0, 10.0, 9.0, 8.0],   # 代理判深洗
+            "SH600001": _feat(8.0, 10.0, 9.0, 8.5),   # 代理判深洗（close<q10）
+            "SH600002": _feat(8.0, 10.0, 9.0, 8.0),   # 代理判深洗
         }
         dates = pd.DatetimeIndex(pd.to_datetime(["2026-03-02"]))
         rows, index = [], []
@@ -162,7 +193,7 @@ def test_deep_washout_ok():
 
     assert deep_washout_ok(8.0, 10.0, 9.0, 0.05) is True
     assert deep_washout_ok(8.0, 10.0, 9.0, 0.15) is False
-    assert deep_washout_ok(11.0, 10.0, 9.0, 0.05) is False  # 站上 MA20 不属于分支二
+    assert deep_washout_ok(11.0, 10.0, 9.0, 0.05) is False  # 站上 MA20 不走条件1
     assert deep_washout_ok(8.0, 10.0, 9.0, None) is False
 
 

@@ -4,7 +4,9 @@
 - ST 禁买：候选股命中静态黑名单（train_wiring.EXCLUDE_STOCKS_DEFAULT + 可选补充文件）→ 剔除；
   若提供 st_daily.parquet，则按交易日查 PIT 名单，静态名单仅作未覆盖/unknown_end 的 fallback
 - 上市年龄：数据起始日起算不足 age_days 个交易日 → 剔除（all.txt 的 per-stock start）
-- 买入状态：站上 MA20 可买；或价格在 MA20 与 MA60 之下且 盈筹率<10% 可买。
+- 买入状态（两条路径 OR，满足其一即可买）：
+  1) 价格同时在 MA20 与 MA60 之下，且盈筹率<10%；
+  2) 价格站上 MA20，且 5 日线斜率 ≥ -30°。
   盈筹率优先用外部 parquet（与 ST 的 --st-daily-file 同级，本仓 CYQ
   产物；不进 qlib bins——券商 winratio 若启用是独立的 bin 字段，与本文件无关）；
   经 winner_ratio_map 注入，对 QMT Spearman 0.92 / 召回 0.95。未命中回退：
@@ -17,6 +19,7 @@
 
 from __future__ import annotations
 
+import math
 from bisect import bisect_right
 from datetime import date
 from pathlib import Path
@@ -28,29 +31,83 @@ from qlib.data import D
 from custom_strategy import TopkDropoutStrategyWithFilter
 from harvest_st_from_wind import load_st_daily_index  # noqa: E402
 
-# 买入状态表达式（诊断/文档用；策略内经 D.features 批量取数后用 buy_state_ok 判定）
-BUY_STATE_EXPR = "(($close > Mean($close, 20)) | (($close < Mean($close, 20)) & ($close < Mean($close, 60)) & ($close < Quantile($close, 250, 0.10))))"
-BUY_STATE_FIELDS_CORE = ["$close", "Mean($close, 20)", "Mean($close, 60)"]
+# 通达信口径：ATAN((MA5/REF(MA5,1)-1)*100)*180/PI；「不低于 -30°」含等于。
+MA5_SLOPE_MIN_DEG = -30.0
+
+# 买入状态表达式（诊断/文档用；MA5 斜率在 Python 侧判定，qlib 无 Atan 算子）
+BUY_STATE_EXPR = (
+    "(($close > Mean($close, 20)) | "
+    "(($close < Mean($close, 20)) & ($close < Mean($close, 60)) & ($close < Quantile($close, 250, 0.10))))"
+)
 BUY_STATE_Q10 = "Quantile($close, 250, 0.10)"
-BUY_STATE_FIELDS = BUY_STATE_FIELDS_CORE + [BUY_STATE_Q10]
+# 有 winner_ratio 时跳过 Quantile（preload 主耗时）；MA5 仍取，供条件2。
+BUY_STATE_FIELDS_CORE = [
+    "$close",
+    "Mean($close, 20)",
+    "Mean($close, 60)",
+    "Mean($close, 5)",
+    "Ref(Mean($close, 5), 1)",
+]
+# 列序：close, MA20, MA60, Q10, MA5, 昨日 MA5（_filter_buy_state 按 iloc）
+BUY_STATE_FIELDS = [
+    "$close",
+    "Mean($close, 20)",
+    "Mean($close, 60)",
+    BUY_STATE_Q10,
+    "Mean($close, 5)",
+    "Ref(Mean($close, 5), 1)",
+]
 
 
-def buy_state_ok(close, ma20, ma60, q10) -> bool:
-    """单一买入状态判定（纯函数，供单测）。
-
-    站上 MA20 → 可买；否则需同时 深于 MA20、深于 MA60 且 close 低于过去 250 日
-    收盘价的 10% 分位（盈筹率<10% 的时间无权近似）。任一输入 NaN → 不可买。
-    """
-    if close is None or ma20 is None or ma60 is None or q10 is None:
-        return False
-    try:
-        if pd.isna(close) or pd.isna(ma20) or pd.isna(ma60) or pd.isna(q10):
-            return False
-    except TypeError:
-        return False
-    if close > ma20:
+def _is_missing(value) -> bool:
+    if value is None:
         return True
-    return bool(close < ma20 and close < ma60 and close < q10)
+    try:
+        return bool(pd.isna(value))
+    except TypeError:
+        return True
+
+
+def ma5_slope_deg(ma5, ma5_prev) -> float:
+    """5 日线斜率（度）：通达信 ATAN((MA5/REF(MA5,1)-1)*100)*180/PI。"""
+    if _is_missing(ma5) or _is_missing(ma5_prev):
+        return float("nan")
+    prev = float(ma5_prev)
+    if prev == 0.0:
+        return float("nan")
+    return math.degrees(math.atan((float(ma5) / prev - 1.0) * 100.0))
+
+
+def ma20_stand_ok(close, ma20, ma5, ma5_prev) -> bool:
+    """站上 MA20 且 5 日线斜率 >= -30°。任一输入 NaN → 不可买。"""
+    if _is_missing(close) or _is_missing(ma20):
+        return False
+    if not (close > ma20):
+        return False
+    slope = ma5_slope_deg(ma5, ma5_prev)
+    if pd.isna(slope):
+        return False
+    return bool(slope >= MA5_SLOPE_MIN_DEG)
+
+
+def buy_state_ok(close, ma20, ma60, q10, ma5, ma5_prev) -> bool:
+    """买入状态：条件1 或 条件2（纯函数，供单测）。
+
+    1) 同时深于 MA20、MA60，且 close 低于过去 250 日收盘 10% 分位（盈筹率<10% 近似）；
+    2) 站上 MA20，且 5 日线斜率 >= -30°。
+    对应分支所需输入任一 NaN → 该分支不成立。
+    """
+    cond1 = (
+        not _is_missing(close)
+        and not _is_missing(ma20)
+        and not _is_missing(ma60)
+        and not _is_missing(q10)
+        and close < ma20
+        and close < ma60
+        and close < q10
+    )
+    cond2 = ma20_stand_ok(close, ma20, ma5, ma5_prev)
+    return bool(cond1 or cond2)
 
 
 def deep_washout_ok(close, ma20, ma60, winner_ratio) -> bool:
@@ -66,7 +123,7 @@ def deep_washout_ok(close, ma20, ma60, winner_ratio) -> bool:
     except TypeError:
         return False
     if close > ma20:
-        return False  # 精确版只判分支二；分支一（站上 MA20）由调用方先行判定
+        return False  # 精确版只判条件1；条件2 由调用方 OR 进来
     return bool(close < ma20 and close < ma60 and winner_ratio < 0.10)
 
 
@@ -141,7 +198,7 @@ class BuyEligibilityFilter:
         self.features_fn = features_fn  # 可注入；缺省用 D.features
         # 精确盈筹率 {(CODE, date): ratio}（build_winner_ratio.py 产物）；命中替代 Quantile 代理
         self.winner_ratio_map = {k: v for k, v in (winner_ratio_map or {}).items()}
-        self._feature_cache: dict[str, pd.DataFrame] = {}  # code → date 索引的 4 列特征（preload 填充）
+        self._feature_cache: dict[str, pd.DataFrame] = {}  # code → date 索引的 6 列特征（preload 填充）
         self._st_by_date: dict[date, set[str]] | None = None
         self._st_dates: list[date] = []
         self.st_fallback: set[str] = set()
@@ -189,7 +246,7 @@ class BuyEligibilityFilter:
         df = D.features(codes, self._buy_state_fetch_fields(), start_time=start_time, end_time=end_time)
         if BUY_STATE_Q10 not in df.columns:
             df = df.copy()
-            df[BUY_STATE_Q10] = float("nan")
+            df.insert(3, BUY_STATE_Q10, float("nan"))
         return df
 
     def st_codes_of_date(self, trade_date) -> set[str]:
@@ -224,10 +281,11 @@ class BuyEligibilityFilter:
         return out
 
     def _filter_buy_state(self, stocks: list, trade_date: pd.Timestamp) -> list:
-        """按预取缓存查 T 日 close/MA20/MA60/Q10，buy_state_ok 过滤（纯查表，O(候选数)）。
+        """按预取缓存查 T 日特征，条件1 或 条件2 可买（纯查表，O(候选数)）。
 
-        精确盈筹率（winner_ratio_map）命中时，深洗分支改用 CYQ winner_ratio<0.10 判定，
-        Quantile 代理仅作未命中回退。
+        条件2：站上 MA20 且 5 日线斜率 >= -30°。
+        条件1：同时在 MA20/MA60 之下且盈筹率<10%；精确盈筹率命中用 CYQ，
+        未命中回退 Quantile 代理。
         """
         td = pd.Timestamp(trade_date)
         td_date = td.date()
@@ -237,16 +295,15 @@ class BuyEligibilityFilter:
             if frame is None or td not in frame.index:
                 continue  # 无特征（停牌/未知）→ 不买
             row = frame.loc[td]
-            if row.iloc[0] > row.iloc[1]:
-                keep.append(code)  # 分支一：站上 MA20，精确无近似
-                continue
+            close, ma20, ma60, q10 = row.iloc[0], row.iloc[1], row.iloc[2], row.iloc[3]
+            ma5, ma5_prev = (row.iloc[4], row.iloc[5]) if len(row) > 5 else (float("nan"), float("nan"))
+            cond2 = ma20_stand_ok(close, ma20, ma5, ma5_prev)
             wr = self.winner_ratio_map.get((str(code).upper(), td_date))
             if wr is not None:
-                if deep_washout_ok(row.iloc[0], row.iloc[1], row.iloc[2], wr):
+                if cond2 or deep_washout_ok(close, ma20, ma60, wr):
                     keep.append(code)
-                continue
-            if buy_state_ok(row.iloc[0], row.iloc[1], row.iloc[2], row.iloc[3]):
-                keep.append(code)  # 回退：Quantile 代理
+            elif buy_state_ok(close, ma20, ma60, q10, ma5, ma5_prev):
+                keep.append(code)
         return keep
 
 

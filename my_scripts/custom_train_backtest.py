@@ -381,7 +381,7 @@ if __name__ == '__main__':
             },
         },
         "strategy": {  # 交易策略配置
-            # --buy-state-filter：策略级买入状态过滤（站上MA20 可买；MA20/60 之下且 盈筹率<10% 可买），
+            # --buy-state-filter：策略级买入状态过滤（MA20/60 之下且 盈筹率<10% 可买；站上MA20 且 5日线斜率>=-30° 可买），
             # 复用 TopkDropoutStrategyWithFilter 的过滤+后排回补流程（开关④）。
             # ST/年龄在训练侧由 --tradable-universe 从宇宙层解决（更彻底）。
             "class": "TopkDropoutStrategyWithBuyEligibility" if cli_args.buy_state_filter else "TopkDropoutStrategy",

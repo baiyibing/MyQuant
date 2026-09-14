@@ -235,7 +235,7 @@ def parse_cli(argv=None):
         help="关掉执行端涨跌停拒单（limit_threshold=None）：涨停可买、跌停可卖。默认 0.095 拒单。",
     )
     parser.add_argument("--buy-state-filter", action="store_true",
-                        help="买入状态过滤：站上MA20可买，或 MA20/MA60 之下且盈筹率<10%%（Quantile250 近似）可买")
+                        help="买入状态过滤：MA20/MA60 之下且盈筹率<10%%可买，或站上MA20且5日线斜率>=-30°可买")
     parser.add_argument("--st-filter", action="store_true",
                         help="ST 禁买：静态黑名单；若给 --st-daily-file 则按日 PIT，静态仅 fallback")
     parser.add_argument("--age-filter", action="store_true",
