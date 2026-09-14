@@ -161,28 +161,33 @@ QMT 真值来源 `F:/stock_data/vendor_qmt_winner_chips.parquet`（9 个日期�
 升级路径三（CYQ 本地化）当晚落地：`my_scripts/build_winner_ratio.py` 复用 backtrader 仓
 SSOT 递推（numba 内核，与 Rust turnover-resist 同族），数据全取自 qlib bins：
 
-- 原始价空间：$adjclose 为不复权真价；**high/low/open/vwap 实测均为后复权**（浦发
-  20260908 high=88.16 vs adjclose=9.28），逐日 factor=$adjclose/$close 拉回
-- 真实成交股数 = $amount/$adjclose（bins 的 $volume 含后复权因子漂移，浦发 8.6x/
-  平安 166x/宁德 1.8x，不可直接用）；换手率 = 股数/$netcsfree（自由流通股本）
-- 全市场 5569/5583 只 × 166 测试日 = 912,350 行，**53 秒**（对照：Rust 逐日截面
-  10m40s/天 ≈ 29.5 小时；纯 Python 回落 21 分钟）
-- 产物：`F:/stock_data/cyq_winner_ratio_daily_2026.parquet`，已接入买入状态过滤
-  （--winner-ratio-file，命中精确值、缺失回退 Quantile 代理）
+- 价格用后复权 `$close/$high/$low`（窗内与前复权只差全局尺度，winner_ratio 不变）。
+  不要用 `$adjclose` 不复权价——除权后旧筹码会错位。`$volume` 含后复权漂移，
+  真实成交股数 = `$amount/$adjclose`
+- 换手默认自由流通：`$amount/($adjclose*$netcsfree)`（贴 QMT）。`--shares circ`
+  改 `$basiccurhold*10000`（万股→股，贴 Rust `cyqk_T`）
+- 后复权跨度过大（茅台/恒瑞/老窖等）自动放宽网格步长，避免丢票
+- 全市场 5569/5583 只 × 166 测试日 = 912,350 行，**101 秒**
+- 产物：`F:/stock_data/cyq_winner_ratio_daily_2026.parquet`（外部 parquet，与 ST
+  `st_daily` 同级；**不进 bins**）。已接入 `--winner-ratio-file`，命中精确值、
+  缺失回退 Quantile 代理
+- 校准脚本：`my_scripts/calibrate_winner_ratio_cyq.py`
 
 **vs QMT 真值校准（31,684 配对）**：
 
 | 指标 | Quantile 代理 | **CYQ 精确版** |
 |---|---|---|
-| Spearman | 0.652 | **0.919** |
-| MAE | 0.303 | **0.067** |
-| 阈值 <10% 召回率 | 0.420 | **0.952** |
-| 阈值 <10% 精确率 | 0.873 | 0.784 |
-| 一致率 | 0.689 | **0.850** |
+| Spearman | 0.652 | **0.921** |
+| MAE | 0.303 | **0.066** |
+| 阈值 <10% 召回率 | 0.420 | **0.950** |
+| 阈值 <10% 精确率 | 0.873 | 0.789 |
+| 一致率 | 0.689 | **0.852** |
 
-召回率 0.42→0.95 = 近似版的核心缺陷已修复；精确率略降（CYQ 比 QMT 略激进，剩余差异
-来自自由流通 vs QMT 筹码口径与脏值残留）。与 Rust 交叉验证：同日两只锚点股 winner
-差异 0.06~0.09（换手分母口径不同：自由流通 vs 流通），量级方向一致。
+召回率 0.42→0.95 = 近似版的核心缺陷已修复；精确率略降（CYQ 比 QMT 略激进）。
+Rust 锚点（20260908，流通股本 `cyqk_T`）：昊海生科 0.0690 / 华兰生物 0.2608。
+本产物默认自由流通，同日为 0.1293 / 0.3482（残差 0.06~0.09，口径差）。
+`--shares circ` 冒烟：0.0661 / 0.2401，贴 SSOT Python；剩余 rust 差来自
+F 湖前复权量与 bins 后复权量、静态 FloatVolume vs 逐日 `basiccurhold`。
 
 ## 八、下一步候选（未排期，仅记录）
 

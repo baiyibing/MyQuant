@@ -248,7 +248,7 @@ def parse_cli(argv=None):
         "--winner-ratio-file",
         default=None,
         help=(
-            "build_winner_ratio.py 产物 parquet：精确 CYQ 盈筹率（对 QMT 真值 Spearman 0.92）。"
+            "本仓 CYQ 外部 parquet（与 --st-daily-file 同级，不进 bins）。"
             "命中替代 Quantile 代理做深洗判定，缺失回退代理。"
         ),
     )

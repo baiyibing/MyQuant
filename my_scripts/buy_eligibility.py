@@ -5,8 +5,9 @@
   若提供 st_daily.parquet，则按交易日查 PIT 名单，静态名单仅作未覆盖/unknown_end 的 fallback
 - 上市年龄：数据起始日起算不足 age_days 个交易日 → 剔除（all.txt 的 per-stock start）
 - 买入状态：站上 MA20 可买；或价格在 MA20 与 MA60 之下且 盈筹率<10% 可买。
-  盈筹率优先用精确 CYQ 值（build_winner_ratio.py 产物经 winner_ratio_map 注入，
-  对 QMT 真值 Spearman 0.92/召回率 0.95）；未命中时回退时间无权近似：
+  盈筹率优先用外部 parquet（与 ST 的 --st-daily-file 同级，本仓 CYQ
+  产物；不进 qlib bins——券商 winratio 若启用是独立的 bin 字段，与本文件无关）；
+  经 winner_ratio_map 注入，对 QMT Spearman 0.92 / 召回 0.95。未命中回退：
   $close < Quantile($close, 250, 0.10)（与 COST-KDJ 的 Quantile 口径一致）
 - 回补：由 TopkDropoutStrategyWithFilter 既有的「过滤后从后排得分回补」流程承担，
   本模块通过覆写其 _filter_stocks_by_return_threshold 钩子前置资格过滤，不复制其逻辑。
@@ -68,7 +69,11 @@ def deep_washout_ok(close, ma20, ma60, winner_ratio) -> bool:
 
 
 def load_winner_ratio_map(parquet_path: str | Path) -> dict:
-    """build_winner_ratio.py 产物 parquet → {(code_upper, date): winner_ratio}。"""
+    """本仓 CYQ 外部 parquet → {(code_upper, date): winner_ratio}。
+
+    与 ST 的 st_daily.parquet 同级：湖上文件、按日查表。列：stock_code / date /
+    winner_ratio。不读 bins；券商 winratio 不走这条加载器。
+    """
     p = Path(parquet_path)
     if not p.is_file():
         return {}

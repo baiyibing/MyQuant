@@ -167,14 +167,14 @@ EXCLUDE_STOCKS_DEFAULT；PIT 精确层由 ③ 的 `--st-daily-file` 在策略级
 
 ```bash
 python build_winner_ratio.py --test 2026-01-01:2026-09-08 --workers 8
-# 期望输出: DONE stocks≈5569/5583 rows≈912350 elapsed≈60s
+# 期望输出: DONE stocks≈5569/5583 rows≈912350 elapsed≈100s
 #           → F:/stock_data/cyq_winner_ratio_daily_2026.parquet
 ```
 
-数据全取自 my_data bins（adjclose 原始价 / amount÷adjclose 真实成交股数 / netcsfree
-自由流通股本；high/low 经逐日 factor=$adjclose/$close 拉回原始价空间——high/low/open/
-vwap 均为后复权，volume 含复权漂移，均不可直接用）。对 QMT 真值 Spearman 0.92、
-召回率 0.95（对照代理 0.65/0.42）。依赖 numba（vanna312 环境已装）。
+数据全取自 my_data bins：后复权 `$close/$high/$low`；真实成交股数 `$amount/$adjclose`；
+换手分母默认 `$netcsfree`（自由流通，`--shares circ` 改流通股本）。产物是外部 parquet
+（`--winner-ratio-file`，与 `--st-daily-file` 同级），**不进 qlib bins**。对 QMT 真值
+Spearman 0.92、召回率 0.95（对照代理 0.65/0.42）。依赖 numba（vanna312 环境已装）。
 
 ### ③ 四开关全开重回测（topk10 与 topk50 各一轮）
 
