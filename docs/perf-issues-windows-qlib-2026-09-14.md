@@ -13,7 +13,7 @@
 |---|---|---|---|
 | P1 | Windows 下 qlib `kernels>1` 每次小数据查询固定 ~29s 进程池开销 | 过滤策略回测 100s/bar（一轮 4.6h） | **已修复**（三脚本默认 kernels=1 / `QLIB_KERNELS`） |
 | P2 | 表达式缓存首填 = ~95 万个小文件写盘，比不缓存还慢 4× | 冷缓存首跑 Loading 1262s vs 无缓存 405s | 已量化，未修（复跑场景仍净赚，见 P3） |
-| P3 | 缓存键含 filter_pipe 配置：闸门/宇宙一变即全部 miss | 窗C（闸门全开+缓存）Loading 3115s，比无缓存慢 7.7× | **开放问题**，见 §建议 N1 |
+| P3 | 缓存键含 filter_pipe 配置：闸门/宇宙一变即全部 miss | 窗C（闸门全开+缓存）Loading 3115s，比无缓存慢 7.7× | **缓解**：勿用小文件缓存换闸门；改 `--handler-cache`（N1） |
 | P4 | SimpleDatasetCache 单文件键 + Windows 小文件读：16 worker 争抢 | 旧机窗C 因此中止（"expr 缓存装配路径过慢"） | 同 P3，属同一病灶 |
 | P5 | `ProcessInf` 内部 `n_jobs=-1` 拉满全部核 | 与 qlib kernels 叠加造成过订阅 | 已知，须带 `LOKY_MAX_CPU_COUNT=8`（runbook §5.5） |
 | P6 | 疑点：CYQ 合并后 topk50 关过滤明细净值 -406 万 ≠ 重回测 +0.65% | 正确性（非纯性能），明细级分析被冻结 | **待查**，见 §建议 N6 |
@@ -116,25 +116,26 @@ kernels 的进程池叠加；旧机已实踩并写入 runbook §5.5：务必带 
 | 9d9a1ab / 87a3fea | 同上两笔在 ST 分支的原始提交（分支已清，内容经 #39 进 master） |
 | 修复效果 | 过滤重回测 100s/bar → 3.6s/bar；§5.6 四轮全部跑完（topk10 -46.5%→-24.0%，topk50 +0.6%→+9.1%） |
 
-磁盘占用 `features_cache` 7.5 GB 在 `my_data` 目录内（数据刷新原子换名
-时自动失效，属设计内；`qlib_simple_cache` 需手工清）。
+2026-09-14 晚跟进（N1/N2/N3）：
+- **N2 已落地**：`custom_train_backtest.py` 默认 `QLIB_KERNELS=1`（与重回测/导出一致）。
+- **N3 已写入** runbook §4：Windows 上 `--expr-cache --dataset-cache` 仅同配置复跑。
+- **N1 已落地（改机制）**：不用 `handler.fetch()` 落 parquet（长窗 fetch 会再拷 ~5 GiB，
+  已 MemoryError）。改用 qlib `to_pickle(dump_all=True)` 单文件
+  （`~/.cache/qlib_handler_cache`，`--handler-cache`）。`dump_all` 必须开，否则 `_infer`/`_learn`
+  被丢掉。键含窗 / 闸门 / 特征开关 / 日历指纹。磁盘 `features_cache` 7.5 GB 仍随 my_data
+  换名失效；`qlib_simple_cache` 仍须手工清。
 
 过滤路径二次优化（2026-09-14 晚，本轮，未入库）：见 §八。
 
 ## 五、下一步建议（给跟进 agent，按优先级）
 
-- **N1（收益最大）给 handler 数据装载做项目级单文件缓存**：绕开 qlib 的表达式/数据集
-  双层小文件缓存——按 `config_hash`（manifest 已有）把 `handler.fetch()` 的全量特征
-  frame 落成单个 parquet/pickle（8~12 GB 顺序 IO，Windows 友好），二次运行直接
-  `pd.read_parquet`。验收：窗C 同配置二次运行 Loading < 60s；跨闸门配置互不污染
-  （键含 config_hash 天然隔离）。注意 train/eval 双窗与 fit_start/fit_end 归一化参数
-  必须进键。
-- **N2 统一 kernels 修复到训练脚本**：**已做**（`QLIB_KERNELS` 默认 1）。顺带在
-  qlib-dev 源码里定位 P1 的具体开销点（嫌疑：`DatasetProvider` 每调用重建进程池），
-  可考虑给 qlib-dev 打本地补丁或上游 issue。
-- **N3 决定缓存旗标的默认策略**：在 N1 落地前，Windows 上建议 `--expr-cache
-  --dataset-cache` 只在「确认要同配置复跑」时使用；否则裸读更快（405s vs 1262s/3115s）。
-  可把该结论写进 runbook §2/§4。
+- **N1（已做）项目级单文件 handler 缓存**：`--handler-cache` → `to_pickle(dump_all=True)`，
+  键 = `config_hash(窗+闸门+特征+日历)`。不要再走 fetch→parquet。验收仍是同配置二次
+  handler_init ≪ 首次裸读（目标 < 60s 读盘，视 8~12 GiB pickle 与盘速）。
+- **N2（已做）训练脚本 kernels 默认 1**：`QLIB_KERNELS` 可覆盖。qlib-dev 进程池根因
+  仍可另开上游 issue（嫌疑：`DatasetProvider` 每调用重建进程池）。
+- **N3（已做）缓存旗标纪律**：Windows 上 `--expr-cache --dataset-cache` 只在同配置复跑
+  时用；换闸门/单次实验用裸读或 `--handler-cache`。见 runbook §4。
 - **N4 小文件缓存的清理纪律自动化**：`refresh_mydata.py` 换目录后提示/自动清
   `~/.cache/qlib_simple_cache`（expr cache 随 my_data 换名自动失效，无需处理）。
 - **N5 ProcessInf 的 n_jobs 显式化**：processor 配置里显式 `n_jobs=8` 或读

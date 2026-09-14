@@ -250,17 +250,28 @@ def parse_train_cli(argv=None):
         "--dataset-cache",
         action="store_true",
         help=(
-            "启用 qlib SimpleDatasetCache（本地文件，默认 ~/.cache/qlib_simple_cache）。"
-            "同配置二次运行跳过数据加载大头；数据目录刷新后须清空缓存目录。"
+            "启用 qlib SimpleDatasetCache（~/.cache/qlib_simple_cache）。"
+            "Windows 上只在「确认同配置复跑」时开；闸门/宇宙一变即 miss，"
+            "16 worker 读几十万小文件会比裸读更慢（见 runbook / perf N3）。"
+            "优先用 --handler-cache。"
         ),
     )
     parser.add_argument(
         "--expr-cache",
         action="store_true",
         help=(
-            "启用 qlib DiskExpressionCache（本机 Redis 做锁，缓存文件写在"
-            " <provider_uri>/features_cache）。按 股票×表达式 粒度复用，跨窗口/跨股票池"
-            "生效；数据目录原子换名时缓存随之失效。Redis 不可用时 qlib 自动降级关闭。"
+            "启用 qlib DiskExpressionCache（<provider_uri>/features_cache，约 95 万小文件）。"
+            "冷填在 NTFS 上比裸读慢；只在同配置复跑时划算。优先 --handler-cache。"
+            "Redis 不可用时 qlib 自动降级关闭。"
+        ),
+    )
+    parser.add_argument(
+        "--handler-cache",
+        action="store_true",
+        help=(
+            "项目级单文件 handler 缓存（to_pickle dump_all，默认 ~/.cache/qlib_handler_cache；"
+            "OSKH_HANDLER_CACHE_DIR 可改）。键含窗/闸门/特征开关/日历指纹。"
+            "同配置二次运行跳过 handler_init；换配置或刷新 my_data 自动 miss。"
         ),
     )
     parser.add_argument(
