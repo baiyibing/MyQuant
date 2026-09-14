@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pprint import pprint                                           # 导入美观打印模块，用于格式化输出数据结构
 
 from qlib.contrib.strategy import TopkDropoutStrategy               # 导入基础策略类
@@ -18,13 +20,97 @@ from loguru import logger   # 导入日志库
 
 from custom_utils import get_global_timer_recorder
 
+
+def closes_by_instrument(price_df: pd.DataFrame) -> pd.Series:
+    """D.features 单日 $close → instrument 索引的 Series。
+
+    qlib 返回 MultiIndex (instrument, datetime)。旧实现直接对两日 MultiIndex 求
+    intersection，日期不同则交集为空，涨幅过滤变成空转（全员 -inf 放行），
+    却仍付两次 D.features。对齐到 instrument 后才是文档语义。
+    """
+    if price_df is None or price_df.empty:
+        return pd.Series(dtype=float)
+    col = "$close" if "$close" in price_df.columns else price_df.columns[0]
+    series = price_df[col]
+    if isinstance(series.index, pd.MultiIndex):
+        names = list(series.index.names)
+        if "instrument" in names:
+            drop = [n for n in names if n != "instrument"]
+            if drop:
+                series = series.droplevel(drop)
+        else:
+            series = series.droplevel(-1)
+    if series.index.has_duplicates:
+        series = series.groupby(level=0).last()
+    return series
+
+
+def select_by_return_threshold(stocks, start_closes, end_closes, threshold, required_count):
+    """按 (end-start)/start <= threshold 过滤，保持原序，凑够 required_count 提前停。"""
+    if start_closes is None or end_closes is None or start_closes.empty or end_closes.empty:
+        return list(stocks)
+    common = start_closes.index.intersection(end_closes.index)
+    start_s = start_closes.reindex(common)
+    end_s = end_closes.reindex(common)
+    returns = (end_s - start_s) / start_s
+    returns = returns.replace([float("inf"), float("-inf")], float("-inf"))
+    ret_map = returns.to_dict()
+    out = []
+    for stock in stocks:
+        if ret_map.get(stock, float("-inf")) <= threshold:
+            out.append(stock)
+            if required_count and len(out) >= required_count:
+                break
+    return out
+
+
+def wide_close_from_features(close_df: pd.DataFrame) -> pd.DataFrame:
+    """MultiIndex (instrument, datetime) $close → 行=日期、列=股票 的宽表。"""
+    if close_df is None or close_df.empty:
+        return pd.DataFrame()
+    col = "$close" if "$close" in close_df.columns else close_df.columns[0]
+    series = close_df[col]
+    if isinstance(series.index, pd.MultiIndex) and "instrument" in series.index.names:
+        wide = series.unstack("instrument")
+    else:
+        wide = series.unstack() if isinstance(series.index, pd.MultiIndex) else close_df
+    if not isinstance(wide, pd.DataFrame):
+        return pd.DataFrame()
+    wide = wide.copy()
+    wide.index = pd.DatetimeIndex(pd.to_datetime(wide.index)).normalize()
+    return wide
+
+
+def closes_on_date(close_wide: pd.DataFrame, dt) -> pd.Series | None:
+    if close_wide is None or close_wide.empty:
+        return None
+    ts = pd.Timestamp(dt).normalize()
+    if ts in close_wide.index:
+        return close_wide.loc[ts]
+    hits = close_wide.index[close_wide.index.normalize() == ts]
+    if len(hits) == 0:
+        return None
+    return close_wide.loc[hits[0]]
+
+
+def build_close_cache(codes, start_time, end_time, lookback_days: int = 5) -> pd.DataFrame:
+    """整窗一次取 $close（含 lookback 热身），供涨幅过滤查表，避免每根 bar 两次 D.features。"""
+    codes = list(dict.fromkeys(str(c) for c in codes))
+    warm = get_date_by_shift(start_time, -(lookback_days + 1), future=True, align="right")
+    print(f"[strategy] preload $close: {len(codes)} codes {warm}..{end_time}", flush=True)
+    df = D.features(codes, ["$close"], start_time=warm, end_time=end_time)
+    print(f"[strategy] preload $close done: rows={len(df)}", flush=True)
+    return df
+
+
 class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
-    def __init__(self, *args, timing_interval_steps: int = 10, **kwargs):
+    def __init__(self, *args, timing_interval_steps: int = 10, close_cache=None, **kwargs):
         super().__init__(*args, **kwargs)   # 调用父类构造函数
         self.max_return_threshold = 0.15    # 设置最大收益阈值（15%），超过此阈值的股票将被过滤
         self.lookback_days = 5              # 设置回溯天数（5天），用于计算历史收益
         self.logger = get_module_logger("TopkDropoutStrategyWithFilter")    # 获取模块专用的日志记录器
         self.timing_interval_steps = int(timing_interval_steps) if timing_interval_steps else 10
+        self._close_wide = wide_close_from_features(close_cache) if close_cache is not None else None
 
 
     def _filter_stocks_by_return_threshold_old(self, stocks, trade_start_time,initial_required_count):
@@ -137,88 +223,54 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         # 2. 检查股票列表是否为空
         if stocks is None or len(stocks) == 0:
             return stocks
-        else:
-            pass
-            # 记录警告日志，显示当前检查的股票列表
-            logger.warning(f"本次 {trade_start_time} 检查的股票列表 {stocks}")
 
-        # 3. 获取有效起始日期
-        prev_dates_first = get_date_by_shift(trade_start_time, -1 ,future=False)
+        logger.debug("return-threshold check {} n={}", trade_start_time, len(stocks))
+
+        # 3. 获取有效起始日期（T-1）与回溯起点（T-(lookback+1)）
+        prev_dates_first = get_date_by_shift(trade_start_time, -1, future=False)
         if prev_dates_first is None:
-            # 记录警告，但不中断执行
             logger.warning(f"prev_dates_first无效交易日 for ：{trade_start_time} - 1 days ago")
             return stocks
-        else:
-            logger.warning(f"prev_dates_first有效交易日 for ：{trade_start_time} - 1 days ago")
 
-        # 4. 获取有效结束日期
-        prev_dates_last = get_date_by_shift(trade_start_time, -(self.lookback_days+1) ,future=False)
+        prev_dates_last = get_date_by_shift(trade_start_time, -(self.lookback_days + 1), future=False)
         if prev_dates_last is None:
-            # 记录警告，但不中断执行
             logger.warning(f"prev_dates_last无效交易日 for {trade_start_time} - {(self.lookback_days+1)} days ago")
             return stocks
-        else:
-            logger.warning(f"prev_dates_last有效交易日 for {trade_start_time} - {(self.lookback_days+1)} days ago")
 
+        # 5. 优先查预取宽表；未预取时才回退两次 D.features（Windows 上每根 bar ~3.6s）
+        start_series = end_series = None
+        if self._close_wide is not None:
+            start_series = closes_on_date(self._close_wide, prev_dates_last)
+            end_series = closes_on_date(self._close_wide, prev_dates_first)
+        if start_series is None or end_series is None:
+            try:
+                start_price = D.features(
+                    instruments=stocks,
+                    fields=["$close"],
+                    start_time=prev_dates_last,
+                    end_time=prev_dates_last,
+                )
+                end_price = D.features(
+                    instruments=stocks,
+                    fields=["$close"],
+                    start_time=prev_dates_first,
+                    end_time=prev_dates_first,
+                )
+            except Exception as e:
+                logger.error(f"Data fetch failed: {str(e)}")
+                return stocks
+            if start_price.empty or end_price.empty:
+                logger.warning("Empty price data for start/end dates")
+                return stocks
+            start_series = closes_by_instrument(start_price)
+            end_series = closes_by_instrument(end_price)
 
-        # 5. 直接获取首尾两天收盘价（仅查询2天数据！）
-        try:
-            # 获取起始日收盘价（只查1天）
-            start_price = D.features(
-                instruments=stocks,
-                fields=["$close"],
-                start_time=prev_dates_last,
-                end_time=prev_dates_last,  # 精确到单日
-            )
-
-            # 获取结束日收盘价（只查1天）
-            end_price = D.features(
-                instruments=stocks,
-                fields=["$close"],
-                start_time=prev_dates_first,
-                end_time=prev_dates_first,  # 精确到单日
-            )
-        except Exception as e:
-            logger.error(f"Data fetch failed: {str(e)}")
-            return stocks
-
-        # 6. 处理空数据情况
-        if start_price.empty or end_price.empty:
-            logger.warning("Empty price data for start/end dates")
-            return stocks
-
-        # 7. 直接计算涨幅（避免数据重置和合并）
-        # 将start_price和end_price转换为Series，使用股票代码作为索引
-        start_series = start_price['$close']
-        end_series = end_price['$close']
-
-        # 仅保留同时存在于start_series和end_series中的股票
-        common_stocks = start_series.index.intersection(end_series.index)
-        start_series = start_series.loc[common_stocks]
-        end_series = end_series.loc[common_stocks]
-
-        # 计算涨幅
-        returns = (end_series - start_series) / start_series
-
-        # 处理无穷大和NaN值
-        returns = returns.replace([float('inf'), float('-inf')], float('-inf'))
-
-        # 创建股票涨幅映射
-        return_dict = returns.to_dict()
-
-        # 8. 过滤股票（使用循环，允许提前终止）
-        filtered_stocks = []
-        for stock in stocks:
-            return_val = return_dict.get(stock, float('-inf'))
-            if return_val <= self.max_return_threshold:
-                filtered_stocks.append(stock)
-                if len(filtered_stocks) >= initial_required_count:
-                    break
-
-        # 9. 记录过滤结果
+        filtered_stocks = select_by_return_threshold(
+            stocks, start_series, end_series, self.max_return_threshold, initial_required_count
+        )
         logger.info(
-            f"Filtered {len(stocks)} stocks to {len(filtered_stocks)} using threshold {self.max_return_threshold:.2%}")
-
+            f"Filtered {len(stocks)} stocks to {len(filtered_stocks)} using threshold {self.max_return_threshold:.2%}"
+        )
         return filtered_stocks
 
     # 方法 generate_trade_decision Qlib 策略基类 BaseStrategy中定义的抽象方法，所有自定义策略都必须实现它。它在回测的每个时间步（由执行器频率决定，默认为每天）都会被回测引擎调用，是策略逻辑的核心入口

@@ -30,7 +30,9 @@ from harvest_st_from_wind import load_st_daily_index  # noqa: E402
 
 # 买入状态表达式（诊断/文档用；策略内经 D.features 批量取数后用 buy_state_ok 判定）
 BUY_STATE_EXPR = "(($close > Mean($close, 20)) | (($close < Mean($close, 20)) & ($close < Mean($close, 60)) & ($close < Quantile($close, 250, 0.10))))"
-BUY_STATE_FIELDS = ["$close", "Mean($close, 20)", "Mean($close, 60)", "Quantile($close, 250, 0.10)"]
+BUY_STATE_FIELDS_CORE = ["$close", "Mean($close, 20)", "Mean($close, 60)"]
+BUY_STATE_Q10 = "Quantile($close, 250, 0.10)"
+BUY_STATE_FIELDS = BUY_STATE_FIELDS_CORE + [BUY_STATE_Q10]
 
 
 def buy_state_ok(close, ma20, ma60, q10) -> bool:
@@ -178,9 +180,17 @@ class BuyEligibilityFilter:
             self._feature_cache[str(code)] = sub.droplevel("instrument")
         print(f"[buy_eligibility] preload done: {len(self._feature_cache)} codes cached", flush=True)
 
-    @staticmethod
-    def _bulk_fetch(codes, start_time, end_time) -> pd.DataFrame:
-        return D.features(codes, BUY_STATE_FIELDS, start_time=start_time, end_time=end_time)
+    def _buy_state_fetch_fields(self) -> list[str]:
+        # 精确盈筹率已覆盖时跳过 Quantile($close,250)：该表达式是 preload 3~5min 的主因，
+        # 命中 winner_ratio 后 Q10 只作未覆盖回退；缺列时补 NaN，回退路径判不可买。
+        return list(BUY_STATE_FIELDS_CORE if self.winner_ratio_map else BUY_STATE_FIELDS)
+
+    def _bulk_fetch(self, codes, start_time, end_time) -> pd.DataFrame:
+        df = D.features(codes, self._buy_state_fetch_fields(), start_time=start_time, end_time=end_time)
+        if BUY_STATE_Q10 not in df.columns:
+            df = df.copy()
+            df[BUY_STATE_Q10] = float("nan")
+        return df
 
     def st_codes_of_date(self, trade_date) -> set[str]:
         """T 日禁买 ST 集合（QLib 形）。有 daily 则 as-of 最近交易日 + fallback，否则退回静态名单。"""

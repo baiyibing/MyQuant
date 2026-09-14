@@ -37,6 +37,7 @@ from buy_eligibility import (
     load_winner_ratio_map,
 )
 from custom_ops import SMA
+from custom_strategy import build_close_cache
 from train_wiring import EXCLUDE_STOCKS_DEFAULT, parse_segment
 
 # 三档成本（open_cost=买入费率，close_cost=卖出费率含印花）。
@@ -147,9 +148,10 @@ def build_strategy_config(args) -> dict:
         f"{f'(精确盈筹率 {len(wr_map)} 条)' if wr_map else ''}",
         flush=True,
     )
+    codes = args.pred_score.index.get_level_values("instrument").unique()
     if args.buy_state_filter:
-        codes = args.pred_score.index.get_level_values("instrument").unique()
         eligibility.preload(codes, test_start, test_end)
+    close_cache = build_close_cache(codes, test_start, test_end)
     return {
         "class": "TopkDropoutStrategyWithBuyEligibility",
         "module_path": "buy_eligibility",
@@ -159,6 +161,7 @@ def build_strategy_config(args) -> dict:
             "n_drop": args.n_drop,
             "hold_thresh": args.hold_thresh,
             "eligibility": eligibility,
+            "close_cache": close_cache,
         },
     }
 
