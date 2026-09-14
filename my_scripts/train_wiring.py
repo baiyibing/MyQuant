@@ -275,8 +275,8 @@ def parse_train_cli(argv=None):
         "--buy-state-filter",
         action="store_true",
         help=(
-            "策略级买入状态过滤（开关①）：站上 MA20 可买，或 MA20/MA60 之下且"
-            " 盈筹率<10%（Quantile($close,250,0.10) 近似）可买；过滤后从后排得分回补（开关④）。"
+            "策略级买入状态过滤（开关①）：MA20/MA60 之下且 盈筹率<10% 可买，"
+            "或站上 MA20 且 5 日线斜率>=-30° 可买；过滤后从后排得分回补（开关④）。"
         ),
     )
     return parser.parse_args(argv)
