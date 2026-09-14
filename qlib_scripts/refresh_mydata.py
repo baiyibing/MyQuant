@@ -2,12 +2,15 @@
 """my_data 全量刷新编排器（M1）：merge → dump_all(8) → patch_index。
 
 把 2026-09-13 手工串起来的三件套固化成一条命令。现有脚本接口不变，本脚本只
-用子进程调用它们。硬约束见 docs/plan-midterm-m1m4m2m3-2026-09-13.md §0：
+用子进程调用它们。硬约束见 docs/plan-midterm-m1m4m2m3-2026-09-13.md §0 与
+my_docs/提示词-qlib-bin刷新.md（2026-09-14 实踩补丁）：
 
 - dump_all 必须 --max_workers 8（禁止 16）
 - 禁止 dump_update
 - 指数不得留在 instruments/all.txt（由 patch_index_data 第 4 步挪走）
 - ~/.qlib 数据只准经本编排器改动；换目录前自动备份 my_data_backup_YYYYMMDD_pre_*
+- 半成品 dump 目录必须先删再重灌（--wipe-new-qlib-dir）
+- CSV 里 Windows NaN（-1.#J / -1.#IND）在 merge/dump 收成 NaN；OHLC 出现则中止
 
 用法::
 
@@ -44,6 +47,8 @@ DEFAULT_MAX_WORKERS = 8  # 硬约束：禁止 16
 DEFAULT_EXPECTED_DELIST_MAX = 50
 DEFAULT_OFFSITE_DIRS = ("F:/", "G:/")
 WIN_7Z = Path(r"C:\Program Files\7-Zip\7z.exe")
+MIN_DUMP_FREE_GB = 3.0
+MIN_STAGING_FREE_GB = 2.0
 
 # 指数代码形态：SH000xxx / SZ399xxx（训练宇宙绝不能混入）
 INDEX_CODE_RE = re.compile(r"^(SH000|SZ399)", re.IGNORECASE)
@@ -79,6 +84,11 @@ class RefreshConfig:
     python: Path = field(default_factory=lambda: Path(sys.executable))
     sample_symbols: tuple[str, ...] = ()
     today: date = field(default_factory=date.today)
+    allow_beyond_lake: bool = False
+    wipe_new_qlib_dir: bool = False
+    skip_csv_scan: bool = False
+    min_dump_free_gb: float = MIN_DUMP_FREE_GB
+    min_staging_free_gb: float = MIN_STAGING_FREE_GB
 
     def resolve_paths(self) -> None:
         """补齐 staging / new_qlib 默认路径（相对 qlib_dir 父目录）。"""
@@ -254,6 +264,7 @@ def format_dry_run(cfg: RefreshConfig, steps: Sequence[StepPlan]) -> str:
         f"lake_index_root: {cfg.lake_index_root} (calendar gate symbol={cfg.lake_symbol})",
         f"max_workers: {DEFAULT_MAX_WORKERS} (dump_update: FORBIDDEN)",
         f"force: {cfg.force}",
+        f"allow_beyond_lake: {cfg.allow_beyond_lake}",
         f"archive: {cfg.archive}",
         f"offsite: {cfg.offsite} dirs={[str(p) for p in cfg.offsite_dirs]}",
         f"universe_estimate: csv={uni['csv_symbols']} old_all={uni['old_universe']} "
@@ -269,8 +280,13 @@ def format_dry_run(cfg: RefreshConfig, steps: Sequence[StepPlan]) -> str:
         f"day_future: rebuild calendars/day_future.txt = day.txt + {DEFAULT_DAY_FUTURE_EXTRA} weekdays "
         "(回测交易日历 future=True 依赖；陈旧文件会导致回测末日越界)"
     )
+    lines.append(
+        "preflight: CSV illegal-float scan; refuse dump into non-empty new_qlib_dir "
+        "unless --wipe-new-qlib-dir; disk free on staging/dump drives"
+    )
     lines.append("integrity gates: calendar / sample values / no-index-in-all / universe diff (fail → no swap)")
     lines.append("atomic swap: backup my_data_backup_YYYYMMDD_pre_* then mv; rollback on error")
+    lines.append("post-swap smoke: calendar last / index.txt / winratio bin count")
     if cfg.archive:
         lines.append(f"archive (M1-C): my_data_{cfg.today.strftime('%Y%m%d')}_full.7z")
     if cfg.offsite:
@@ -288,6 +304,110 @@ def run_step(step: StepPlan, *, runner: Callable[..., subprocess.CompletedProces
     if code != 0:
         raise RefreshError(f"{step.name} 失败，exit={code}")
 
+
+def disk_free_gb(path: Path, *, usage_fn=shutil.disk_usage) -> float:
+    """path 所在盘剩余 GB。目录不存在则沿父路径找已存在的祖先。"""
+    probe = Path(path)
+    while not probe.exists() and probe != probe.parent:
+        probe = probe.parent
+    if not probe.exists():
+        raise RefreshError(f"无法探测磁盘空间: {path}")
+    return usage_fn(probe).free / 1e9
+
+
+def assert_disk_space(cfg: RefreshConfig, *, usage_fn=shutil.disk_usage) -> None:
+    """C 盘空间不够时拒绝 dump；staging 请放到 F: 等大盘。"""
+    if not cfg.skip_merge:
+        free = disk_free_gb(cfg.staging_dir, usage_fn=usage_fn)
+        if free < cfg.min_staging_free_gb:
+            raise RefreshError(
+                f"staging 盘剩余 {free:.1f} GB < {cfg.min_staging_free_gb} GB："
+                f"{cfg.staging_dir}。把 --staging-dir 放到 F: 等空间更大的盘"
+            )
+        print(f"[pre] staging 盘剩余 {free:.1f} GB")
+    if not cfg.skip_dump:
+        free = disk_free_gb(cfg.new_qlib_dir, usage_fn=usage_fn)
+        if free < cfg.min_dump_free_gb:
+            raise RefreshError(
+                f"dump 目标盘剩余 {free:.1f} GB < {cfg.min_dump_free_gb} GB："
+                f"{cfg.new_qlib_dir}。旧 features_cache 可达 6GB，不要和半成品挤在同一小盘"
+            )
+        print(f"[pre] dump 盘剩余 {free:.1f} GB")
+
+
+def dump_target_is_dirty(qlib_dir: Path) -> bool:
+    qlib_dir = Path(qlib_dir)
+    if not qlib_dir.exists():
+        return False
+    if (qlib_dir / "calendars" / "day.txt").is_file():
+        return True
+    feat = qlib_dir / "features"
+    if feat.is_dir() and any(feat.iterdir()):
+        return True
+    return False
+
+
+def ensure_dump_target_clean(cfg: RefreshConfig, *, remover=shutil.rmtree) -> None:
+    """半成品 dump 目录必须先删再 dump_all，禁止往未完成目录上续写。"""
+    if cfg.skip_dump:
+        return
+    target = Path(cfg.new_qlib_dir)
+    if not dump_target_is_dirty(target):
+        return
+    if not cfg.wipe_new_qlib_dir:
+        raise RefreshError(
+            f"dump 目标已存在且非空: {target}。半成品必须先删干净再 dump_all，"
+            "加 --wipe-new-qlib-dir 才会删除后重灌（禁止往半成品上继续 dump）"
+        )
+    print(f"[pre] wipe dump 目标 {target}")
+    remover(target)
+
+
+def run_csv_scan_preflight(cfg: RefreshConfig) -> dict | None:
+    if cfg.skip_merge or cfg.skip_csv_scan:
+        return None
+    from csv_float_scan import format_scan_report, scan_csv_dir
+
+    report = scan_csv_dir(cfg.csv_dir)
+    print(format_scan_report(report))
+    if report["fatal"]:
+        files = sorted({h["file"] for h in report["fatal"]})
+        raise RefreshError(
+            "CSV 的 OHLC/volume/factor 含 Windows 非法浮点，拒绝入库: " + ", ".join(files[:10])
+        )
+    return report
+
+
+def run_preflight(cfg: RefreshConfig, *, usage_fn=shutil.disk_usage, remover=shutil.rmtree) -> None:
+    run_csv_scan_preflight(cfg)
+    assert_disk_space(cfg, usage_fn=usage_fn)
+    ensure_dump_target_clean(cfg, remover=remover)
+
+
+def print_refresh_summary(qlib_dir: Path) -> None:
+    """swap 后冒烟：日历末日、day_future、index.txt、winratio bin 数。"""
+    qlib_dir = Path(qlib_dir)
+    calendar = read_calendar(qlib_dir)
+    print(
+        f"[smoke] calendar {calendar[0].date()} .. {calendar[-1].date()} n={len(calendar)}"
+    )
+    fut = qlib_dir / "calendars" / "day_future.txt"
+    if fut.is_file():
+        fut_cal = pd.to_datetime(
+            [ln for ln in fut.read_text(encoding="utf-8").splitlines() if ln.strip()]
+        )
+        print(f"[smoke] day_future .. {fut_cal[-1].date()} n={len(fut_cal)}")
+        if len(fut_cal) == 0 or fut_cal[-1] <= calendar[-1]:
+            print("[smoke] WARN day_future 未长过 day.txt，回测末日会越界")
+    else:
+        print("[smoke] WARN 缺少 day_future.txt（回测 future=True 会在数据末日越界）")
+    index_path = qlib_dir / "instruments" / "index.txt"
+    if index_path.is_file():
+        for ln in index_path.read_text(encoding="utf-8").splitlines():
+            if ln.strip():
+                print(f"[smoke] index {ln}")
+    wr = list((qlib_dir / "features").glob("*/winratio.day.bin"))
+    print(f"[smoke] winratio bins={len(wr)}")
 
 
 # ---------------------------------------------------------------------------
@@ -381,24 +501,43 @@ def gate_calendar_vs_lake(
     lake_symbol: str = DEFAULT_LAKE_SYMBOL,
     *,
     lake_days: pd.DatetimeIndex | None = None,
+    allow_beyond_lake: bool = False,
 ) -> dict:
-    """门禁 1：新日历 ⊆ 湖交易日，且湖在日历范围内 0 缺失。"""
+    """门禁 1：新日历 ⊆ 湖交易日（湖范围内 0 缺失）。
+
+    allow_beyond_lake：允许日历末日晚于湖（CSV 尾巴已更新、湖指数分区尚未跟上）。
+    湖 max 及以前的空洞仍失败。
+    """
     calendar = read_calendar(qlib_dir)
     lake = lake_days if lake_days is not None else load_lake_trading_days(lake_index_root, lake_symbol)
     lake_set = set(lake)
     cal_set = set(calendar)
-    # 日历内每一天都必须在湖里
     missing_in_lake = sorted(cal_set - lake_set)
+    lake_max = lake.max() if len(lake) else None
+    historical = [d for d in missing_in_lake if lake_max is None or d <= lake_max]
+    beyond = [d for d in missing_in_lake if lake_max is not None and d > lake_max]
     report = {
         "calendar_days": len(calendar),
         "lake_days_in_range": len([d for d in lake if calendar.min() <= d <= calendar.max()]),
         "missing_in_lake": [str(d.date()) for d in missing_in_lake],
         "missing_count": len(missing_in_lake),
+        "beyond_lake": [str(d.date()) for d in beyond],
     }
-    if missing_in_lake:
+    if historical:
         raise RefreshError(
-            f"门禁1失败：日历相对湖 {lake_symbol} 缺 {len(missing_in_lake)} 日 "
-            f"(例: {report['missing_in_lake'][:5]})"
+            f"门禁1失败：日历相对湖 {lake_symbol} 缺 {len(historical)} 日 "
+            f"(例: {[str(d.date()) for d in historical[:5]]})"
+        )
+    if beyond and not allow_beyond_lake:
+        raise RefreshError(
+            f"门禁1失败：日历比湖 {lake_symbol} 多 {len(beyond)} 日 "
+            f"(例: {report['beyond_lake'][:5]}；湖末日 {lake_max.date() if lake_max is not None else 'n/a'}。"
+            f"CSV 尾巴新于湖时加 --allow-beyond-lake)"
+        )
+    if beyond:
+        print(
+            f"[gate1] 日历超出湖 {len(beyond)} 日（已 --allow-beyond-lake）: {report['beyond_lake'][:5]}",
+            flush=True,
         )
     return report
 
@@ -437,21 +576,29 @@ def read_source_close(csv_dir: Path, symbol: str, day: pd.Timestamp) -> float | 
 
 
 def pick_sample_symbols(qlib_dir: Path, n: int = 3, explicit: Sequence[str] = ()) -> list[str]:
+    """抽覆盖日历首末日的非指数标的。all.txt 按代码排序时前几只常是北交所，首日无 bin。"""
     if explicit:
         return [s.upper() for s in explicit][:n]
+    calendar = read_calendar(qlib_dir)
+    first, last = calendar[0], calendar[-1]
     all_txt = Path(qlib_dir) / "instruments" / "all.txt"
     syms = []
     for ln in all_txt.read_text(encoding="utf-8").splitlines():
         if not ln.strip():
             continue
-        sym = ln.split("\t", 1)[0].strip().upper()
+        parts = [p.strip() for p in ln.split("\t")]
+        sym = parts[0].upper()
         if INDEX_CODE_RE.match(sym):
             continue
+        if len(parts) >= 3:
+            start, end = pd.Timestamp(parts[1]), pd.Timestamp(parts[2])
+            if start > first or end < last:
+                continue
         syms.append(sym)
         if len(syms) >= n:
             break
     if len(syms) < n:
-        raise RefreshError(f"all.txt 非指数标的不足 {n} 只，无法抽样")
+        raise RefreshError(f"all.txt 覆盖日历首末日的非指数标的不足 {n} 只，无法抽样")
     return syms
 
 
@@ -556,7 +703,11 @@ def run_integrity_gates(
     reports = {}
     print("[gate1] 日历 vs 湖 …")
     reports["calendar"] = gate_calendar_vs_lake(
-        cfg.new_qlib_dir, cfg.lake_index_root, cfg.lake_symbol, lake_days=lake_days
+        cfg.new_qlib_dir,
+        cfg.lake_index_root,
+        cfg.lake_symbol,
+        lake_days=lake_days,
+        allow_beyond_lake=cfg.allow_beyond_lake,
     )
     print(f"[gate1] ok missing={reports['calendar']['missing_count']}")
     print("[gate2] 抽样双端值 …")
@@ -747,6 +898,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--expected-delist-max", type=int, default=DEFAULT_EXPECTED_DELIST_MAX)
     p.add_argument("--force", action="store_true", help="退市数超预期时强制过门禁 4")
+    p.add_argument(
+        "--allow-beyond-lake",
+        action="store_true",
+        help="允许日历末日晚于湖指数分区（CSV 尾巴已更新、湖尚未跟上）；湖范围内缺日仍失败",
+    )
     p.add_argument("--dry-run", action="store_true", help="只打印计划，不执行")
     p.add_argument("--skip-merge", action="store_true")
     p.add_argument("--skip-dump", action="store_true")
@@ -766,8 +922,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--sample-symbol",
         action="append",
         default=None,
-        help="门禁 2 抽样标的（可重复）；默认从 all.txt 取前 3 只非指数",
+        help="门禁 2 抽样标的（可重复）；默认从 all.txt 取覆盖日历首末日的前 3 只非指数",
     )
+    p.add_argument(
+        "--wipe-new-qlib-dir",
+        action="store_true",
+        help="dump 前删除已存在的 new_qlib_dir（半成品必须先删再 dump_all）",
+    )
+    p.add_argument(
+        "--skip-csv-scan",
+        action="store_true",
+        help="跳过入库前 CSV 非法浮点扫描（-1.#J / -1.#IND）",
+    )
+    p.add_argument("--min-dump-free-gb", type=float, default=MIN_DUMP_FREE_GB)
+    p.add_argument("--min-staging-free-gb", type=float, default=MIN_STAGING_FREE_GB)
     return p
 
 
@@ -787,6 +955,7 @@ def config_from_args(args: argparse.Namespace, *, today: date | None = None) -> 
         max_workers=args.max_workers,
         expected_delist_max=args.expected_delist_max,
         force=bool(args.force),
+        allow_beyond_lake=bool(args.allow_beyond_lake),
         dry_run=bool(args.dry_run),
         skip_merge=bool(args.skip_merge),
         skip_dump=bool(args.skip_dump),
@@ -799,6 +968,10 @@ def config_from_args(args: argparse.Namespace, *, today: date | None = None) -> 
         python=Path(args.python),
         sample_symbols=samples,
         today=today or date.today(),
+        wipe_new_qlib_dir=bool(args.wipe_new_qlib_dir),
+        skip_csv_scan=bool(args.skip_csv_scan),
+        min_dump_free_gb=float(args.min_dump_free_gb),
+        min_staging_free_gb=float(args.min_staging_free_gb),
     )
     cfg.resolve_paths()
     return cfg
@@ -819,6 +992,8 @@ def main(argv: list[str] | None = None) -> int:
             "源路径不存在，拒绝执行（可用 --dry-run 看计划；门禁单测不依赖真湖）: "
             + ", ".join(missing)
         )
+
+    run_preflight(cfg)
 
     for step in steps:
         if any("dump_update" in part for part in step.argv):
@@ -855,6 +1030,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
         offsite_copy_and_verify(archive_path, cfg.offsite_dirs)
 
+    print_refresh_summary(live_dir)
     print("refresh_mydata 完成。")
     return 0
 

@@ -1,5 +1,7 @@
 # qlib 数据最终状态（2026-09-13 全量重建）
 
+> **已过时。** 当前线上状态见 `docs/qlib-data-state-2026-09-14.md`（日历至 2026-09-14，含 `$winratio`）。刷新流程与教训见 `my_docs/提示词-qlib-bin刷新.md`。
+
 - 日期：2026-09-13 凌晨（继 09-12 指数补丁、数据刷新之后的最终版）
 - 数据目录：`C:\Users\Thinkpad\.qlib\qlib_data\my_data`
 - 归档备份：`~/.qlib/qlib_data/my_data_20260913_full.7z`（7-Zip，含本目录全部内容，212,924,772 字节 / 204 MiB）
@@ -30,7 +32,7 @@
 
 ## 标准刷新流程（= orchestrator）
 
-**唯一入口**：`qlib_scripts/refresh_mydata.py`。不要再手工串三件套；`~/.qlib` 数据只准经该编排器改动。
+**唯一入口**：`qlib_scripts/refresh_mydata.py`。不要再手工串三件套；`~/.qlib` 数据只准经该编排器改动。Agent 操作说明：`my_docs/提示词-qlib-bin刷新.md`。
 
 ```bash
 # 先看计划（本机无 F: 湖 / 无 ~/.qlib 时也安全）

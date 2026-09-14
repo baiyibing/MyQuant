@@ -132,6 +132,108 @@ def test_config_from_args_resolves_defaults():
     assert cfg.staging_dir.name.startswith("my_data_staging_20260913")
     assert cfg.new_qlib_dir.name.startswith("my_data_new_20260913")
     assert cfg.max_workers == 8
+    assert cfg.wipe_new_qlib_dir is False
+
+
+def test_dry_run_mentions_wipe_and_csv_scan(tmp_path):
+    csv_dir = tmp_path / "csv"
+    csv_dir.mkdir()
+    qlib = tmp_path / "my_data"
+    (qlib / "instruments").mkdir(parents=True)
+    (qlib / "instruments" / "all.txt").write_text("SH600000\t2020-01-02\t2026-09-08\n", encoding="utf-8")
+    cfg = _cfg(csv_dir=csv_dir, qlib_dir=qlib, staging_dir=tmp_path / "stg", new_qlib_dir=tmp_path / "new")
+    text = format_dry_run(cfg, build_plan(cfg))
+    assert "--wipe-new-qlib-dir" in text
+    assert "illegal-float" in text
+
+
+from refresh_mydata import (  # noqa: E402
+    RefreshError,
+    assert_disk_space,
+    dump_target_is_dirty,
+    ensure_dump_target_clean,
+    print_refresh_summary,
+    run_csv_scan_preflight,
+)
+
+
+def test_ensure_dump_target_refuses_dirty_without_wipe(tmp_path):
+    new = tmp_path / "new"
+    (new / "calendars").mkdir(parents=True)
+    (new / "calendars" / "day.txt").write_text("2020-01-02\n", encoding="utf-8")
+    cfg = _cfg(new_qlib_dir=new)
+    assert dump_target_is_dirty(new)
+    with pytest.raises(RefreshError, match="半成品"):
+        ensure_dump_target_clean(cfg)
+
+
+def test_ensure_dump_target_wipes_when_flagged(tmp_path):
+    new = tmp_path / "new"
+    (new / "calendars").mkdir(parents=True)
+    (new / "calendars" / "day.txt").write_text("2020-01-02\n", encoding="utf-8")
+    cfg = _cfg(new_qlib_dir=new, wipe_new_qlib_dir=True)
+    ensure_dump_target_clean(cfg)
+    assert not new.exists()
+
+
+def test_assert_disk_space_refuses_small_dump_drive(tmp_path):
+    cfg = _cfg(
+        skip_merge=True,
+        skip_dump=False,
+        new_qlib_dir=tmp_path / "new",
+        min_dump_free_gb=10.0,
+    )
+    cfg.resolve_paths()
+    tmp_path.mkdir(parents=True, exist_ok=True)
+
+    class FakeUsage:
+        free = int(1e9)  # 1 GB
+
+    with pytest.raises(RefreshError, match="dump 目标盘"):
+        assert_disk_space(cfg, usage_fn=lambda _p: FakeUsage)
+
+
+def test_csv_scan_preflight_rejects_ohlc_junk(tmp_path):
+    csv_dir = tmp_path / "csv"
+    csv_dir.mkdir()
+    (csv_dir / "SH600000.csv").write_text("date,close\n2020-01-02,-1.#J\n", encoding="utf-8")
+    cfg = _cfg(csv_dir=csv_dir, skip_csv_scan=False)
+    with pytest.raises(RefreshError, match="OHLC"):
+        run_csv_scan_preflight(cfg)
+
+
+def test_csv_scan_preflight_warns_only_on_winratio(tmp_path, capsys):
+    csv_dir = tmp_path / "csv"
+    csv_dir.mkdir()
+    (csv_dir / "SH600157.csv").write_text(
+        "date,close,winratio\n2020-01-02,10.0,-1.#J\n", encoding="utf-8"
+    )
+    cfg = _cfg(csv_dir=csv_dir)
+    report = run_csv_scan_preflight(cfg)
+    assert report["fatal"] == []
+    assert len(report["warn"]) == 1
+    assert "WARN" in capsys.readouterr().out
+
+
+def test_print_refresh_summary(tmp_path, capsys):
+    qlib = tmp_path / "new"
+    (qlib / "calendars").mkdir(parents=True)
+    (qlib / "calendars" / "day.txt").write_text("2020-01-02\n2026-09-14\n", encoding="utf-8")
+    (qlib / "calendars" / "day_future.txt").write_text(
+        "2020-01-02\n2026-09-14\n2026-09-15\n", encoding="utf-8"
+    )
+    (qlib / "instruments").mkdir(parents=True)
+    (qlib / "instruments" / "index.txt").write_text(
+        "SH000001\t2020-01-02\t2026-09-14\n", encoding="utf-8"
+    )
+    wr = qlib / "features" / "sh600000"
+    wr.mkdir(parents=True)
+    (wr / "winratio.day.bin").write_bytes(b"\x00" * 8)
+    print_refresh_summary(qlib)
+    out = capsys.readouterr().out
+    assert "2026-09-14" in out
+    assert "day_future .. 2026-09-15" in out
+    assert "winratio bins=1" in out
 
 
 # ----- M1-B：门禁 + 原子 swap -----
@@ -143,6 +245,7 @@ from refresh_mydata import (  # noqa: E402
     gate_no_indices_in_all,
     gate_sample_values,
     gate_universe_diff,
+    pick_sample_symbols,
     run_integrity_gates,
 )
 
@@ -184,14 +287,31 @@ def test_gate_calendar_vs_lake_ok(tmp_path):
     assert report["missing_count"] == 0
 
 
-def test_gate_calendar_vs_lake_missing_aborts(tmp_path):
+def test_gate_calendar_vs_lake_beyond_requires_flag(tmp_path):
     import pandas as pd
 
     qlib = tmp_path / "new"
-    _write_calendar(qlib, ["2026-03-02", "2026-03-03", "2026-03-04"])
-    lake_days = pd.DatetimeIndex(pd.to_datetime(["2026-03-02", "2026-03-04"]))  # 缺 03-03
-    with pytest.raises(RefreshError, match="门禁1"):
+    _write_calendar(qlib, ["2026-09-10", "2026-09-11", "2026-09-14"])
+    lake_days = pd.DatetimeIndex(pd.to_datetime(["2026-09-10", "2026-09-11"]))
+    with pytest.raises(RefreshError, match="比湖"):
         gate_calendar_vs_lake(qlib, tmp_path / "lake", lake_days=lake_days)
+    report = gate_calendar_vs_lake(
+        qlib, tmp_path / "lake", lake_days=lake_days, allow_beyond_lake=True
+    )
+    assert report["beyond_lake"] == ["2026-09-14"]
+    assert report["missing_count"] == 1
+
+
+def test_gate_calendar_vs_lake_historical_hole_not_saved_by_beyond_flag(tmp_path):
+    import pandas as pd
+
+    qlib = tmp_path / "new"
+    _write_calendar(qlib, ["2026-09-10", "2026-09-11", "2026-09-14"])
+    lake_days = pd.DatetimeIndex(pd.to_datetime(["2026-09-10", "2026-09-14"]))  # 缺 09-11
+    with pytest.raises(RefreshError, match="缺"):
+        gate_calendar_vs_lake(
+            qlib, tmp_path / "lake", lake_days=lake_days, allow_beyond_lake=True
+        )
 
 
 def test_gate_no_indices_detects_leak(tmp_path):
@@ -213,6 +333,21 @@ def test_gate_universe_diff_requires_force(tmp_path):
     report = gate_universe_diff(old, new, expected_delist_max=2, force=True)
     assert report["removed_count"] == 3
     assert report["added_count"] == 0
+
+
+def test_pick_sample_skips_late_listed(tmp_path):
+    qlib = tmp_path / "new"
+    _write_calendar(qlib, ["2020-01-02", "2026-09-14"])
+    inst = qlib / "instruments"
+    inst.mkdir(parents=True, exist_ok=True)
+    (inst / "all.txt").write_text(
+        "BJ920000\t2020-11-16\t2026-09-14\n"
+        "SH600000\t2020-01-02\t2026-09-14\n"
+        "SZ000001\t2020-01-02\t2026-09-14\n"
+        "SH600519\t2020-01-02\t2026-09-14\n",
+        encoding="utf-8",
+    )
+    assert pick_sample_symbols(qlib, 3) == ["SH600000", "SZ000001", "SH600519"]
 
 
 def test_gate_sample_values_mismatch(tmp_path):
