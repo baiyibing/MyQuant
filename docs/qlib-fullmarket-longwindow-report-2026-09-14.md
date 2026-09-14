@@ -57,16 +57,16 @@
 2. ST 风险股为静态黑名单（`exclude_stocks` 硬编码），非 PIT；涨停过滤 `$zhangting` 为字段级 T 日过滤，历史涨停可成交近似由 `limit_threshold=0.095` 拒单承担，与真实盘口的差异未建模（一字板无法拒绝买入的情形可能低估成本、高估可达性）。
 3. 成本为线性费率近似（现实档 ≈ 佣金+印花+滑点），未建模冲击成本；对 topk10（单票 ~1000 万/笔）微盘股，真实冲击可能更高——即现实亏损可能比 -52.8% 更深。
 4. 训练窗 2020-2024 含 2024 极端行情；验证窗 2025 只用于早停/规范化拟合（RobustZScoreNorm），未做超参搜索——本实验为**固定管线基线测量**，不是最优配置搜索。
-5. 单次训练单次回测，无随机种子重复；LGBM `num_threads=20` 与 qlib `kernels=16` 在 Windows 下的非确定性未消除。
+5. 单次训练单次回测，无随机种子重复；LGBM `num_threads=20` 与当时 qlib `kernels=16` 在 Windows 下的非确定性未消除（2026-09-14 晚训练脚本已改默认 `kernels=1`）。
 
 ## 六、复现
 
 ```bash
-# Phase 1（训练+回测，~11 分钟，缓存热）
+# Phase 1（训练+回测；同配置复跑加 --handler-cache，不要默认开 expr/dataset 小文件缓存）
 cd my_scripts && MLFLOW_DISABLE_AGENT_HINT=1 LOKY_MAX_CPU_COUNT=8 \
 python custom_train_backtest.py \
     --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 --test 2026-01-01:2026-09-08 \
-    --expr-cache --dataset-cache
+    --handler-cache
 
 # Phase 2（三档成本+等权，~7 分钟）
 python rebacktest_cost_tiers.py \

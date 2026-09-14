@@ -88,8 +88,11 @@ MLFLOW_DISABLE_AGENT_HINT=1 python custom_train_backtest.py \
 - 日志里程碑：`before handler_init(filtered)`（大头，看机器约 0.5~3 小时）→
   `after handler_init` → `before model_fit`（分钟级）→ `SignalRecord` → `PortAnaRecord` →
   `=== Train manifest saved: ... ===`。
-- 高配机调优（只影响速度不影响结论）：`qlib.init(kernels=16)` 与 LGBM `num_threads=20`
-  可按核数上调；内存峰值估 8~12 GB（handler 一次性持有全量特征 frame）。
+- **Windows 缓存纪律（2026-09-14，perf N3）**：`--expr-cache --dataset-cache` **只在确认同配置复跑时开**。
+  闸门/宇宙/窗一变，dataset 键 miss，16 worker 读几十万小文件会比裸读更慢（窗 C Loading 52 分钟 vs 裸读 405s）。
+  换配置或只跑一次：裸跑，或开 `--handler-cache`（单文件 pickle，键含日历指纹）。
+- 并行：训练脚本默认 `kernels=1`（`QLIB_KERNELS` 可覆盖）。Windows 上 `kernels=16` 曾把 Loading 拖到 52 分钟。
+  LGBM `num_threads=20` 可按核数调；内存峰值估 8~12 GB（handler 一次性持有全量特征 frame）。
 - 产物（都在 `my_scripts/` 下）：
   `manifests/train_<UTC>.json`（含 **recorder_id**，Phase 2 要用）、`预测结果.csv`、
   `timing_custom_train_backtest_alpha158_cost_kdj_lgb.json`、`mlruns/` 里对应 recorder。
@@ -121,7 +124,7 @@ export MLFLOW_DISABLE_AGENT_HINT=1 LOKY_MAX_CPU_COUNT=8
 # ① 2025 变体重训（train/valid 与 §4 相同，test=2025；模型等价重建，manifest 自动落盘）
 python custom_train_backtest.py \
     --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 --test 2025-01-01:2025-12-31 \
-    --expr-cache --dataset-cache > train_valid2025.log 2>&1
+    --handler-cache > train_valid2025.log 2>&1
 
 # ② 同 pred 两轮重回测（--recorder-id 缺省取最新 recorder，即 ① 产出的；建议核对 manifest）
 python rebacktest_cost_tiers.py --test 2025-01-01:2025-12-31 --topk 10 --n-drop 3 > rebacktest_C_2025_topk10.log 2>&1
@@ -229,8 +232,8 @@ python rebacktest_cost_tiers.py \
 >
 > 新机 perf 注：Windows 下 qlib `kernels>1` 每次小数据查询固定 ~29s 进程池开销
 > （D.features 50 股单日 29s → kernels=1 时 0.09s）；资格过滤策略每日小查询，
-> 已把 rebacktest_cost_tiers 的 kernels 默认改为 1（QLIB_KERNELS 可覆盖），
-> 过滤轮回测从 ~100s/bar 降到 ~3.6s/bar。
+> 已把 rebacktest_cost_tiers **与** custom_train_backtest 的 kernels 默认改为 1（QLIB_KERNELS 可覆盖），
+> 过滤轮回测从 ~100s/bar 降到 ~3.6s/bar。训练 Loading 用 `--handler-cache` 复跑，勿默认开 expr/dataset 小文件缓存。
 
 ## 6. 注意事项
 
@@ -240,7 +243,8 @@ python rebacktest_cost_tiers.py \
 - **判读纪律**：结论以 IC/RankIC/ICIR 为主（manifest 契约），NAV 是本次实验点名要的收益观察项；
   无论结果如何不改线上 topk 默认值。
 - Linux 新机：§4/§5 命令一致；`dump_update 禁用`、`max_workers=8` 等 Windows dump 陷阱本次用不上（不 dump）。
-- 首次 handler_init 无表达式缓存（缓存按机器本地存），第二次跑同窗会显著加速。
+- 首次 handler_init 无缓存时按裸读（Windows 默认 kernels=1，约数分钟～十几分钟）。
+  同配置复跑优先 `--handler-cache`（`~/.cache/qlib_handler_cache`），不要靠 95 万个 expr 小文件。
 
 ## 7. 相关文件
 

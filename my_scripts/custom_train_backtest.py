@@ -29,6 +29,12 @@ from qlib.data import D  # 导入数据模块
 from custom_handler import Alpha158CostKDJ
 from custom_filter import UnifiedLimitUpFilter
 from buy_eligibility import BuyEligibilityFilter, TopkDropoutStrategyWithBuyEligibility  # noqa: F401 (类经 module_path 字符串实例化)
+from handler_frame_cache import (
+    attach_calendar_fingerprint,
+    load_or_build_handler,
+    make_handler_cache_payload,
+    resolve_qlib_kernels,
+)
 from train_wiring import (
     DEFAULT_LIMIT_THRESHOLD,
     EXCLUDE_STOCKS_DEFAULT,
@@ -114,12 +120,23 @@ if __name__ == '__main__':
         # Redis 不可用时 qlib config 守卫自动摘除该缓存（只警告不报错）。
         _init_extra["expression_cache"] = {"class": "DiskExpressionCache"}
 
+    # Windows：kernels>1 时每次 D.features 固定 ~29s 进程池开销；窗C 实证 16 核
+    # Loading 3115s vs 单进程裸读 405s。QLIB_KERNELS 可覆盖（Linux 高配可设 8/16）。
+    _kernels = resolve_qlib_kernels()
+    print(f"[qlib] kernels={_kernels} (QLIB_KERNELS, default 1)", flush=True)
+    if cli_args.expr_cache or cli_args.dataset_cache:
+        print(
+            "[qlib] --expr-cache/--dataset-cache：Windows 上仅同配置复跑划算；"
+            "换闸门/换窗会 miss 且可能比裸读更慢。优先 --handler-cache。",
+            flush=True,
+        )
+
     qlib.init(
         # 数据存储路径
         provider_uri = "~/.qlib/qlib_data/my_data",  # target_dir
         # 中国市场
         region=REG_CN,
-        kernels=16,
+        kernels=_kernels,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。
         redis_host='127.0.0.1',
         redis_port=6379,
@@ -254,9 +271,31 @@ if __name__ == '__main__':
         "drop_raw": True,
     }
 
+    _hc_payload = attach_calendar_fingerprint(
+        make_handler_cache_payload(
+            start_time=start_time,
+            end_time=end_time,
+            fit_start_time=fit_start_time,
+            fit_end_time=fit_end_time,
+            segments=_segments,
+            include_alpha158=bool(data_handler_config.get("include_alpha158")),
+            include_cost_kdj=bool(data_handler_config.get("include_cost_kdj")),
+            include_signal=bool(data_handler_config.get("include_signal")),
+            include_lz=bool(data_handler_config.get("include_lz")),
+            drop_raw=bool(data_handler_config.get("drop_raw")),
+            exclude_filter_on=exclude_filter_on,
+            limit_up_filter_on=limit_up_filter_on,
+            tradable_universe_on=bool(cli_args.tradable_universe),
+        )
+    )
+
     print("[debug] before handler_init(filtered)", flush=True)
     with t_rec.timer("handler_init"):
-        handler = Alpha158CostKDJ(**data_handler_config)
+        handler, _hc_hit, _hc_digest = load_or_build_handler(
+            payload=_hc_payload,
+            builder=lambda: Alpha158CostKDJ(**data_handler_config),
+            enabled=bool(cli_args.handler_cache),
+        )
     print("[debug] after handler_init(filtered)", flush=True)
     # Default path: single production handler only (no handler_no_limit_filter).
     # Contrast verify is gated by --verify-filters / QLIB_VERIFY_FILTERS (slice C).
@@ -838,6 +877,8 @@ if __name__ == '__main__':
                 "limit_threshold_on": limit_threshold_on,
                 "dataset_cache": bool(cli_args.dataset_cache),
                 "expr_cache": bool(cli_args.expr_cache),
+                "handler_cache": bool(cli_args.handler_cache),
+                "qlib_kernels": _kernels,
                 # 买入资格开关（默认全关）
                 "tradable_universe_on": bool(cli_args.tradable_universe),
                 "buy_state_filter_on": bool(cli_args.buy_state_filter),
