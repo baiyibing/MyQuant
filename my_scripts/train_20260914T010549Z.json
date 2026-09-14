@@ -1,0 +1,108 @@
+{
+  "schema": "myquant.run-manifest/1",
+  "stage": "train",
+  "git_commit": "69f616887aa00b387ee76701d110fc0eff09c0d3",
+  "created_utc": "2026-09-14T01:05:49Z",
+  "config": {
+    "exp_name": "alpha158_cost_kdj_lgb",
+    "segments": {
+      "train": [
+        "2020-01-01",
+        "2024-12-31"
+      ],
+      "valid": [
+        "2025-01-01",
+        "2025-12-31"
+      ],
+      "test": [
+        "2026-01-01",
+        "2026-09-08"
+      ]
+    },
+    "topk": 10,
+    "n_drop": 3,
+    "hold_thresh": 1,
+    "benchmark": "SH000300",
+    "start_time": "2020-01-01",
+    "end_time": "2026-09-08",
+    "include_lz": true,
+    "recorder_id": "4410e4a3a4714f4f9e261120449232d1",
+    "exclude_filter_on": true,
+    "limit_up_filter_on": true,
+    "limit_threshold_on": true,
+    "dataset_cache": true,
+    "expr_cache": true,
+    "config_hash": "bb65e583f5726b40bd243bb5612b5029812382bb2f86120cdf46180a8517abd8"
+  },
+  "data": {
+    "calendar_first": "2020-01-02",
+    "calendar_last": "2026-09-08",
+    "calendar_days": 1621
+  },
+  "artifacts": [
+    {
+      "path": "预测结果.csv",
+      "md5": "a8def790914ee7d90b849575cc019ee8",
+      "rows": 870074
+    }
+  ],
+  "timings": {
+    "total_seconds": 971.0071685999865,
+    "nodes": [
+      {
+        "name": "handler.get_feature_config.super",
+        "seconds": 0.0001396999869029969
+      },
+      {
+        "name": "handler.get_feature_config.kdj_expr",
+        "seconds": 3.9000005926936865e-06
+      },
+      {
+        "name": "handler_init",
+        "seconds": 305.9102729000151
+      },
+      {
+        "name": "handler.get_feature_config.super",
+        "seconds": 0.0007594999915454537
+      },
+      {
+        "name": "handler.get_feature_config.kdj_expr",
+        "seconds": 5.849997978657484e-05
+      },
+      {
+        "name": "handler_fetch_feature",
+        "seconds": 0.0012494999973569065
+      },
+      {
+        "name": "model_init",
+        "seconds": 0.001703000016277656
+      },
+      {
+        "name": "dataset_init",
+        "seconds": 0.0006260999944061041
+      },
+      {
+        "name": "model_fit",
+        "seconds": 511.8804439000087
+      },
+      {
+        "name": "SignalRecord.generate",
+        "seconds": 19.362941400002455
+      },
+      {
+        "name": "SigAnaRecord.generate",
+        "seconds": 0.1272981000074651
+      },
+      {
+        "name": "PortAnaRecord.generate",
+        "seconds": 111.37477419999777
+      },
+      {
+        "name": "dataset_prepare_test_feature_label",
+        "seconds": 8.630316299997503
+      }
+    ]
+  },
+  "git_branch": "master",
+  "git_dirty": true
+}
