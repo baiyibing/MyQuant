@@ -298,42 +298,16 @@ if __name__ == '__main__':
         },
     }
 
-    # 验证数据加载：只取前 10 行做诊断。整帧 fetch（~5GiB）是纯调试用途却被 data/all_features
-    # 全程持有到进程结束，是 2026-09-14 本地长窗 model.fit MemoryError 的实凶之一；
-    # 切片行不影响列名（all_features 用途仅是特征重要性编号→列名映射）。
+    # 验证数据加载：零拷贝拿特征列名。get_feature_config() 只构造表达式串（与处理后帧的
+    # 列名同序同名），不触发任何数据加载。不做 fetch——本版 qlib 的 fetch 对任意 slc
+    # 都先做整帧列选拷贝（~5GiB），2026-09-14 长窗两次 MemoryError 均在此路径；
+    # 诊断用途不值得这个代价，数据健康由后续 SignalRecord/回测自检兜底。
     with t_rec.timer("handler_fetch_feature"):
-        data = handler.fetch(slice(0, 10), col_set="feature")
-
-    print(data.head(10))
-    #                            KMID      KLEN  ...    COST_D    COST_J
-    # datetime   instrument                      ...
-    # 2023-01-03 SH600000   -0.298624 -0.706633  ... -0.085372 -0.023536
-    #            SH600009   -1.546573  0.264609  ...       NaN       NaN
-    #            SH600010    0.475908 -0.207787  ... -0.688093 -0.629647
-    #            SH600011    2.071525  3.000000  ... -0.203372  0.317179
-    #            SH600015    0.238334 -1.020868  ...  0.510582  0.613794
-    #            SH600016   -0.318746 -1.018924  ... -0.211149 -0.147461
-    #            SH600018    0.099265 -0.398185  ... -0.363264 -0.186470
-    #            SH600019    0.358459 -0.619303  ... -0.132547 -0.161108
-    #            SH600025    1.410132  0.216171  ...  0.223375  0.598955
-    #            SH600028    0.429478 -0.831903  ...  1.067183  1.107931
-    #
-    # [10 rows x 161 columns]
-    print(f"所有feature列: {data.columns}")
-    all_features = data.columns
-    available_cols = [col for col in signal_cols if col in data.columns]
+        _conf_fields, _conf_names = handler.get_feature_config()
+        all_features = pd.Index(_conf_names)
+    print(f"所有feature列({len(all_features)}): {list(all_features)}")
+    available_cols = [col for col in signal_cols if col in all_features]
     print(f"可用信号列: {available_cols}")
-    print(data[available_cols].head(10))
-    # 2023-01-03 SH600000   -0.066754 -0.085372 -0.023536
-    #            SH600009         NaN       NaN       NaN
-    #            SH600010   -0.671162 -0.688093 -0.629647
-    #            SH600011   -0.030015 -0.203372  0.317179
-    #            SH600015    0.543704  0.510582  0.613794
-    #            SH600016   -0.192020 -0.211149 -0.147461
-    #            SH600018   -0.306091 -0.363264 -0.186470
-    #            SH600019   -0.144487 -0.132547 -0.161108
-    #            SH600025    0.348180  0.223375  0.598955
-    #            SH600028    1.079720  1.067183  1.107931
 
     with t_rec.timer("model_init"):
         model = init_instance_by_config(task["model"])  # 根据model配置创建模型实例
