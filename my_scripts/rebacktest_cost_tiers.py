@@ -260,10 +260,14 @@ if __name__ == "__main__":
     args = parse_cli()
 
     print(qlib.__version__)
+    # kernels 默认 1：Windows 下 kernels>1 时每次小查询付出 ~30s 进程池开销
+    # （实测 D.features 50 股单日 29s → 0.09s）。资格过滤策略每日有小查询，
+    # 大取数（preload/等权基准）单次调用不受影响。可用 QLIB_KERNELS 覆盖。
+    _kernels = int(os.environ.get("QLIB_KERNELS", "1"))
     qlib.init(
         provider_uri="~/.qlib/qlib_data/my_data",
         region=REG_CN,
-        kernels=16,
+        kernels=_kernels,
         redis_host="127.0.0.1",
         redis_port=6379,
         redis_password="123456",
