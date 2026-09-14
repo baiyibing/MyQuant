@@ -28,8 +28,10 @@ from qlib.contrib.report import analysis_model, analysis_position
 from qlib.data import D  # 导入数据模块
 from custom_handler import Alpha158CostKDJ
 from custom_filter import UnifiedLimitUpFilter
+from buy_eligibility import BuyEligibilityFilter, TopkDropoutStrategyWithBuyEligibility  # noqa: F401 (类经 module_path 字符串实例化)
 from train_wiring import (
     DEFAULT_LIMIT_THRESHOLD,
+    EXCLUDE_STOCKS_DEFAULT,
     build_exclude_name_filter,
     build_filtered_instruments,
     build_limit_up_filter,
@@ -169,8 +171,8 @@ if __name__ == '__main__':
     # """
     # expression_rule = "(Ref($close, 0) / Ref($close, 5) - 1) <= 0.10"
 
-    # 要排除的股票代码列表
-    exclude_stocks = ['SZ000004', 'SZ000430', 'SZ000488', 'SZ000504', 'SZ000518', 'SZ000595', 'SZ000608', 'SZ000609', 'SZ000615', 'SZ000638', 'SZ000656', 'SZ000668', 'SZ000669', 'SZ000691', 'SZ000697', 'SZ000698', 'SZ000711', 'SZ000736', 'SZ000752', 'SZ000793', 'SZ000820', 'SZ000903', 'SZ000908', 'SZ000909', 'SZ000929', 'SZ000972', 'SZ001270', 'SZ002005', 'SZ002024', 'SZ002047', 'SZ002058', 'SZ002076', 'SZ002122', 'SZ002168', 'SZ002197', 'SZ002199', 'SZ002200', 'SZ002211', 'SZ002214', 'SZ002231', 'SZ002253', 'SZ002289', 'SZ002305', 'SZ002306', 'SZ002388', 'SZ002425', 'SZ002485', 'SZ002496', 'SZ002528', 'SZ002529', 'SZ002569', 'SZ002581', 'SZ002586', 'SZ002592', 'SZ002620', 'SZ002630', 'SZ002647', 'SZ002650', 'SZ002656', 'SZ002693', 'SZ002713', 'SZ002717', 'SZ002742', 'SZ002762', 'SZ002789', 'SZ002808', 'SZ002816', 'SZ002822', 'SZ002848', 'SZ002868', 'SZ002872', 'SZ002898', 'SZ003004', 'SZ003032', 'SZ300020', 'SZ300029', 'SZ300044', 'SZ300052', 'SZ300093', 'SZ300096', 'SZ300097', 'SZ300125', 'SZ300137', 'SZ300147', 'SZ300152', 'SZ300159', 'SZ300165', 'SZ300167', 'SZ300175', 'SZ300198', 'SZ300205', 'SZ300211', 'SZ300225', 'SZ300237', 'SZ300268', 'SZ300301', 'SZ300311', 'SZ300313', 'SZ300326', 'SZ300338', 'SZ300343', 'SZ300344', 'SZ300366', 'SZ300376', 'SZ300379', 'SZ300391', 'SZ300419', 'SZ300462', 'SZ300472', 'SZ300477', 'SZ300506', 'SZ300527', 'SZ300555', 'SZ300561', 'SZ300716', 'SZ300899', 'SZ301288', 'SH600107', 'SH600130', 'SH600136', 'SH600165', 'SH600169', 'SH600193', 'SH600200', 'SH600228', 'SH600238', 'SH600243', 'SH600265', 'SH600289', 'SH600355', 'SH600358', 'SH600360', 'SH600365', 'SH600381', 'SH600421', 'SH600525', 'SH600568', 'SH600599', 'SH600608', 'SH600624', 'SH600636', 'SH600696', 'SH600735', 'SH600753', 'SH600777', 'SH600892', 'SH603007', 'SH603021', 'SH603261', 'SH603268', 'SH603377', 'SH603388', 'SH603389', 'SH603398', 'SH603517', 'SH603557', 'SH603559', 'SH603580', 'SH603595', 'SH603721', 'SH603789', 'SH603813', 'SH603825', 'SH603828', 'SH603838', 'SH603843', 'SH603869', 'SH605081', 'SH605199', 'SH688053', 'SH688076', 'SH688184', 'SH688287', 'SH688511', 'SH688646', 'BJ920305', 'BJ920680']
+    # 要排除的股票代码列表：共享常量（与 build_tradable_universe.py / buy_eligibility 同源）
+    exclude_stocks = EXCLUDE_STOCKS_DEFAULT
     # exclude_stocks = ['SZ000004', 'SZ000430', 'SZ000488']
 
     # Exclude + $zhangting limit-up via D.instruments filter_pipe (Q3-R3).
@@ -190,6 +192,7 @@ if __name__ == '__main__':
         exclude_stocks=exclude_stocks,
         use_exclude=exclude_filter_on,
         limit_up=limit_up_filter_on,
+        market="all_tradable" if cli_args.tradable_universe else "all",
     )
 
     # 定义策略相关的市场和分析基准
@@ -353,10 +356,11 @@ if __name__ == '__main__':
             },
         },
         "strategy": {  # 交易策略配置
-            "class": "TopkDropoutStrategy",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
-            "module_path": "qlib.contrib.strategy.signal_strategy",  # 策略所在模块路径
-            # "class": "TopkDropoutStrategyWithFilter",  # 使用TopK丢弃策略,一个简单但有效的策略，它每天选择模型预测分数最高的 50 只股票，并剔除其中 5 只持仓最久的股票
-            # "module_path": "custom_strategy",  # 策略所在模块路径
+            # --buy-state-filter：策略级买入状态过滤（站上MA20 可买；MA20/60 之下且 盈筹率<10% 可买），
+            # 复用 TopkDropoutStrategyWithFilter 的过滤+后排回补流程（开关④）。
+            # ST/年龄在训练侧由 --tradable-universe 从宇宙层解决（更彻底）。
+            "class": "TopkDropoutStrategyWithBuyEligibility" if cli_args.buy_state_filter else "TopkDropoutStrategy",
+            "module_path": "buy_eligibility" if cli_args.buy_state_filter else "qlib.contrib.strategy.signal_strategy",
             "kwargs": {  # 策略参数
                 "model": model,  # 使用的预测模型
                 "dataset": dataset,  # 使用的数据集
@@ -364,6 +368,18 @@ if __name__ == '__main__':
                 "n_drop": 3,  # 每次调仓时丢弃排名最后5只股票
                 "hold_thresh": 1,  # 最小持有1天
                 # timing_interval_steps 仅适用于 custom_strategy.TopkDropoutStrategyWithFilter，勿传给 qlib TopkDropoutStrategy
+                **(
+                    {
+                        "eligibility": BuyEligibilityFilter(
+                            st_codes=None,
+                            age_map=None,
+                            check_buy_state=True,
+                            calendar=list(D.calendar(future=True)),
+                        )
+                    }
+                    if cli_args.buy_state_filter
+                    else {}
+                ),
             },
         },
         "backtest": {  # 回测参数配置
@@ -822,6 +838,9 @@ if __name__ == '__main__':
                 "limit_threshold_on": limit_threshold_on,
                 "dataset_cache": bool(cli_args.dataset_cache),
                 "expr_cache": bool(cli_args.expr_cache),
+                # 买入资格开关（默认全关）
+                "tradable_universe_on": bool(cli_args.tradable_universe),
+                "buy_state_filter_on": bool(cli_args.buy_state_filter),
             }
             _cal_data = {}
             try:
