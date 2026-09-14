@@ -47,7 +47,8 @@ DEFAULT_LIMIT_THRESHOLD = 0.095
 def build_production_filter_pipe(exclude_stocks, use_exclude=True, limit_up=True):
     """Exclude blacklist then $zhangting limit-up. Order is part of the contract.
 
-    use_exclude/limit_up 对应 --no-exclude-filter / --no-limit-filter（关掉的层不挂进 pipe）。
+    use_exclude/limit_up 对应 --exclude-filter / --no-limit-filter
+    （黑名单默认关，需 --exclude-filter 才进 pipe；涨停层默认开）。
     """
     pipe = []
     if use_exclude:
@@ -220,9 +221,14 @@ def parse_train_cli(argv=None):
         help="测试/回测窗 START:END（YYYY-MM-DD:YYYY-MM-DD）。",
     )
     parser.add_argument(
+        "--exclude-filter",
+        action="store_true",
+        help="打开静态黑名单剔除（EXCLUDE_STOCKS_DEFAULT 177 只挂 NameDFilter）。默认关闭，不使用黑名单。",
+    )
+    parser.add_argument(
         "--no-exclude-filter",
         action="store_true",
-        help="关掉黑名单剔除：filter_pipe 不再挂 NameDFilter。默认开启剔除。",
+        help="已废弃：黑名单默认关闭，此开关保持关闭（兼容旧命令行）。",
     )
     parser.add_argument(
         "--no-limit-filter",

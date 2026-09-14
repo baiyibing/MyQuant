@@ -93,8 +93,8 @@ if __name__ == '__main__':
     #     filter=lambda record: record["extra"].get("name") != "custom_strategy"
     # )
 
-    # 三层闸门状态（--no-exclude-filter / --no-limit-filter / --no-limit-threshold 均默认 False=闸门开）
-    exclude_filter_on = not cli_args.no_exclude_filter
+    # 黑名单默认关（--exclude-filter 才开）；涨停两层默认开（--no-limit-* 才关）
+    exclude_filter_on = bool(cli_args.exclude_filter) and not cli_args.no_exclude_filter
     limit_up_filter_on = not cli_args.no_limit_filter
     limit_threshold_on = not cli_args.no_limit_threshold
     print(
