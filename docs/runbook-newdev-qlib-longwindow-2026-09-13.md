@@ -137,6 +137,52 @@ python rebacktest_cost_tiers.py --test 2025-01-01:2025-12-31 --topk 50 --n-drop 
 > 默认。新机备注：dataset 缓存键含闸门配置，全开闸门首跑必 miss（数据加载 52 分钟，慢于
 > guards-off 的 21 分钟属预期）；expr 缓存可跨窗复用。
 
+## 5.6 过滤开关实验（2026 窗，四开关全开 vs 无过滤基线；2026-09-14 追加）
+
+前置：§2 环境 + my_data 就位 + **分支 `feat/st-wind-pit-feed`**（PR #36，含四开关、
+Wind ST PIT 接线；若已合并则 master 等价）。
+
+### ① 传两个数据目录（发起机 → 新机，保持相对结构）
+
+| 源（发起机） | 放到（新机） | 体积 |
+|---|---|---|
+| `MyQuant/my_scripts/mlruns/312677471335446378/4410e4a3a4714f4f9e261120449232d1/` | `MyQuant/my_scripts/mlruns/312677471335446378/…`（同路径） | 15 MB |
+| `F:/stock_data/vendor_wind_st_status/`（整个目录） | `F:/stock_data/vendor_wind_st_status/` | <1 MB |
+
+（recorder = 2026 窗现有 pred，重回测免重训；ST PIT 数据为 Wind 收割产物。）
+
+### ② 宇宙文件现生成（不传文件，重跑脚本即得）
+
+```bash
+cd MyQuant/my_scripts
+python build_tradable_universe.py
+# 期望输出: 全宇宙 5583 → 剔除ST 177 → 保留 5406，起始日顺延 60 个交易日
+#           → ~/.qlib/qlib_data/my_data/instruments/all_tradable.txt
+```
+
+只读 `all.txt` + `day.txt` 两个文本（秒级、零外部依赖）。说明：ST 剔除用静态
+EXCLUDE_STOCKS_DEFAULT；PIT 精确层由 ③ 的 `--st-daily-file` 在策略级承担。
+
+### ③ 四开关全开重回测（topk10 与 topk50 各一轮）
+
+```bash
+export MLFLOW_DISABLE_AGENT_HINT=1 LOKY_MAX_CPU_COUNT=8
+python rebacktest_cost_tiers.py \
+    --recorder-id 4410e4a3a4714f4f9e261120449232d1 \
+    --test 2026-01-01:2026-09-08 --topk 10 --n-drop 3 \
+    --buy-state-filter --st-filter --age-filter \
+    --st-daily-file "F:/stock_data/vendor_wind_st_status/st_daily.parquet"
+python rebacktest_cost_tiers.py \
+    --recorder-id 4410e4a3a4714f4f9e261120449232d1 \
+    --test 2026-01-01:2026-09-08 --topk 50 --n-drop 5 \
+    --buy-state-filter --st-filter --age-filter \
+    --st-daily-file "F:/stock_data/vendor_wind_st_status/st_daily.parquet"
+```
+
+无过滤基线（同机同 pred，qlib 默认档）：topk10 净年化 **-46.5%** / topk50 **+0.6%**。
+判读问题：过滤能否救 topk10、是否拖累 topk50。跑完取回两份
+`rebacktest_cost_tiers_summary_*.json` 回写报告 §7.4。
+
 ## 6. 注意事项
 
 - **取回清单**（回传本机或直接在新机继续 Phase 3）：`manifests/train_*.json`、

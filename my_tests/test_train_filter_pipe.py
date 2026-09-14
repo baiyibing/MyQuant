@@ -78,7 +78,7 @@ def test_limit_up_filter_keeps_zhangting_zero():
 
 
 def test_filter_pipe_switches_drop_layers():
-    """--no-exclude-filter / --no-limit-filter 对应层不进 pipe，全关时 pipe 为空。"""
+    """未开 --exclude-filter / 开了 --no-limit-filter 时对应层不进 pipe，全关时 pipe 为空。"""
     # 只关黑名单
     pipe = build_production_filter_pipe(EXCLUDE_SAMPLE, use_exclude=False)
     assert len(pipe) == 1
@@ -112,11 +112,14 @@ def test_filtered_instruments_switches_passthrough():
 
 def test_guard_and_cache_cli_flags_default_off():
     args = parse_train_cli([])
+    assert args.exclude_filter is False
     assert args.no_exclude_filter is False
     assert args.no_limit_filter is False
     assert args.no_limit_threshold is False
     assert args.dataset_cache is False
     assert args.expr_cache is False
+    args_on = parse_train_cli(["--exclude-filter"])
+    assert args_on.exclude_filter is True
     args_off = parse_train_cli(
         ["--no-exclude-filter", "--no-limit-filter", "--no-limit-threshold", "--dataset-cache", "--expr-cache"]
     )

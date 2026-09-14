@@ -17,6 +17,7 @@ import json
 import multiprocessing
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 
 # 共享 mlflow 逃生口 / 静音（须在任何 qlib import 之前）
 import host_env  # noqa: F401
@@ -28,8 +29,9 @@ from qlib.contrib.evaluate import backtest_daily, risk_analysis
 from qlib.data import D
 from qlib.workflow import R
 
+from buy_eligibility import BuyEligibilityFilter, TopkDropoutStrategyWithBuyEligibility, load_age_map, load_extra_exclude
 from custom_ops import SMA
-from train_wiring import parse_segment
+from train_wiring import EXCLUDE_STOCKS_DEFAULT, parse_segment
 
 # 三档成本（open_cost=买入费率，close_cost=卖出费率含印花）。
 # realistic ≈ 佣金 0.03% 双边 + 印花 0.05% 卖出 + 滑点约 0.05~0.1%，方向性校准用，非精确。
@@ -97,22 +99,65 @@ def load_pred(exp_name: str, recorder_id: str | None):
     return recorder, pred
 
 
+def build_strategy_config(args) -> dict:
+    """按开关选择策略类：任一资格开关打开 → 带资格层的过滤策略（复用其回补流程）。"""
+    filters_on = args.buy_state_filter or args.st_filter or args.age_filter
+    if not filters_on:
+        return {
+            "class": "TopkDropoutStrategy",
+            "module_path": "qlib.contrib.strategy.signal_strategy",
+            "kwargs": {
+                "signal": args.pred_score,
+                "topk": args.topk,
+                "n_drop": args.n_drop,
+                "hold_thresh": args.hold_thresh,
+            },
+        }
+    st_codes = set(EXCLUDE_STOCKS_DEFAULT)
+    if args.st_filter and args.extra_exclude_file:
+        st_codes |= load_extra_exclude(args.extra_exclude_file)
+    st_arg = st_codes if args.st_filter else None
+    age_arg = load_age_map(Path.home() / ".qlib" / "qlib_data" / "my_data") if args.age_filter else None
+    eligibility = BuyEligibilityFilter(
+        st_codes=st_arg,
+        age_map=age_arg,
+        age_days=args.age_days,
+        check_buy_state=args.buy_state_filter,
+        calendar=list(D.calendar(future=True)),
+        st_daily_file=getattr(args, "st_daily_file", None) if args.st_filter else None,
+    )
+    test_start, test_end = args.test_window
+    n_st = len(eligibility.st_codes_of_date(test_end) if eligibility._st_by_date is not None else eligibility.st_codes)
+    print(
+        f"[rebacktest] 资格过滤: ST={args.st_filter}({n_st} 只"
+        f"{', PIT+fallback' if eligibility._st_by_date is not None else ', 静态'}) "
+        f"age>={args.age_days}日={args.age_filter}({len(eligibility.min_trade_date)} 只有起始登记) "
+        f"buy_state={args.buy_state_filter}",
+        flush=True,
+    )
+    if args.buy_state_filter:
+        codes = args.pred_score.index.get_level_values("instrument").unique()
+        eligibility.preload(codes, test_start, test_end)
+    return {
+        "class": "TopkDropoutStrategyWithBuyEligibility",
+        "module_path": "buy_eligibility",
+        "kwargs": {
+            "signal": args.pred_score,
+            "topk": args.topk,
+            "n_drop": args.n_drop,
+            "hold_thresh": args.hold_thresh,
+            "eligibility": eligibility,
+        },
+    }
+
+
 def run_tiers(args) -> dict:
     pred_score = args.pred_score
     start_time, end_time = args.test_window
 
     ew = equal_weight_daily_returns(start_time, end_time)
 
-    strategy_config = {
-        "class": "TopkDropoutStrategy",
-        "module_path": "qlib.contrib.strategy.signal_strategy",
-        "kwargs": {
-            "signal": pred_score,
-            "topk": args.topk,
-            "n_drop": args.n_drop,
-            "hold_thresh": args.hold_thresh,
-        },
-    }
+    strategy_config = build_strategy_config(args)
 
     summary = {
         "exp_name": args.exp_name,
@@ -124,6 +169,9 @@ def run_tiers(args) -> dict:
         "n_drop": args.n_drop,
         "hold_thresh": args.hold_thresh,
         "limit_threshold": None if args.no_limit_threshold else 0.095,
+        "buy_state_filter": bool(args.buy_state_filter),
+        "st_filter": bool(args.st_filter),
+        "age_filter": f"{args.age_days}d" if args.age_filter else False,
         # qlib report["return"] 列是加回成本的毛收益（account.py: return_rate=(earning+cost)/last_value），
         # 净收益 = return - cost；三档毛收益几乎相同（决策不看成本），差异全在 cost 列
         "note": "abs_net=return-cost（真净值口径）；gross=return（未扣费）；成本拖累单列",
@@ -170,6 +218,19 @@ def parse_cli(argv=None):
         "--no-limit-threshold",
         action="store_true",
         help="关掉执行端涨跌停拒单（limit_threshold=None）：涨停可买、跌停可卖。默认 0.095 拒单。",
+    )
+    parser.add_argument("--buy-state-filter", action="store_true",
+                        help="买入状态过滤：站上MA20可买，或 MA20/MA60 之下且盈筹率<10%%（Quantile250 近似）可买")
+    parser.add_argument("--st-filter", action="store_true",
+                        help="ST 禁买：静态黑名单；若给 --st-daily-file 则按日 PIT，静态仅 fallback")
+    parser.add_argument("--age-filter", action="store_true",
+                        help="上市年龄禁买：数据起始日起算不足 --age-days 个交易日的剔除")
+    parser.add_argument("--age-days", type=int, default=60)
+    parser.add_argument("--extra-exclude-file", default=None, help="补充 ST/风险名单（每行一个 QLib 代码）")
+    parser.add_argument(
+        "--st-daily-file",
+        default=None,
+        help="st_daily.parquet：PIT 按日 ST；未覆盖/unknown_end 仍走静态黑名单",
     )
     return parser.parse_args(argv)
 
