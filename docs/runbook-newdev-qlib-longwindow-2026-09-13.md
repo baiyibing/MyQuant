@@ -174,7 +174,8 @@ python build_winner_ratio.py --test 2026-01-01:2026-09-08 --workers 8
 数据全取自 my_data bins：后复权 `$close/$high/$low`；真实成交股数 `$amount/$adjclose`；
 换手分母默认 `$netcsfree`（自由流通，`--shares circ` 改流通股本）。产物是外部 parquet
 （`--winner-ratio-file`，与 `--st-daily-file` 同级），**不进 qlib bins**。对 QMT 真值
-Spearman 0.92、召回率 0.95（对照代理 0.65/0.42）。依赖 numba（vanna312 环境已装）。
+Spearman 0.92、召回率 0.95（对照代理 0.65/0.42）。对拍全文见
+`docs/winner-ratio-cyq-parity-2026-09-14.md`。依赖 numba（vanna312 环境已装）。
 
 ### ③ 四开关全开重回测（topk10 与 topk50 各一轮）
 

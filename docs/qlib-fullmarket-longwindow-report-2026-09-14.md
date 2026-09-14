@@ -172,6 +172,7 @@ SSOT 递推（numba 内核，与 Rust turnover-resist 同族），数据全取�
   `st_daily` 同级；**不进 bins**）。已接入 `--winner-ratio-file`，命中精确值、
   缺失回退 Quantile 代理
 - 校准脚本：`my_scripts/calibrate_winner_ratio_cyq.py`
+- 算法 vs SSOT/Rust、全市场 vs 券商 `winratio`、vs QMT：`docs/winner-ratio-cyq-parity-2026-09-14.md`
 
 **vs QMT 真值校准（31,684 配对）**：
 
