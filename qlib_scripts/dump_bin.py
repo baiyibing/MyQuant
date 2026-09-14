@@ -260,13 +260,15 @@ class DumpDataBase:
             bin_path = features_dir.joinpath(f"{field.lower()}.{self.freq}{self.DUMP_FILE_SUFFIX}")
             if field not in _df.columns:
                 continue
+            # coerce：CSV/parquet 里的 -1.#J / -1.#IND 收成 NaN，避免 astype("<f") 炸
+            values = pd.to_numeric(_df[field], errors="coerce").to_numpy(dtype=np.float32)
             if bin_path.exists() and self._mode == self.UPDATE_MODE:
                 # update
                 with bin_path.open("ab") as fp:
-                    np.array(_df[field]).astype("<f").tofile(fp)
+                    values.tofile(fp)
             else:
                 # append; self._mode == self.ALL_MODE or not bin_path.exists()
-                np.hstack([date_index, _df[field]]).astype("<f").tofile(str(bin_path.resolve()))
+                np.hstack([np.float32(date_index), values]).astype("<f").tofile(str(bin_path.resolve()))
 
     def _dump_bin(self, file_or_data: [Path, pd.DataFrame], calendar_list: List[pd.Timestamp]):
         if not calendar_list:

@@ -13,6 +13,9 @@ my_data 是纯个股数据，无任何指数行情，Qlib 回测的 benchmark �
 2. ``DumpDataFix`` 会把新标的写进 ``instruments/all.txt``，而训练宇宙 ``market="all"``
    读的就是 all.txt——指数混进去会污染训练样本，且名单导出会把 ``SH000300`` 剥成
    ``000300`` 当股票买。所以必须执行 all.txt → index.txt 的挪移（本脚本自动做）。
+3. ``DumpDataFix`` **不更新** all.txt 里已有标的的起止日。dump_all 若先把指数按 staging
+   旧尾巴写进 all.txt，挪到 index.txt 后区间会停在旧末日（bin 已是全日历）。脚本在挪移后
+   用日历首末日 ``upsert_index_txt_dates``。
 
 用法::
 
@@ -121,6 +124,37 @@ def move_indices_out_of_all_txt(qlib_dir: Path, codes: list[str]) -> list[str]:
     return moved
 
 
+def upsert_index_txt_dates(
+    qlib_dir: Path,
+    codes: list[str],
+    start: pd.Timestamp | str,
+    end: pd.Timestamp | str,
+) -> list[str]:
+    """把 index.txt 里指定指数的起止日写成日历区间。
+
+    DumpDataFix 不更新 all.txt 里已有标的的登记日期；dump_all 若把指数按 staging
+    旧尾巴写进 all.txt，挪到 index.txt 后区间会停在旧末日。
+    """
+    index_path = Path(qlib_dir) / "instruments" / "index.txt"
+    start_s = pd.Timestamp(start).strftime("%Y-%m-%d")
+    end_s = pd.Timestamp(end).strftime("%Y-%m-%d")
+    by_symbol: dict[str, str] = {}
+    if index_path.exists():
+        for ln in index_path.read_text(encoding="utf-8").splitlines():
+            if ln.strip():
+                by_symbol[ln.split("\t", 1)[0].strip().upper()] = ln
+    updated: list[str] = []
+    for code in codes:
+        key = code.upper()
+        new_ln = f"{key}\t{start_s}\t{end_s}"
+        if by_symbol.get(key) != new_ln:
+            updated.append(key)
+        by_symbol[key] = new_ln
+    index_path.parent.mkdir(parents=True, exist_ok=True)
+    index_path.write_text("\n".join(by_symbol.values()) + "\n", encoding="utf-8", newline="\n")
+    return updated
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="F 湖指数日线 → qlib bin 增量补丁")
     parser.add_argument("--symbols", default=DEFAULT_SYMBOLS, help="湖分区名，逗号分隔，如 000300_SH,000001_SH")
@@ -172,6 +206,11 @@ def run_patch(args: argparse.Namespace) -> int:
 
     moved = move_indices_out_of_all_txt(qlib_dir, codes)
     print(f"[4/5] all.txt -> index.txt 挪移 {len(moved)} 行: {[ln.split(chr(9))[0] for ln in moved] or '(已在 index.txt)'}")
+    dated = upsert_index_txt_dates(qlib_dir, codes, calendar.min(), calendar.max())
+    print(
+        f"[4/5] index.txt 区间 -> {calendar.min().date()} .. {calendar.max().date()}"
+        + (f"（更新 {dated}）" if dated else "（已对齐）")
+    )
 
     if args.skip_verify:
         print("[5/5] 跳过验证")

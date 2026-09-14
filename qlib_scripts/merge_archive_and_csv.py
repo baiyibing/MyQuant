@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 """合并旧 qlib bin 存档 + 最新 CSV 批 → dump_all 喂料目录。
 
-场景（2026-09-13 实例）：CSV 批（F:\\qlibdata，16 字段全）历史起点多数在
-2022-07-26；旧 bin 存档字段全但止于 2026-04-10。两者重叠段数值经校验一致
-（close/factor/adjclose/zhangting 逐位或 float32 舍入级）。本脚本按标的拼接：
+场景（2026-09-13 实例）：CSV 批历史起点多数在 2022-07-26；旧 bin 存档字段全
+但止于 2026-04-10。2026-09-14 批（F:\\qlibdata20260914\\qlibdata）多数已从
+2020-01-02 起、并多出 winratio 列。重叠段数值经校验一致。本脚本按标的拼接：
 
-- 双方都有：旧 bin 取 CSV 首日之前的行，拼到 CSV 前面（补 2020~2022 空洞）
+- 双方都有：旧 bin 取 CSV 首日之前的行，拼到 CSV 前面（补旧 CSV 的 2020~2022 空洞；
+  新批若已从 2020 起则前缀为空，整段走 CSV）
 - 仅旧有（退市）：整段保留，否则退市股历史丢失
 - 仅新有（新上市）：原样
+- CSV 多出的列（如 winratio）并入 staging；旧档没有的日期填 NaN
 
 只生成 staging（每股一个 parquet：date + 字段列）。写完用 dump_all 灌入
 全新 qlib 目录（不要 dump_update——按个股日期 append，停牌即错位）::
@@ -21,12 +23,26 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
 ID_COLUMNS = {"code", "date", "symbol", "time"}
+
+
+def extra_csv_fields(csv_columns: Iterable[str], archive_fields: Sequence[str]) -> list[str]:
+    """CSV 有、旧档 bin 没有、且不是 id 列的字段（例：winratio）。"""
+    seen = set(archive_fields)
+    extra: list[str] = []
+    for col in csv_columns:
+        name = str(col).strip()
+        if not name or name.lower() in ID_COLUMNS or name in seen:
+            continue
+        extra.append(name)
+        seen.add(name)
+    return extra
 
 
 def read_bin_series(features_dir: Path, sym: str, field: str, calendar: pd.DatetimeIndex) -> pd.Series | None:
@@ -61,10 +77,16 @@ def main(argv: list[str] | None = None) -> int:
     reference = next((features_dir / d for d in sorted(p.name for p in features_dir.iterdir()) if len(list((features_dir / d).glob("*.bin"))) >= 16), None)
     if reference is None:
         raise SystemExit("存档里找不到字段齐全的样本标的")
-    fields = sorted(p.name.split(".")[0] for p in reference.glob("*.day.bin"))
-    print(f"archive calendar: {calendar.min().date()} .. {calendar.max().date()} ({len(calendar)} 天); fields({len(fields)}): {fields}")
-
+    archive_fields = sorted(p.name.split(".")[0] for p in reference.glob("*.day.bin"))
     csv_files = sorted(csv_dir.glob("*.csv"))
+    extra_fields: list[str] = []
+    if csv_files:
+        extra_fields = extra_csv_fields(pd.read_csv(csv_files[0], nrows=0).columns, archive_fields)
+    fields = archive_fields + extra_fields
+    print(
+        f"archive calendar: {calendar.min().date()} .. {calendar.max().date()} ({len(calendar)} 天); "
+        f"archive_fields({len(archive_fields)}): {archive_fields}; extra_csv({len(extra_fields)}): {extra_fields}"
+    )
     wanted = None
     if args.symbols:
         wanted = {s.strip().upper() for s in args.symbols.split(",") if s.strip()}
@@ -79,7 +101,7 @@ def main(argv: list[str] | None = None) -> int:
     for i, sym in enumerate(targets, 1):
         lower = archive_syms.get(sym, sym.lower())
         prefix_frames = []
-        for field in fields:
+        for field in archive_fields:
             series = read_bin_series(features_dir, lower, field, calendar)
             if series is None:
                 continue
@@ -87,7 +109,10 @@ def main(argv: list[str] | None = None) -> int:
         if prefix_frames:
             prefix = pd.concat(prefix_frames, axis=1)
         else:
-            prefix = pd.DataFrame(columns=fields, index=pd.DatetimeIndex([]))
+            prefix = pd.DataFrame(columns=archive_fields, index=pd.DatetimeIndex([]))
+        for field in extra_fields:
+            if field not in prefix.columns:
+                prefix[field] = np.nan
 
         csv_path = csv_map.get(sym)
         if csv_path is not None:
@@ -105,6 +130,10 @@ def main(argv: list[str] | None = None) -> int:
         if frame.empty:
             continue
         frame = frame[~frame.index.duplicated(keep="last")].sort_index()
+        frame = frame.reindex(columns=fields)
+        # Windows/MSVC 会把 NaN 写成 -1.#IND，或截成 -1.#J（本批 CSV 分别在 vwap / winratio）。
+        for col in fields:
+            frame[col] = pd.to_numeric(frame[col], errors="coerce")
         frame.reset_index(names="date").to_parquet(out_dir / f"{sym.lower()}.parquet", index=False)
         stats["rows"] += len(frame)
         if i % 500 == 0 or i == len(targets):

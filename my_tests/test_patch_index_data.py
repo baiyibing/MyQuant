@@ -19,6 +19,7 @@ from patch_index_data import (  # noqa: E402
     coverage_report,
     lake_to_qlib_code,
     move_indices_out_of_all_txt,
+    upsert_index_txt_dates,
 )
 
 
@@ -94,3 +95,20 @@ def test_move_replaces_stale_index_row(tmp_path):
     assert len(moved) == 1
     index_lines = (tmp_path / "instruments" / "index.txt").read_text(encoding="utf-8").splitlines()
     assert index_lines == ["SH000300\t2020-01-02\t2026-09-08"]
+
+
+def test_upsert_index_txt_dates_extends_stale_end(tmp_path):
+    (tmp_path / "instruments").mkdir()
+    (tmp_path / "instruments" / "index.txt").write_text(
+        "SH000300\t2020-01-02\t2026-09-08\nSH000001\t2020-01-02\t2026-09-08\n",
+        encoding="utf-8",
+    )
+    updated = upsert_index_txt_dates(
+        tmp_path, ["SH000300", "SH000001"], "2020-01-02", "2026-09-14"
+    )
+    assert updated == ["SH000300", "SH000001"]
+    lines = (tmp_path / "instruments" / "index.txt").read_text(encoding="utf-8").splitlines()
+    assert lines == [
+        "SH000300\t2020-01-02\t2026-09-14",
+        "SH000001\t2020-01-02\t2026-09-14",
+    ]

@@ -12,9 +12,10 @@
 **数据管道**
 1. `dump_all` 必须 `--max_workers 8`——16 在 Windows 进程池回收处死锁（2026-09-13 两次复现）
 2. `dump_update` **禁用**：按个股自身日期 append，停牌一天整体错位一天
-3. 指数绝不能留在 `instruments/all.txt`（`market="all"` 宇宙污染）；`patch_index_data.py` 第 4 步负责挪 `index.txt`
+3. 指数绝不能留在 `instruments/all.txt`（`market="all"` 宇宙污染）；`patch_index_data.py` 第 4 步负责挪 `index.txt`，并 **upsert 登记日到日历首末日**（DumpDataFix 不改已有标的区间）
 4. 湖 `time` 列是 UTC 毫秒，转 Asia/Shanghai 再取日期
 5. 不能从 `cn_data` 拷 bin（日历不同，全错位）；湖股票日线只有 7 列，不能单独作训练源
+5b. （2026-09-14）半成品 `my_data_new_*` 必须先删再 `dump_all`；CSV 的 `-1.#J`/`-1.#IND` 靠 coerce，OHLC 出现则中止；门禁 2 只抽覆盖日历两端的票；C 盘紧则 staging 放 F:。流程 SSOT：`my_docs/提示词-qlib-bin刷新.md`
 
 **训练/运行**
 6. `handler_init` ~18 分钟：涉及训练代码的片，验证合批跑，一片一跑会耗死
