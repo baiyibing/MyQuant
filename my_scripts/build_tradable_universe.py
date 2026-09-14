@@ -25,7 +25,7 @@ import pandas as pd
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT / "my_scripts"))
 
-from harvest_st_from_wind import load_st_codes_asof  # noqa: E402
+from st_status import load_st_codes_asof  # noqa: E402
 from train_wiring import EXCLUDE_STOCKS_DEFAULT  # noqa: E402
 
 DEFAULT_QLIB_DIR = Path.home() / ".qlib" / "qlib_data" / "my_data"

@@ -2,7 +2,7 @@
 
 - 日期：2026-09-14
 - 背景：zcode 的 QMT 逐码采集方案因速度不可行（~0.5s/只，单日全市场 46 分钟）被停止；本方案改用 **Kimi datasource 的 Wind 接口**批量获取 A 股 ST 实施/撤销历史，构建本地 PIT 数据集。
-- 状态：已验证 Wind `wind_get_financial_data` 可返回：
+- 状态：**深市 PIT 已落地**（交易所简称变更，不消耗 Kimi）。沪/京仍缺 14 个 Wind 实施批；额度恢复后只补这些。已验证 Wind `wind_get_financial_data` 可返回：
   - 实施 ST 后简称、实施 ST 前简称、实施 ST 日期、实施 ST 原因
   - 撤销日期、撤销 ST 后简称、撤销 ST 前简称
 
@@ -89,10 +89,41 @@
    - 抽查已知 ST 股的区间与交易所公告一致（例：000504.SZ 2025-04-30 实施 *ST，2026-06-12 撤销）
    - 每日矩阵行数 = 交易日数 × 全市场代码数
 
-## 日常更新
+## 日常更新（已改，不消耗 Kimi）
 
-- 每周一次全量刷新（56×2 次调用）
-- 或每日盘后对当日有 ST 公告的股票增量更新（需配合公告源，先以周刷新为主）
+每周或每个交易日盘后在 **OSkhQuant1.3**（本机、无额度）：
+
+```text
+D:/anaconda3/envs/vanna312/python.exe -m oskh_data.vendor_wind_st pull-szse-namechange
+D:/anaconda3/envs/vanna312/python.exe -m oskh_data.vendor_wind_st merge
+```
+
+本仓只读 `F:/stock_data/vendor_wind_st_status/st_daily.parquet`。
+
+- 深市：深交所「简称变更」一张表覆盖全部 PIT 戴帽/摘帽
+- 当前 ST：东财风险警示板快照；其中尚未被 PIT 覆盖的沪/京代码写入
+  `snapshot_fallback_wind_codes`（质量等同静态黑名单，只补漏）
+- 不要再对深市打 Wind 实施/撤销
+
+## 2026-09-14 断点（Kimi 额度用尽后）
+
+已落地（`F:/stock_data/vendor_wind_st_status/`）：
+
+- 深交所简称变更 7479 行 → 实施 869 / 撤销 676；覆盖深市 A 股 3077 只
+- Wind 实施批 42/56（0027/0028 已标空；缺 0035、0037、0044–0055，均为沪/京）
+- Wind 撤销批 0/56（深市已不需要；沪/京摘帽约 43 只为 `unknown_end`，回退静态名单）
+- `st_daily.parquet` 稀疏约 26 万行（日历 2020-01-02～2026-09-14），末日 ST ≈ 262 只
+- 抽查：000504.SZ 2025-04-30 戴帽、2026-06-12 摘帽，与任务书用例一致
+
+额度恢复后 **只补沪/京**（约 14 个实施问题串 + 对应撤销）：
+
+- 实施缺批：`0035, 0037, 0044, 0045, 0046, 0047, 0048, 0049, 0050, 0051, 0052, 0053, 0054, 0055`
+- 撤销：只跑上述批次的 `q_st_revoke_*.txt`（不要从 0000 全量重打）
+- 0027/0028 不要重试
+- 每批仍用 `wind` / `wind_get_financial_data`，`file_path` 指向
+  `F:/stock_data/vendor_wind_st_status/raw/st_{implement,revoke}_batch_{NNNN}.csv`
+- 遇到 403/额度立刻停；「没找到数据」写成仅表头的空 CSV
+- 全部补完后再跑本机 `merge`
 
 ## 消费端任务（MyQuant）
 
@@ -105,4 +136,25 @@
 
 - 三件套落地前，本 PR 的开关实验按静态近似先跑；落地后重跑对比
 - 数据消费规则：日期 T 的过滤只能用 `trade_date <= T` 的数据，禁止前视
-- 额度敏感：全市场一次约 112 次计费调用；建议分阶段提交进度
+- 额度敏感：全市场 Wind 一次约 112 次计费调用。深市已改交易所公开表，剩余约 14×2 次
+- 消费：`rebacktest_cost_tiers.py --st-filter --st-daily-file F:/stock_data/vendor_wind_st_status/st_daily.parquet`
+
+## 来源分目录（2026-09-14 起）
+
+目录名必须等于来源，不要再把深交所 / 巨潮 / 东财写进 `vendor_wind_*`。
+
+| 来源 | 根目录 | 状态 |
+|---|---|---|
+| Wind / Kimi | `F:/stock_data/vendor_wind_st_status/` | 旧批次与当前合并 PIT 仍在这里；不再往里塞新源 |
+| 深交所简称变更 | 将来 `F:/stock_data/vendor_szse_st_status/` | 现文件暂在 wind 目录的 `raw/szse_namechange*.csv`；迁目录等下次 merge |
+| 巨潮公告 | `F:/stock_data/vendor_cninfo_st_status/` | **1.3 仓库实施**，见下方交接 |
+| 东财风险警示板 | 将来 `F:/stock_data/vendor_eastmoney_st_status/` | 现快照若有，也不要再叫 wind |
+| 合并 PIT | 将来 `F:/stock_data/st_status/`（无 vendor 前缀） | **1.3 写出**；本仓与 backtrader 只读 |
+
+**1.3 下载并写湖；本仓与 MyQuant-backtrader 只消费。** 不在本仓新写拉取或 merge。
+
+巨潮回填交接（打开 1.3 的 agent 实施；本仓只读产物）：
+
+`E:/PycharmProjects/OSkhQuant1.3/docs/engineering/handoff-cninfo-st-status-harvest-2026-09-14.md`
+
+1.3 写 `vendor_cninfo_st_status/`，文件名带 `cninfo`。本仓用 `--st-daily-file` 指向 1.3 写好的消费文件，不再 merge。

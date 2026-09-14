@@ -94,9 +94,9 @@ PortAna 第 4 轮用真沪深300 出过烟雾报告。按 §2.3 / §6：**不当
 | 问的问题 | 模型每天该买哪些（排序/打分） | ① 技术分析谁进名单 ② 给定日名单，按规则怎么成交 | 同一套决策核过 Paper / MockQMT / 真栈会怎样 |
 | 留下的引擎 | 无成交回测。训练 + IC + 导出日 CSV | 向量化：6/8 策略书 + 7 的 simulate_v7 | LEBS（bar 环 + MockQMT）+ true-stack |
 | 弃用的回测 | Qlib PortAnaRecord / Exchange（不再当产品） | Cerebro / Rolling / vendor Backtrader（对照化石，不接新策略） | 第一方 Cerebro 已拆，保持 |
-| 数据 | 自有 Qlib bin（`~/.qlib/...` 或仓内 `.qlib/qlib_data/cn_data`）；dump_bin 可吃 CSV/parquet | F 湖 parquet，只读 | 写湖 + 交易栈 |
+| 数据 | **只消费** F 湖（转 Qlib bin / 训练） | **只消费** F 湖（回测 / 名单） | **下载 + 写湖**。另外两仓不拉数、不 merge vendor |
 | 名单（多源，同一契约） | Qlib pred → 日 CSV（来源之一） | 技术分析 / chip / TR / 手工 CSV（来源之二及以后）；消费侧统一 `parse_pool_csv` | 海龟只认 stock_pool_turtle/；CSV 研究认 stock_pool/ |
-| 不该再做 | 分钟触价、T+1 抠成交、接 QMT；加强 Qlib 回测；把 6/7/8 写成 Qlib Strategy | 复刻 Redis / live、再造 LEBS；用 simulate_v7 跑 Alpha158；新策略写进 Cerebro | 接回 Cerebro、在 LEBS 里重写 6/8/7 |
+| 不该再做 | 对外拉数；分钟触价、T+1 抠成交、接 QMT；加强 Qlib 回测；把 6/7/8 写成 Qlib Strategy | 对外拉数；复刻 Redis / live、再造 LEBS；用 simulate_v7 跑 Alpha158；新策略写进 Cerebro | 接回 Cerebro、在 LEBS 里重写 6/8/7 |
 
 走查里过滤器没接到训练、processors 没进父类，已在 R3 修。pred 与本仓买入日的错位用 `--asof pred_minus_one` 锁死。剩下的是 Qlib 日频组合器本身弱成交，不是 6/8/7 或 LEBS 的问题。
 
@@ -161,6 +161,7 @@ Qlib 里只变怎么排序、怎么出名单，不变成交：行业/市值中�
 4. **名单 as-of 语义**：文件名 = 买入日 T；Qlib 源内容来自 pred(T−1)。技术分析源按各自计算日写入同一文件名语义。下游 6/8「当天读当天文件」，零歧义。走查里 pred/成交日错位的根因就是这里从未定义。
 5. **筹码 SSOT 政策**：研究期允许三处各写（本仓 COST/KDJ、backtrader 仓 qlib_cost / 换手阻力）。名字像，实现不是一份。晋升门 = golden-value parity test（同一根 bar，两仓输出在容差内一致才过门）。现在不统一。
 6. **计划与笔记分开放**：本文件在 `docs/`；走查、学习笔记留 `my_docs/`。
+7. **1.3 下载并写湖；另外两仓只消费**（2026-09-14）。对外拉数、按来源落盘、merge 成可消费文件，都在 OSkhQuant1.3。MyQuant / MyQuant-backtrader 只读 F 湖。Kimi Wind ST / 申万一级已迁：`python -m oskh_data.vendor_wind_st` / `vendor_wind_sw_l1`。
 
 ---
 
@@ -230,6 +231,7 @@ Qlib SZ300190  →  CSV 裸 300190  →  湖分区 300190_SZ  →  交易层 300
 - R0 不写进 stock_pool/；不喂策略 7；不用 R0 窗净值判断模型
 - 1.3：不接回 Cerebro；不在 LEBS 里重写 6/8/7；LEBS 不承诺和实盘 parity
 - 技术分析选股的新代码住 MyQuant-backtrader，不在 MyQuant 里用 Qlib 策略仿一套
+- MyQuant / MyQuant-backtrader **只消费** F 湖：不下载、不 merge vendor
 
 ---
 
