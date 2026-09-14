@@ -39,6 +39,7 @@ from rebacktest_cost_tiers import (
     COST_TIERS,
     EXECUTOR_CONFIG,
     build_exchange_kwargs,
+    build_strategy_config,
     load_pred,
 )
 from run_manifest import capture_git_provenance, write_export_manifest
@@ -223,6 +224,18 @@ def parse_cli(argv=None):
     parser.add_argument("--n-drop", dest="n_drop", type=int, default=3)
     parser.add_argument("--hold-thresh", dest="hold_thresh", type=int, default=1)
     parser.add_argument("--no-limit-threshold", action="store_true", help="与训练侧同语义：limit_threshold=None")
+    parser.add_argument("--buy-state-filter", action="store_true",
+                        help="买入状态过滤（与 rebacktest_cost_tiers 同语义，§5.6）")
+    parser.add_argument("--st-filter", action="store_true", help="ST 禁买（静态 + PIT）")
+    parser.add_argument("--age-filter", action="store_true", help="上市年龄禁买")
+    parser.add_argument("--age-days", type=int, default=60)
+    parser.add_argument("--extra-exclude-file", default=None)
+    parser.add_argument("--winner-ratio-file", default=None)
+    parser.add_argument(
+        "--st-daily-file",
+        default=None,
+        help="Wind ST 按日 PIT parquet（如 E:/stock_data/vendor_wind_st_status/st_daily.parquet）",
+    )
     parser.add_argument("--cost-tier", choices=sorted(COST_TIERS), default="qlib_default")
     parser.add_argument("--tag", default=None, help="输出文件名后缀；默认 guards{on|off}_<cost-tier>")
     parser.add_argument("--out-dir", default="exports")
@@ -232,12 +245,16 @@ def parse_cli(argv=None):
 def main():
     args = parse_cli()
     tag = args.tag or f"guards{'off' if args.no_limit_threshold else 'on'}_{args.cost_tier}"
+    if args.buy_state_filter or args.st_filter or args.age_filter:
+        tag = args.tag or f"elig_{args.cost_tier}"
 
     print(qlib.__version__)
+    # kernels 默认 1：Windows 下 kernels>1 每次小查询 ~29s 进程池开销（同 rebacktest 修复）
+    _kernels = int(os.environ.get("QLIB_KERNELS", "1"))
     qlib.init(
         provider_uri="~/.qlib/qlib_data/my_data",
         region=REG_CN,
-        kernels=16,
+        kernels=_kernels,
         redis_host="127.0.0.1",
         redis_port=6379,
         redis_password="123456",
@@ -255,16 +272,9 @@ def main():
     recorder, pred = load_pred(args.exp_name, args.recorder_id)
     pred_score = pred["score"] if isinstance(pred, pd.DataFrame) else pred
 
-    strategy_config = {
-        "class": "TopkDropoutStrategy",
-        "module_path": "qlib.contrib.strategy.signal_strategy",
-        "kwargs": {
-            "signal": pred_score,
-            "topk": args.topk,
-            "n_drop": args.n_drop,
-            "hold_thresh": args.hold_thresh,
-        },
-    }
+    # 复用 rebacktest 的策略装配：资格开关（buy-state/ST PIT/年龄）与 §5.6 同语义
+    args.pred_score = pred_score
+    strategy_config = build_strategy_config(args)
     print(f"[export] backtesting for positions (tier={args.cost_tier}) ...", flush=True)
     report, positions = backtest_daily(
         start_time=args.test_window[0],
