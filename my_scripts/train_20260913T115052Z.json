@@ -1,0 +1,100 @@
+{
+  "schema": "myquant.run-manifest/1",
+  "stage": "train",
+  "git_commit": "ec4bfc74229cf93a2ebc4267db1e5d51ecd388ed",
+  "created_utc": "2026-09-13T11:50:52Z",
+  "config": {
+    "exp_name": "alpha158_cost_kdj_lgb",
+    "segments": {
+      "train": [
+        "2020-01-01",
+        "2024-12-31"
+      ],
+      "valid": [
+        "2025-01-01",
+        "2025-12-31"
+      ],
+      "test": [
+        "2026-01-01",
+        "2026-09-08"
+      ]
+    },
+    "topk": 10,
+    "n_drop": 3,
+    "hold_thresh": 1,
+    "benchmark": "SH000300",
+    "start_time": "2020-01-01",
+    "end_time": "2026-09-08",
+    "include_lz": true,
+    "recorder_id": "cde3fc179d0e41d185339209b6fec00b",
+    "exclude_filter_on": false,
+    "limit_up_filter_on": false,
+    "limit_threshold_on": false,
+    "dataset_cache": true,
+    "expr_cache": true,
+    "config_hash": "bdd7e9b147a8fb9cf570bb3e11b07a54466e2b83a3ca947f00c02aba87523b4b"
+  },
+  "data": {
+    "calendar_first": "2020-01-02",
+    "calendar_last": "2026-09-08",
+    "calendar_days": 1621
+  },
+  "artifacts": [
+    {
+      "path": "预测结果.csv",
+      "md5": "d214fae173a1ec360aad8ee6a916ca37",
+      "rows": 913814
+    }
+  ],
+  "timings": {
+    "total_seconds": 254.6083748000092,
+    "nodes": [
+      {
+        "name": "handler.get_feature_config.super",
+        "seconds": 6.709998706355691e-05
+      },
+      {
+        "name": "handler.get_feature_config.kdj_expr",
+        "seconds": 2.700020559132099e-06
+      },
+      {
+        "name": "handler_init",
+        "seconds": 100.72721780004213
+      },
+      {
+        "name": "handler_fetch_feature",
+        "seconds": 1.9449508999823593
+      },
+      {
+        "name": "model_init",
+        "seconds": 3.649998689070344e-05
+      },
+      {
+        "name": "dataset_init",
+        "seconds": 2.4200009647756815e-05
+      },
+      {
+        "name": "model_fit",
+        "seconds": 119.28825639997376
+      },
+      {
+        "name": "SignalRecord.generate",
+        "seconds": 5.694901600014418
+      },
+      {
+        "name": "SigAnaRecord.generate",
+        "seconds": 1.3031759000150487
+      },
+      {
+        "name": "PortAnaRecord.generate",
+        "seconds": 8.344257699965965
+      },
+      {
+        "name": "dataset_prepare_test_feature_label",
+        "seconds": 3.4501350999926217
+      }
+    ]
+  },
+  "git_branch": "feat/limit-guard-switches-dayfuture",
+  "git_dirty": true
+}
