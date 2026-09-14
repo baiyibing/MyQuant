@@ -205,14 +205,16 @@ kernels 的进程池叠加；旧机已实踩并写入 runbook §5.5：务必带 
 - `buy_eligibility.py`：`winner_ratio_map` 非空则 `_bulk_fetch` 不拉 Quantile
 - `custom_train_backtest.py`：kernels 默认 1；`--buy-state-filter` 时 preload + close_cache
 
-验收（已跑，`7bdbb30`，summary `rebacktest_cost_tiers_summary_20260914T122806Z.json`）：
+验收（已跑，`7bdbb30`）：
 
-| | 关过滤 T091013 | 开过滤旧（涨幅空转）T105327 | 开过滤新（涨幅生效）T122806 |
+| | 关过滤 | 开过滤旧（涨幅空转） | 开过滤新（涨幅生效） |
 |---|---|---|---|
-| 墙钟（3 档） | **5.5 min** | **41.6 min** | **7.2 min**（430s；回测环 **21 it/s / 7s/档**） |
+| 墙钟 topk50（3 档） | **5.5 min** T091013 | **41.6 min** T105327 | **7.2 min** T122806（430s；回测环 21 it/s） |
+| 墙钟 topk10（3 档） | **5.5 min** T090433 | **36.2 min** T101143 | **10.0 min** T124244（602s；回测环 23 it/s） |
 | topk50 qlib_default 净年化 | +0.65% | +9.1% | **+13.6%**（IR 0.37，回撤 -31.6%） |
+| topk10 qlib_default 净年化 | -46.5% | -24.0% | **-21.2%**（IR -0.47，回撤 -56.0%） |
 
-涨幅过滤现在每天在生效（日志 `Filtered ~600 只 → 4~7 只`）。数字与 T105327 不可比。剩余墙钟主要在等权基准 + 三档各建一次 Exchange（约 1.5 min/档），不是策略取数。
+涨幅过滤现在每天在生效（日志 `Filtered ~600 只 → 4~7 只`）。数字与 T105327/T101143 不可比。剩余墙钟主要在等权基准 + 三档各建一次 Exchange（约 1.5 min/档），不是策略取数。
 
 ## 六、快速复现索引
 
