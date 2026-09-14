@@ -107,6 +107,36 @@ python rebacktest_cost_tiers.py \
 - 等权基准由 `market="all"` 全体横截面日均收益自算，输出双基准超额。
 - 产出：`rebacktest_cost_tiers_summary_<UTC>.json`（普通结果文件，非 run-manifest schema）。
 
+## 5.5 窗 C 复验（2025 窗 topk50 vs topk10；2026-09-14 追加，指定新机执行）
+
+背景见 `docs/qlib-fullmarket-longwindow-report-2026-09-14.md` §7.1：窗 A（2026 全窗）与窗 B
+（2026-04~08 OOS）topk50 ≫ topk10 两窗同号；本机跑窗 C 时 expr 缓存装配路径过慢已中止，
+**移新机执行**。注意本机已验证两处坑：长窗需 `drop_raw=True`+零拷贝诊断（已在 master）；
+`ProcessInf` 内部 `n_jobs=-1` 会拉满全部核，**务必带 `LOKY_MAX_CPU_COUNT=8`**（按新机核数可调）。
+
+```bash
+cd MyQuant/my_scripts
+export MLFLOW_DISABLE_AGENT_HINT=1 LOKY_MAX_CPU_COUNT=8
+
+# ① 2025 变体重训（train/valid 与 §4 相同，test=2025；模型等价重建，manifest 自动落盘）
+python custom_train_backtest.py \
+    --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 --test 2025-01-01:2025-12-31 \
+    --expr-cache --dataset-cache > train_valid2025.log 2>&1
+
+# ② 同 pred 两轮重回测（--recorder-id 缺省取最新 recorder，即 ① 产出的；建议核对 manifest）
+python rebacktest_cost_tiers.py --test 2025-01-01:2025-12-31 --topk 10 --n-drop 3 > rebacktest_C_2025_topk10.log 2>&1
+python rebacktest_cost_tiers.py --test 2025-01-01:2025-12-31 --topk 50 --n-drop 5 > rebacktest_C_2025_topk50.log 2>&1
+```
+
+判读（预锁）：取两轮 summary JSON 里 `qlib_default` 档的 `abs_net_after_cost.annualized_return`，
+**topk50 相对 topk10 的排序与窗 A/窗 B 同号**（更高或更低）→ 三窗成立，宽名单族多窗证据闭环；
+结果无论方向，回写报告 §7.1 并按预锁纪律处理（不改线上 topk 默认，改参需正式流程）。
+
+> **执行结果（2026-09-14，新机完成）**：窗 C 反号——topk10 净年化 +92.0% > topk50 +87.8%
+> （IR/回撤/换手仍偏 topk50，详见报告 §7.2）。三窗一致性不成立，按预锁纪律不改线上 topk
+> 默认。新机备注：dataset 缓存键含闸门配置，全开闸门首跑必 miss（数据加载 52 分钟，慢于
+> guards-off 的 21 分钟属预期）；expr 缓存可跨窗复用。
+
 ## 6. 注意事项
 
 - **取回清单**（回传本机或直接在新机继续 Phase 3）：`manifests/train_*.json`、
