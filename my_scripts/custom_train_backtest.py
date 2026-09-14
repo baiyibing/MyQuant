@@ -245,6 +245,10 @@ if __name__ == '__main__':
         "include_cost_kdj": True,
         "include_signal": False,
         "include_lz": True,
+        # 独立处理器路径下 DK_RAW 在 fit_process_data 后不再被使用，及早释放
+        # （全市场长窗 raw 帧 ~5GiB；2026-09-14 MemoryError 实测腾挪点之一。
+        #  若改用 process_type="append" 工作流须回退为 False）
+        "drop_raw": True,
     }
 
     print("[debug] before handler_init(filtered)", flush=True)
@@ -294,9 +298,11 @@ if __name__ == '__main__':
         },
     }
 
-    # 验证数据加载
+    # 验证数据加载：只取前 10 行做诊断。整帧 fetch（~5GiB）是纯调试用途却被 data/all_features
+    # 全程持有到进程结束，是 2026-09-14 本地长窗 model.fit MemoryError 的实凶之一；
+    # 切片行不影响列名（all_features 用途仅是特征重要性编号→列名映射）。
     with t_rec.timer("handler_fetch_feature"):
-        data = handler.fetch(col_set="feature")
+        data = handler.fetch(slice(0, 10), col_set="feature")
 
     print(data.head(10))
     #                            KMID      KLEN  ...    COST_D    COST_J
