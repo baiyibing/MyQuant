@@ -1,0 +1,119 @@
+{
+  "exp_name": "alpha158_cost_kdj_lgb",
+  "recorder_id": "4410e4a3a4714f4f9e261120449232d1",
+  "test": [
+    "2026-04-01",
+    "2026-08-31"
+  ],
+  "benchmark": "SH000300",
+  "account": 100000000.0,
+  "topk": 50,
+  "n_drop": 5,
+  "hold_thresh": 1,
+  "limit_threshold": 0.095,
+  "note": "abs_net=return-cost（真净值口径）；gross=return（未扣费）；成本拖累单列",
+  "tiers": {
+    "zero": {
+      "abs_net_after_cost": {
+        "mean": 0.0008462454396173513,
+        "std": 0.025328977126268894,
+        "annualized_return": 0.2014064146289296,
+        "information_ratio": 0.5154270038578318,
+        "max_drawdown": -0.3697024188286629
+      },
+      "abs_gross_before_cost": {
+        "mean": 0.0008466954121789905,
+        "std": 0.025328995572626526,
+        "annualized_return": 0.20151350809859975,
+        "information_ratio": 0.5157006953593406,
+        "max_drawdown": -0.36967854796320077
+      },
+      "excess_vs_bench_net": {
+        "mean": 0.0003844750747459595,
+        "std": 0.021184040403780607,
+        "annualized_return": 0.09150506778953836,
+        "information_ratio": 0.2799934504207542,
+        "max_drawdown": -0.3022560746062813
+      },
+      "excess_vs_equal_weight_net": {
+        "mean": 0.0008593001166832074,
+        "std": 0.015437840050065545,
+        "annualized_return": 0.20451342777060336,
+        "information_ratio": 0.8587105771753275,
+        "max_drawdown": -0.164533072418451
+      },
+      "annualized_cost_drag": 0.00011339308553309461,
+      "total_cost_rate": 4.679714641048349e-05,
+      "total_turnover": 19.540379294962715,
+      "trading_days": 104
+    },
+    "qlib_default": {
+      "abs_net_after_cost": {
+        "mean": 0.0006653669754423353,
+        "std": 0.0253264159911165,
+        "annualized_return": 0.1583573401552758,
+        "information_ratio": 0.4052994216649969,
+        "max_drawdown": -0.379644532644195
+      },
+      "abs_gross_before_cost": {
+        "mean": 0.0008483136192745148,
+        "std": 0.025331004918802285,
+        "annualized_return": 0.20189864138733452,
+        "information_ratio": 0.5166453188371228,
+        "max_drawdown": -0.369712700907074
+      },
+      "excess_vs_bench_net": {
+        "mean": 0.0002035966105709435,
+        "std": 0.02118367561995551,
+        "annualized_return": 0.04845599331588455,
+        "information_ratio": 0.14827150802000963,
+        "max_drawdown": -0.3114014051399454
+      },
+      "excess_vs_equal_weight_net": {
+        "mean": 0.0006784216525081918,
+        "std": 0.01544178261317976,
+        "annualized_return": 0.16146435329694964,
+        "information_ratio": 0.6777831138400742,
+        "max_drawdown": -0.1708245697727102
+      },
+      "annualized_cost_drag": 0.04610255424570884,
+      "total_cost_rate": 0.019026450958546506,
+      "total_turnover": 19.519013620828094,
+      "trading_days": 104
+    },
+    "realistic": {
+      "abs_net_after_cost": {
+        "mean": 0.0005730799686610268,
+        "std": 0.02532319570003972,
+        "annualized_return": 0.13639303254132437,
+        "information_ratio": 0.34912841415082263,
+        "max_drawdown": -0.38432503742128304
+      },
+      "abs_gross_before_cost": {
+        "mean": 0.0008498499238600128,
+        "std": 0.025330463721367175,
+        "annualized_return": 0.20226428187868303,
+        "information_ratio": 0.5175920271241309,
+        "max_drawdown": -0.369429055813102
+      },
+      "excess_vs_bench_net": {
+        "mean": 0.00011130960378963488,
+        "std": 0.02118416994318735,
+        "annualized_return": 0.026491685701933103,
+        "information_ratio": 0.0810605719328127,
+        "max_drawdown": -0.31572151099470147
+      },
+      "excess_vs_equal_weight_net": {
+        "mean": 0.000586134645726883,
+        "std": 0.01544498264195702,
+        "annualized_return": 0.13950004568299815,
+        "information_ratio": 0.5854616424221428,
+        "max_drawdown": -0.17396349817368312
+      },
+      "annualized_cost_drag": 0.06974602871014442,
+      "total_cost_rate": 0.02878407534069452,
+      "total_turnover": 19.51464051373656,
+      "trading_days": 104
+    }
+  }
+}
