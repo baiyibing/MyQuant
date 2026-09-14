@@ -183,6 +183,26 @@ python rebacktest_cost_tiers.py \
 判读问题：过滤能否救 topk10、是否拖累 topk50。跑完取回两份
 `rebacktest_cost_tiers_summary_*.json` 回写报告 §7.4。
 
+> **执行结果（2026-09-14，新机完成）**：新机无 4410e4a3 recorder，按预案改用本机同配置
+> 2026 窗 pred（`95e18c5a…`，manifest train_20260913T105221Z）——无过滤基线复算得
+> topk10 **-46.5%** / topk50 **+0.6%**，与发起机基线逐位一致（两机 pred 等价）。ST 数据
+> 路径按本机实际为 `E:/stock_data/vendor_wind_st_status/st_daily.parquet`。四开关全开
+> （qlib 默认档，净年化）：
+>
+> | 配置 | 关过滤 | 开过滤 | 变化 |
+> |---|---|---|---|
+> | topk10/n3 | -46.5% | **-24.0%**（IR -0.58，回撤 -41.9%） | +22.5pp |
+> | topk50/n5 | +0.6% | **+9.1%**（IR +0.27，回撤 -28.0%，超额 vs 等权 +6.1pp） | +8.4pp |
+>
+> 两问皆有答案：过滤救回 topk10 一半亏损但仍是深负；**不拖累 topk50，反而大幅加持**
+> （IR/回撤同步改善，换手不变 31.1×）。四份 summary 已入库（T090433/T091013 基线，
+> T101143/T105327 过滤开）。§7.4 对比撰写留给发起机。
+>
+> 新机 perf 注：Windows 下 qlib `kernels>1` 每次小数据查询固定 ~29s 进程池开销
+> （D.features 50 股单日 29s → kernels=1 时 0.09s）；资格过滤策略每日小查询，
+> 已把 rebacktest_cost_tiers 的 kernels 默认改为 1（QLIB_KERNELS 可覆盖），
+> 过滤轮回测从 ~100s/bar 降到 ~3.6s/bar。
+
 ## 6. 注意事项
 
 - **取回清单**（回传本机或直接在新机继续 Phase 3）：`manifests/train_*.json`、
