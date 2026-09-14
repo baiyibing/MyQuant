@@ -163,6 +163,19 @@ python build_tradable_universe.py
 只读 `all.txt` + `day.txt` 两个文本（秒级、零外部依赖）。说明：ST 剔除用静态
 EXCLUDE_STOCKS_DEFAULT；PIT 精确层由 ③ 的 `--st-daily-file` 在策略级承担。
 
+### ②b 精确盈筹率现生成（CYQ 本地化，2026-09-14 追加；约 1 分钟）
+
+```bash
+python build_winner_ratio.py --test 2026-01-01:2026-09-08 --workers 8
+# 期望输出: DONE stocks≈5569/5583 rows≈912350 elapsed≈60s
+#           → F:/stock_data/cyq_winner_ratio_daily_2026.parquet
+```
+
+数据全取自 my_data bins（adjclose 原始价 / amount÷adjclose 真实成交股数 / netcsfree
+自由流通股本；high/low 经逐日 factor=$adjclose/$close 拉回原始价空间——high/low/open/
+vwap 均为后复权，volume 含复权漂移，均不可直接用）。对 QMT 真值 Spearman 0.92、
+召回率 0.95（对照代理 0.65/0.42）。依赖 numba（vanna312 环境已装）。
+
 ### ③ 四开关全开重回测（topk10 与 topk50 各一轮）
 
 ```bash
@@ -171,12 +184,14 @@ python rebacktest_cost_tiers.py \
     --recorder-id 4410e4a3a4714f4f9e261120449232d1 \
     --test 2026-01-01:2026-09-08 --topk 10 --n-drop 3 \
     --buy-state-filter --st-filter --age-filter \
-    --st-daily-file "F:/stock_data/vendor_wind_st_status/st_daily.parquet"
+    --st-daily-file "F:/stock_data/vendor_wind_st_status/st_daily.parquet" \
+    --winner-ratio-file "F:/stock_data/cyq_winner_ratio_daily_2026.parquet"
 python rebacktest_cost_tiers.py \
     --recorder-id 4410e4a3a4714f4f9e261120449232d1 \
     --test 2026-01-01:2026-09-08 --topk 50 --n-drop 5 \
     --buy-state-filter --st-filter --age-filter \
-    --st-daily-file "F:/stock_data/vendor_wind_st_status/st_daily.parquet"
+    --st-daily-file "F:/stock_data/vendor_wind_st_status/st_daily.parquet" \
+    --winner-ratio-file "F:/stock_data/cyq_winner_ratio_daily_2026.parquet"
 ```
 
 无过滤基线（同机同 pred，qlib 默认档）：topk10 净年化 **-46.5%** / topk50 **+0.6%**。

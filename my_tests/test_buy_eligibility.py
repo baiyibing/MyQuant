@@ -126,3 +126,41 @@ def test_shift_start_matches_strategy_age_map():
     assert f.min_trade_date["SZ300001"] == new_start
     assert f.eligible(["SZ300001"], pd.Timestamp("2026-01-07")) == []
     assert f.eligible(["SZ300001"], new_start) == ["SZ300001"]
+
+
+def test_eligibility_precise_winner_ratio_overrides_proxy():
+    """精确盈筹率命中时替代 Q10 代理：代理判深洗但精确值高 → 剔除；精确值低 → 放行。"""
+    from datetime import date as _date
+
+    def fake_features(codes, start, end):
+        data = {
+            "SH600001": [8.0, 10.0, 9.0, 8.5],   # 代理判深洗（close<q10）
+            "SH600002": [8.0, 10.0, 9.0, 8.0],   # 代理判深洗
+        }
+        dates = pd.DatetimeIndex(pd.to_datetime(["2026-03-02"]))
+        rows, index = [], []
+        for c in codes:
+            if c not in data:
+                continue
+            for d in dates:
+                rows.append(data[c])
+                index.append((d, c))
+        return pd.DataFrame(rows, index=pd.MultiIndex.from_tuples(index, names=["datetime", "instrument"]))
+
+    wr_map = {
+        ("SH600001", _date(2026, 3, 2)): 0.55,  # 精确值高 → 代理误判，剔除
+        ("SH600002", _date(2026, 3, 2)): 0.05,  # 精确值低 → 确认深洗，放行
+    }
+    f = BuyEligibilityFilter(check_buy_state=True, features_fn=fake_features, winner_ratio_map=wr_map)
+    f.preload(["SH600001", "SH600002"], "2026-03-01", "2026-03-05")
+    out = f.eligible(["SH600001", "SH600002"], pd.Timestamp("2026-03-02"))
+    assert out == ["SH600002"]
+
+
+def test_deep_washout_ok():
+    from buy_eligibility import deep_washout_ok
+
+    assert deep_washout_ok(8.0, 10.0, 9.0, 0.05) is True
+    assert deep_washout_ok(8.0, 10.0, 9.0, 0.15) is False
+    assert deep_washout_ok(11.0, 10.0, 9.0, 0.05) is False  # 站上 MA20 不属于分支二
+    assert deep_washout_ok(8.0, 10.0, 9.0, None) is False
