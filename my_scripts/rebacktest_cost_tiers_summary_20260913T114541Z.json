@@ -1,0 +1,91 @@
+{
+  "exp_name": "alpha158_cost_kdj_lgb",
+  "recorder_id": "5f7ffacf79dc4bc08e1c538cac4274ef",
+  "test": [
+    "2026-01-01",
+    "2026-09-08"
+  ],
+  "benchmark": "SH000300",
+  "account": 100000000.0,
+  "topk": 10,
+  "n_drop": 3,
+  "hold_thresh": 1,
+  "limit_threshold": null,
+  "tiers": {
+    "zero": {
+      "abs_with_cost": {
+        "mean": -0.0005153889067543228,
+        "std": 0.023910554655787314,
+        "annualized_return": -0.12266255980752881,
+        "information_ratio": -0.33253234461642045,
+        "max_drawdown": -0.4539513583620823
+      },
+      "excess_vs_bench_with_cost": {
+        "mean": -0.0004954227870110678,
+        "std": 0.020710361006448547,
+        "annualized_return": -0.11791062330863414,
+        "information_ratio": -0.369042843102616,
+        "max_drawdown": -0.41310071901882056
+      },
+      "excess_vs_equal_weight_with_cost": {
+        "mean": -0.0006392983727361689,
+        "std": 0.018446531317300778,
+        "annualized_return": -0.1521530127112082,
+        "information_ratio": -0.5346595936797326,
+        "max_drawdown": -0.2996474016429803
+      },
+      "total_turnover": 60.43878454259375,
+      "trading_days": 166
+    },
+    "qlib_default": {
+      "abs_with_cost": {
+        "mean": -0.000516965906659806,
+        "std": 0.023893344304296585,
+        "annualized_return": -0.12303788578503383,
+        "information_ratio": -0.333790091031766,
+        "max_drawdown": -0.45408658795880025
+      },
+      "excess_vs_bench_with_cost": {
+        "mean": -0.0004969997869165507,
+        "std": 0.02069649974572322,
+        "annualized_return": -0.11828594928613907,
+        "information_ratio": -0.37046550727507355,
+        "max_drawdown": -0.4132359486155384
+      },
+      "excess_vs_equal_weight_with_cost": {
+        "mean": -0.0006408753726416515,
+        "std": 0.018428173339706054,
+        "annualized_return": -0.15252833868871307,
+        "information_ratio": -0.5365124109844439,
+        "max_drawdown": -0.29978963849869505
+      },
+      "total_turnover": 60.328677001776654,
+      "trading_days": 166
+    },
+    "realistic": {
+      "abs_with_cost": {
+        "mean": -0.000519550674341794,
+        "std": 0.023884819250102798,
+        "annualized_return": -0.12365306049334697,
+        "information_ratio": -0.33557873476502686,
+        "max_drawdown": -0.4540464708479234
+      },
+      "excess_vs_bench_with_cost": {
+        "mean": -0.0004995845545985384,
+        "std": 0.02068740264425032,
+        "annualized_return": -0.11890112399445214,
+        "information_ratio": -0.37255595897226973,
+        "max_drawdown": -0.4131958315046617
+      },
+      "excess_vs_equal_weight_with_cost": {
+        "mean": -0.0006434601403236399,
+        "std": 0.018416965064448305,
+        "annualized_return": -0.15314351339702628,
+        "information_ratio": -0.5390040936410218,
+        "max_drawdown": -0.29975020030814703
+      },
+      "total_turnover": 60.26486556949971,
+      "trading_days": 166
+    }
+  }
+}
