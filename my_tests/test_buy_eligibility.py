@@ -164,3 +164,20 @@ def test_deep_washout_ok():
     assert deep_washout_ok(8.0, 10.0, 9.0, 0.15) is False
     assert deep_washout_ok(11.0, 10.0, 9.0, 0.05) is False  # 站上 MA20 不属于分支二
     assert deep_washout_ok(8.0, 10.0, 9.0, None) is False
+
+
+def test_bulk_fetch_skips_quantile_when_winner_ratio_present():
+    """有精确盈筹率时 preload 不再拉 Quantile($close,250)。"""
+    from datetime import date as _date
+
+    from buy_eligibility import BUY_STATE_FIELDS, BUY_STATE_FIELDS_CORE, BUY_STATE_Q10, BuyEligibilityFilter
+
+    with_wr = BuyEligibilityFilter(
+        check_buy_state=True,
+        winner_ratio_map={("SH600000", _date(2026, 3, 2)): 0.05},
+    )
+    assert with_wr._buy_state_fetch_fields() == BUY_STATE_FIELDS_CORE
+    assert BUY_STATE_Q10 not in with_wr._buy_state_fetch_fields()
+
+    bare = BuyEligibilityFilter(check_buy_state=True)
+    assert bare._buy_state_fetch_fields() == BUY_STATE_FIELDS

@@ -11,7 +11,7 @@
 
 | # | 问题 | 影响 | 状态 |
 |---|---|---|---|
-| P1 | Windows 下 qlib `kernels>1` 每次小数据查询固定 ~29s 进程池开销 | 过滤策略回测 100s/bar（一轮 4.6h） | **已修复**（两脚本默认 kernels=1，25×提速）；custom_train_backtest.py 仍 16 待改 |
+| P1 | Windows 下 qlib `kernels>1` 每次小数据查询固定 ~29s 进程池开销 | 过滤策略回测 100s/bar（一轮 4.6h） | **已修复**（三脚本默认 kernels=1 / `QLIB_KERNELS`） |
 | P2 | 表达式缓存首填 = ~95 万个小文件写盘，比不缓存还慢 4× | 冷缓存首跑 Loading 1262s vs 无缓存 405s | 已量化，未修（复跑场景仍净赚，见 P3） |
 | P3 | 缓存键含 filter_pipe 配置：闸门/宇宙一变即全部 miss | 窗C（闸门全开+缓存）Loading 3115s，比无缓存慢 7.7× | **开放问题**，见 §建议 N1 |
 | P4 | SimpleDatasetCache 单文件键 + Windows 小文件读：16 worker 争抢 | 旧机窗C 因此中止（"expr 缓存装配路径过慢"） | 同 P3，属同一病灶 |
@@ -116,9 +116,10 @@ kernels 的进程池叠加；旧机已实踩并写入 runbook §5.5：务必带 
 | 9d9a1ab / 87a3fea | 同上两笔在 ST 分支的原始提交（分支已清，内容经 #39 进 master） |
 | 修复效果 | 过滤重回测 100s/bar → 3.6s/bar；§5.6 四轮全部跑完（topk10 -46.5%→-24.0%，topk50 +0.6%→+9.1%） |
 
-未改动但相关：`custom_train_backtest.py` 的 qlib.init 仍硬编码 `kernels=16`
-（见 §五 N2）；磁盘占用 `features_cache` 7.5 GB 在 `my_data` 目录内（数据刷新原子换名
+磁盘占用 `features_cache` 7.5 GB 在 `my_data` 目录内（数据刷新原子换名
 时自动失效，属设计内；`qlib_simple_cache` 需手工清）。
+
+过滤路径二次优化（2026-09-14 晚，本轮，未入库）：见 §八。
 
 ## 五、下一步建议（给跟进 agent，按优先级）
 
@@ -128,9 +129,7 @@ kernels 的进程池叠加；旧机已实踩并写入 runbook §5.5：务必带 
   `pd.read_parquet`。验收：窗C 同配置二次运行 Loading < 60s；跨闸门配置互不污染
   （键含 config_hash 天然隔离）。注意 train/eval 双窗与 fit_start/fit_end 归一化参数
   必须进键。
-- **N2 统一 kernels 修复到训练脚本**：`custom_train_backtest.py` 的 `kernels=16` 改为
-  `int(os.environ.get("QLIB_KERNELS", "1"))`（新机 handler 阶段单进程裸读 405s，
-  16 进程在 Windows 上反而 3115s——窗C 实证；旧机 Linux 结论不适用）。顺带在
+- **N2 统一 kernels 修复到训练脚本**：**已做**（`QLIB_KERNELS` 默认 1）。顺带在
   qlib-dev 源码里定位 P1 的具体开销点（嫌疑：`DatasetProvider` 每调用重建进程池），
   可考虑给 qlib-dev 打本地补丁或上游 issue。
 - **N3 决定缓存旗标的默认策略**：在 N1 落地前，Windows 上建议 `--expr-cache
@@ -178,6 +177,36 @@ kernels 的进程池叠加；旧机已实踩并写入 runbook §5.5：务必带 
   缓存是净赚（12.5s Loading / 4.2 min 端到端）。
 - 结论落到操作纪律：Windows 上，确认要同配置复跑才开 `--expr-cache --dataset-cache`；
   单次实验、或闸门配置会变的消融矩阵，裸跑更快。根本解法见 N1（项目级单文件缓存）。
+
+## 八、过滤路径二次优化（2026-09-14 晚）
+
+用户因果链核对：「昨天缓存让同配置复跑变快；今天加过滤又慢」——成立，两段不是同一病灶。
+
+| 时段 | 慢在哪 | 不是 |
+|---|---|---|
+| 09-13 缓存 | 训练 Loading（P2/P3/P4 小文件 + 键含闸门） | 回测策略 |
+| 09-14 过滤 | 回测每根 bar 的策略取数（P1 放大器）+ Quantile preload | 昨天的缓存 |
+
+过滤开 vs 关（同 pred / topk50，kernels 已修）：5.5 min → 41.6 min（~7.5×）。构成：
+
+1. **涨幅过滤每根 bar 2 次 `D.features`（1000 股单日）** ≈ 3.6s/bar × 166 × 3 档 ≈ **30 min**。
+   另发现旧实现对齐 bug：qlib 返回 MultiIndex `(instrument, datetime)`，两日
+   index 直接 intersection 为空 → `return_dict` 空 → 全员 `-inf` 放行。
+   **15% 涨幅过滤实际没生效，只是在烧 IO。** 本轮改为预取 `$close` 宽表查表，
+   并按 instrument 对齐后**按文档语义真正过滤**（§5.6 数字会变，需重跑）。
+2. **`Quantile($close, 250)` preload 每轮 3~5 min**。有 `--winner-ratio-file` 时
+   跳过该表达式（Q10 列补 NaN；精确盈筹率命中走 CYQ，未命中判不可买）。
+3. 资格层 ST/年龄/买入状态是纯查表，不是主因。
+
+落地：
+
+- `custom_strategy.py`：`build_close_cache` + `closes_by_instrument`；热路径不再打 1000 票 warning
+- `rebacktest_cost_tiers.py` / `export_positions_trades.py`（经 `build_strategy_config`）：装配时预取
+- `buy_eligibility.py`：`winner_ratio_map` 非空则 `_bulk_fetch` 不拉 Quantile
+- `custom_train_backtest.py`：kernels 默认 1；`--buy-state-filter` 时 preload + close_cache
+
+验收：同命令重跑 §5.6 过滤开，预期从 41.6 min 降到接近关过滤的 5~10 min 量级
+（仍多一次 `$close` 预取 + 买入状态 Mean 预取）。数字与 T105327 不可比（涨幅过滤从空转变为生效）。
 
 ## 六、快速复现索引
 

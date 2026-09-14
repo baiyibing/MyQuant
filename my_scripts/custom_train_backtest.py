@@ -29,6 +29,7 @@ from qlib.data import D  # 导入数据模块
 from custom_handler import Alpha158CostKDJ
 from custom_filter import UnifiedLimitUpFilter
 from buy_eligibility import BuyEligibilityFilter, TopkDropoutStrategyWithBuyEligibility  # noqa: F401 (类经 module_path 字符串实例化)
+from custom_strategy import build_close_cache
 from train_wiring import (
     DEFAULT_LIMIT_THRESHOLD,
     EXCLUDE_STOCKS_DEFAULT,
@@ -114,12 +115,16 @@ if __name__ == '__main__':
         # Redis 不可用时 qlib config 守卫自动摘除该缓存（只警告不报错）。
         _init_extra["expression_cache"] = {"class": "DiskExpressionCache"}
 
+    # kernels 默认 1：Windows 下 kernels>1 每次小查询 ~29s 进程池开销（窗C 实证 16 进程更慢）。
+    # Linux 高配可用 QLIB_KERNELS=16 覆盖。
+    _kernels = int(os.environ.get("QLIB_KERNELS", "1"))
+    print(f"[qlib.init] kernels={_kernels}", flush=True)
     qlib.init(
         # 数据存储路径
         provider_uri = "~/.qlib/qlib_data/my_data",  # target_dir
         # 中国市场
         region=REG_CN,
-        kernels=16,
+        kernels=_kernels,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。
         redis_host='127.0.0.1',
         redis_port=6379,
@@ -345,6 +350,26 @@ if __name__ == '__main__':
         )
         print("[debug] after verify_limit_up_filter", flush=True)
 
+    _buy_state_strategy_kwargs = {}
+    if cli_args.buy_state_filter:
+        _elig = BuyEligibilityFilter(
+            st_codes=None,
+            age_map=None,
+            check_buy_state=True,
+            calendar=list(D.calendar(future=True)),
+        )
+        _bt_codes = D.list_instruments(
+            D.instruments(market="all"),
+            start_time=test_start_time,
+            end_time=test_end_time,
+            as_list=True,
+        )
+        _elig.preload(_bt_codes, test_start_time, test_end_time)
+        _buy_state_strategy_kwargs = {
+            "eligibility": _elig,
+            "close_cache": build_close_cache(_bt_codes, test_start_time, test_end_time),
+        }
+
     # 定义投资组合分析（回测）的配置
     port_analysis_config = {
         "executor": {  # 回测执行器配置,负责模拟交易执行过程，计算交易成本和投资组合收益。
@@ -368,18 +393,7 @@ if __name__ == '__main__':
                 "n_drop": 3,  # 每次调仓时丢弃排名最后5只股票
                 "hold_thresh": 1,  # 最小持有1天
                 # timing_interval_steps 仅适用于 custom_strategy.TopkDropoutStrategyWithFilter，勿传给 qlib TopkDropoutStrategy
-                **(
-                    {
-                        "eligibility": BuyEligibilityFilter(
-                            st_codes=None,
-                            age_map=None,
-                            check_buy_state=True,
-                            calendar=list(D.calendar(future=True)),
-                        )
-                    }
-                    if cli_args.buy_state_filter
-                    else {}
-                ),
+                **_buy_state_strategy_kwargs,
             },
         },
         "backtest": {  # 回测参数配置
