@@ -1,57 +1,57 @@
 {
-  "total_seconds": 971.0279781999998,
+  "total_seconds": 3589.637268999999,
   "nodes": [
     {
       "name": "handler.get_feature_config.super",
-      "seconds": 0.0001396999869029969
+      "seconds": 6.179994670674205e-05
     },
     {
       "name": "handler.get_feature_config.kdj_expr",
-      "seconds": 3.9000005926936865e-06
+      "seconds": 2.100015990436077e-06
     },
     {
       "name": "handler_init",
-      "seconds": 305.9102729000151
+      "seconds": 3191.3556207999936
     },
     {
       "name": "handler.get_feature_config.super",
-      "seconds": 0.0007594999915454537
+      "seconds": 8.040003012865782e-05
     },
     {
       "name": "handler.get_feature_config.kdj_expr",
-      "seconds": 5.849997978657484e-05
+      "seconds": 4.100031219422817e-06
     },
     {
       "name": "handler_fetch_feature",
-      "seconds": 0.0012494999973569065
+      "seconds": 0.00020839995704591274
     },
     {
       "name": "model_init",
-      "seconds": 0.001703000016277656
+      "seconds": 2.19999928958714e-05
     },
     {
       "name": "dataset_init",
-      "seconds": 0.0006260999944061041
+      "seconds": 1.3500044587999582e-05
     },
     {
       "name": "model_fit",
-      "seconds": 511.8804439000087
+      "seconds": 116.65346700005466
     },
     {
       "name": "SignalRecord.generate",
-      "seconds": 19.362941400002455
+      "seconds": 6.527548099984415
     },
     {
       "name": "SigAnaRecord.generate",
-      "seconds": 0.1272981000074651
+      "seconds": 0.907506299961824
     },
     {
       "name": "PortAnaRecord.generate",
-      "seconds": 111.37477419999777
+      "seconds": 249.5213082000264
     },
     {
       "name": "dataset_prepare_test_feature_label",
-      "seconds": 8.630316299997503
+      "seconds": 3.9543124999618158
     }
   ],
   "exp_name": "alpha158_cost_kdj_lgb"

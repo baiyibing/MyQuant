@@ -1,0 +1,32 @@
+{
+  "schema": "myquant.run-manifest/1",
+  "stage": "export",
+  "git_commit": "ec4bfc74229cf93a2ebc4267db1e5d51ecd388ed",
+  "created_utc": "2026-09-13T12:08:33Z",
+  "config": {
+    "kind": "positions_trades",
+    "exp_name": "alpha158_cost_kdj_lgb",
+    "recorder_id": "5f7ffacf79dc4bc08e1c538cac4274ef",
+    "test": [
+      "2026-01-01",
+      "2026-09-08"
+    ],
+    "benchmark": "SH000300",
+    "account": 100000000.0,
+    "topk": 10,
+    "n_drop": 3,
+    "hold_thresh": 1,
+    "cost_tier": "qlib_default",
+    "limit_threshold": null,
+    "positions_rows": 1603,
+    "trades_rows": 625,
+    "output_file_count": 2,
+    "config_hash": "7fe1a8f8dfdb14741e091394317fa84c63dffcabc17741ab97b215e85fc9cc28"
+  },
+  "data": {},
+  "artifacts": [],
+  "timings": {
+    "total_seconds": 0,
+    "nodes": []
+  }
+}
