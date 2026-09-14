@@ -124,6 +124,9 @@ def run_tiers(args) -> dict:
         "n_drop": args.n_drop,
         "hold_thresh": args.hold_thresh,
         "limit_threshold": None if args.no_limit_threshold else 0.095,
+        # qlib report["return"] 列是加回成本的毛收益（account.py: return_rate=(earning+cost)/last_value），
+        # 净收益 = return - cost；三档毛收益几乎相同（决策不看成本），差异全在 cost 列
+        "note": "abs_net=return-cost（真净值口径）；gross=return（未扣费）；成本拖累单列",
         "tiers": {},
     }
     for tier, costs in COST_TIERS.items():
@@ -137,11 +140,15 @@ def run_tiers(args) -> dict:
             benchmark=args.benchmark,
             exchange_kwargs=build_exchange_kwargs(costs, no_limit_threshold=args.no_limit_threshold),
         )
+        net = report["return"] - report["cost"]
         ew_aligned = ew.reindex(report.index)
         summary["tiers"][tier] = {
-            "abs_with_cost": metrics(report["return"]),
-            "excess_vs_bench_with_cost": metrics(report["return"] - report["bench"]),
-            "excess_vs_equal_weight_with_cost": metrics(report["return"] - ew_aligned),
+            "abs_net_after_cost": metrics(net),
+            "abs_gross_before_cost": metrics(report["return"]),
+            "excess_vs_bench_net": metrics(net - report["bench"]),
+            "excess_vs_equal_weight_net": metrics(net - ew_aligned),
+            "annualized_cost_drag": float(report["cost"].mean() * 252),
+            "total_cost_rate": float(report["cost"].sum()),
             "total_turnover": float(report["turnover"].sum()),
             "trading_days": int(len(report)),
         }
