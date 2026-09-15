@@ -332,6 +332,19 @@ def parse_train_cli(argv=None):
             "always-on 计数器（df/tradable/deal_price/factor）不受此门控。"
         ),
     )
+    parser.add_argument(
+        "--topk",
+        type=int,
+        default=10,
+        help="TopkDropout 目标持仓数（默认 10）。",
+    )
+    parser.add_argument(
+        "--n-drop",
+        dest="n_drop",
+        type=int,
+        default=3,
+        help="每次调仓丢弃的最弱持仓数（默认 3）。",
+    )
     return parser.parse_args(argv)
 
 

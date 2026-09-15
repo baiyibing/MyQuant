@@ -121,6 +121,11 @@ def test_guard_and_cache_cli_flags_default_off():
     assert args.expr_cache is False
     assert args.handler_cache is False
     assert args.no_export_analysis is False
+    assert args.topk == 10
+    assert args.n_drop == 3
+    args_wide = parse_train_cli(["--topk", "50", "--n-drop", "5"])
+    assert args_wide.topk == 50
+    assert args_wide.n_drop == 5
     args_on = parse_train_cli(["--exclude-filter"])
     assert args_on.exclude_filter is True
     args_off = parse_train_cli(
