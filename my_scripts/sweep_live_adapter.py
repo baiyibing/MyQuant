@@ -40,6 +40,7 @@ if str(_SCRIPT_DIR) not in sys.path:
 # 共享 mlflow 逃生口 / 静音（须在任何 qlib import 之前）
 import host_env  # noqa: E402,F401
 from run_manifest import capture_git_provenance  # noqa: E402
+from handler_frame_cache import resolve_qlib_kernels  # noqa: E402
 
 _STATE: dict[str, Any] = {}
 
@@ -129,7 +130,13 @@ def _predict_once() -> tuple[pd.Series, pd.Series]:
     from custom_handler import Alpha158CostKDJ
     from train_wiring import build_filtered_instruments
 
-    qlib.init(provider_uri="C:/Users/Thinkpad/.qlib/qlib_data/my_data", region="cn")
+    _kernels = resolve_qlib_kernels()
+    print(f"[qlib] kernels={_kernels} (QLIB_KERNELS, default 1)", flush=True)
+    qlib.init(
+        provider_uri="C:/Users/Thinkpad/.qlib/qlib_data/my_data",
+        region="cn",
+        kernels=_kernels,
+    )
 
     segs = get_segments()
     # handler 覆盖三段 min start / max end。label 用 Ref($close,-2)，

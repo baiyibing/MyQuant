@@ -284,8 +284,16 @@ def run_real_window(window: str, market: str) -> int:
     import qlib
     from qlib.data import D
 
+    from handler_frame_cache import resolve_qlib_kernels
+
     start, end = window.split(":")
-    qlib.init(provider_uri="C:/Users/Thinkpad/.qlib/qlib_data/my_data", region="cn")
+    _kernels = resolve_qlib_kernels()
+    print(f"[qlib] kernels={_kernels} (QLIB_KERNELS, default 1)", flush=True)
+    qlib.init(
+        provider_uri="C:/Users/Thinkpad/.qlib/qlib_data/my_data",
+        region="cn",
+        kernels=_kernels,
+    )
     insts = D.instruments(market=market)
     df = D.features(insts, REAL_WINDOW_FIELDS, start_time=start, end_time=end)
     df.columns = [c.lstrip("$") for c in df.columns]

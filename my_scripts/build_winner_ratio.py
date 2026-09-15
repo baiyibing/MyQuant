@@ -228,7 +228,11 @@ def main(argv=None) -> int:
     from qlib.config import REG_CN
     from qlib.data import D
 
-    qlib.init(provider_uri=str(_QLIB_DIR), region=REG_CN, kernels=8)
+    from handler_frame_cache import resolve_qlib_kernels
+
+    _kernels = resolve_qlib_kernels()
+    print(f"[qlib] kernels={_kernels} (QLIB_KERNELS, default 1)", flush=True)
+    qlib.init(provider_uri=str(_QLIB_DIR), region=REG_CN, kernels=_kernels)
     cal = D.calendar()
     dates = pd.DatetimeIndex(cal)
     pos = {d_: i for i, d_ in enumerate(dates)}

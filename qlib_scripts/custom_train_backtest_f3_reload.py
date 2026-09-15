@@ -14,6 +14,13 @@ from qlib.data import D
 from qlib.data.filter import ExpressionDFilter, NameDFilter
 from custom_handler import Alpha158CostKDJ
 from custom_ops import SMA
+
+import sys
+from pathlib import Path as _Path
+_my_scripts = str(_Path(__file__).resolve().parent.parent / "my_scripts")
+if _my_scripts not in sys.path:
+    sys.path.insert(0, _my_scripts)
+from handler_frame_cache import resolve_qlib_kernels
 from custom_utils import pprint_position_report, analyze_position_by_date, generate_position_report, \
     pprint_risk_analysis
 import plotly.graph_objects as go
@@ -32,10 +39,12 @@ if __name__ == '__main__':
     logger.add("Filter.log", filter=lambda record: record["module"] == "custom_strategy")
     logger.add("orders.log", filter=lambda record: record["module"] != "custom_strategy")
 
+    _kernels = resolve_qlib_kernels()
+    print(f"[qlib] kernels={_kernels} (QLIB_KERNELS, default 1)", flush=True)
     qlib.init(
         provider_uri="~/.qlib/qlib_data/my_data",
         region=REG_CN,
-        kernels=16,
+        kernels=_kernels,
         redis_host='127.0.0.1',
         redis_port=6379,
         redis_password='123456',
