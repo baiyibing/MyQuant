@@ -38,6 +38,7 @@ from handler_frame_cache import (
     resolve_lgb_num_threads,
     resolve_qlib_kernels,
 )
+from redis_probe import log_qlib_redis_probe
 from train_wiring import (
     DEFAULT_LIMIT_THRESHOLD,
     EXCLUDE_STOCKS_DEFAULT,
@@ -137,6 +138,11 @@ if __name__ == '__main__':
             flush=True,
         )
 
+    # Redis 连接参数（探针与 qlib.init 共用；失败时 qlib 静默降级）
+    _redis_host = "127.0.0.1"
+    _redis_port = 6379
+    _redis_password = "123456"
+    _redis_db = 1
     qlib.init(
         # 数据存储路径
         provider_uri = "~/.qlib/qlib_data/my_data",  # target_dir
@@ -144,10 +150,10 @@ if __name__ == '__main__':
         region=REG_CN,
         kernels=_kernels,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。
-        redis_host='127.0.0.1',
-        redis_port=6379,
-        redis_password='123456',
-        redis_task_db=1,  # Redis 数据库编号
+        redis_host=_redis_host,
+        redis_port=_redis_port,
+        redis_password=_redis_password,
+        redis_task_db=_redis_db,  # Redis 数据库编号
         custom_ops=[SMA],
         # 配置实验管理器，用于跟踪和管理实验结果
         exp_manager={
@@ -162,6 +168,14 @@ if __name__ == '__main__':
         # logging_level=logging.DEBUG
         logging_level=logging.INFO,
         **_init_extra,
+    )
+    # eng-perf P1-2：显式探针 — 区分 Redis ok vs 静默降级（与 handler-cache pickle 正交）
+    log_qlib_redis_probe(
+        _redis_host,
+        _redis_port,
+        password=_redis_password,
+        db=_redis_db,
+        expr_cache=bool(cli_args.expr_cache),
     )
 
     # 显示所有行
