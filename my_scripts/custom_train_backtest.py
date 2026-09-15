@@ -362,13 +362,23 @@ if __name__ == '__main__':
     }
 
     # 验证数据加载：零拷贝拿特征列名。get_feature_config() 只构造表达式串（与处理后帧的
-    # 列名同序同名），不触发任何数据加载。不做 fetch——本版 qlib 的 fetch 对任意 slc
-    # 都先做整帧列选拷贝（~5GiB），2026-09-14 长窗两次 MemoryError 均在此路径；
+    # 列名同序同名），不触发任何数据加载。禁物化全量 feature 矩阵——本版 qlib 对任意
+    # 切片都先整帧列选拷贝（~5GiB），2026-09-14 长窗两次 MemoryError 均在此路径；
     # 诊断用途不值得这个代价，数据健康由后续 SignalRecord/回测自检兜底。
-    with t_rec.timer("handler_fetch_feature"):
+    # --preview-rows >0 仍禁物化；最多对表达式列名做前 N 切片打印（零 IO）。
+    _preview_rows = int(getattr(cli_args, "preview_rows", 0) or 0)
+    with t_rec.timer("handler_feature_names"):
         _conf_fields, _conf_names = handler.get_feature_config()
         all_features = pd.Index(_conf_names)
-    print(f"所有feature列({len(all_features)}): {list(all_features)}")
+    if _preview_rows > 0:
+        print(
+            f"[preview] preview-rows 请求了 {_preview_rows}，但全量 fetch 已禁；"
+            f"列名仍走 get_feature_config（零 IO）"
+        )
+        _shown = list(all_features[:_preview_rows])
+        print(f"所有feature列({len(all_features)}; preview first {_preview_rows}): {_shown}")
+    else:
+        print(f"所有feature列({len(all_features)}): {list(all_features)}")
     available_cols = [col for col in signal_cols if col in all_features]
     print(f"可用信号列: {available_cols}")
 
@@ -914,6 +924,7 @@ if __name__ == '__main__':
                 # 买入资格开关（默认全关）
                 "tradable_universe_on": bool(cli_args.tradable_universe),
                 "buy_state_filter_on": bool(cli_args.buy_state_filter),
+                "preview_rows": int(getattr(cli_args, "preview_rows", 0) or 0),
             }
             _cal_data = {}
             try:
