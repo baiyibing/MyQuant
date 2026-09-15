@@ -1,0 +1,18 @@
+{
+  "recorder_filter": "OFF",
+  "k_req": 50,
+  "trade_days": 169,
+  "k_fill_median": 10.0,
+  "k_fill_min": 4.0,
+  "rank_max_p50": 43.0,
+  "rank_max_p90": 49.0,
+  "port_rank_max_p90": 5333.8,
+  "refill_walkdown_days": 0,
+  "refill_walkdown_pct": 0.0,
+  "k_fill_lt_k_req_days": 169,
+  "k_fill_lt_k_req_pct": 1.0,
+  "missed_topk_days": 169,
+  "width_sweep_degrade": false,
+  "degrade_reason": "none",
+  "note": "本 recorder 训练未开 buy-state/ST/age。门检 rank_max 只含 new_buy+held；回填=new_buy 且 rank>50。held_not_topk 记 port_rank_max，不进门检。"
+}
