@@ -115,6 +115,10 @@ if __name__ == '__main__':
         f"limit_reject(涨跌停拒单)={'ON' if limit_threshold_on else 'OFF'}",
         flush=True,
     )
+    print(
+        f"[ranking] topk={int(cli_args.topk)} n_drop={int(cli_args.n_drop)} hold_thresh=1",
+        flush=True,
+    )
 
     _init_extra = {}
     if cli_args.dataset_cache:
@@ -474,8 +478,8 @@ if __name__ == '__main__':
             "kwargs": {  # 策略参数
                 "model": model,  # 使用的预测模型
                 "dataset": dataset,  # 使用的数据集
-                "topk": 10,  # 选择信号最强的50只股票
-                "n_drop": 3,  # 每次调仓时丢弃排名最后5只股票
+                "topk": int(cli_args.topk),
+                "n_drop": int(cli_args.n_drop),
                 "hold_thresh": 1,  # 最小持有1天
                 # timing_interval_steps 仅适用于 custom_strategy.TopkDropoutStrategyWithFilter，勿传给 qlib TopkDropoutStrategy
                 **_buy_state_strategy_kwargs,
@@ -1011,7 +1015,7 @@ if __name__ == '__main__':
 
         print("策略回测完成！", rid, timer() - r_start)
 
-        print("✅ 训练与回测完成！")
+        print("训练与回测完成！")
 
         """
         在Qlib中，pred.pkl文件保存了模型在测试集上生成的预测结果，其核心字段包括时间戳、股票代码以及模型给出的预测分数。这个文件是连接模型预测与后续回测分析的关键输出。
