@@ -2,6 +2,10 @@
 
 Kept free of report/plotly/LGB imports so unit tests can import without
 pulling the full custom_train_backtest entrypoint.
+
+Note: ``verify_limit_up_filter`` is opt-in only (``--verify-filters`` /
+``QLIB_VERIFY_FILTERS``). It full-fetches feature matrices and can OOM on
+long windows; the default train path must never call it.
 """
 
 from __future__ import annotations
@@ -86,7 +90,17 @@ def build_filtered_instruments(
 
 
 def verify_limit_up_filter(filtered_handler, unfiltered_handler, segments):
-    """验证 UnifiedLimitUpFilter 是否在 train/valid/test 三段生效。"""
+    """验证 UnifiedLimitUpFilter 是否在 train/valid/test 三段生效。
+
+    OPT-IN ONLY (``--verify-filters`` / ``QLIB_VERIFY_FILTERS``).
+    Performs two full ``handler.fetch(col_set="feature")`` loads — can OOM
+    on long windows / full-market. Do not call from the default train path.
+    """
+    print(
+        "[WARN] verify_limit_up_filter: opt-in full handler.fetch(col_set='feature') "
+        "×2 — OOM risk on long windows",
+        flush=True,
+    )
     filtered_df = filtered_handler.fetch(col_set="feature")
     unfiltered_df = unfiltered_handler.fetch(col_set="feature")
 
@@ -288,6 +302,15 @@ def parse_train_cli(argv=None):
         help=(
             "策略级买入状态过滤（开关①）：MA20/MA60 之下且 盈筹率<10% 可买，"
             "或站上 MA20 且 5 日线斜率>=-30° 可买；过滤后从后排得分回补（开关④）。"
+        ),
+    )
+    parser.add_argument(
+        "--preview-rows",
+        type=int,
+        default=0,
+        help=(
+            "特征列预览行数（默认 0）。即使 >0 也禁止全量 handler.fetch(col_set='feature')；"
+            "仅对 get_feature_config() 表达式列名做前 N 切片打印（零 IO）。"
         ),
     )
     return parser.parse_args(argv)
