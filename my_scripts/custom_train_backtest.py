@@ -46,6 +46,8 @@ from train_wiring import (
     build_filtered_instruments,
     build_limit_up_filter,
     check_pred_report_alignment,
+    build_fit_kwargs,
+    build_model_task,
     parse_train_cli,
     resolve_segments,
     should_verify_filters,
@@ -118,6 +120,11 @@ if __name__ == '__main__':
     )
     print(
         f"[ranking] topk={int(cli_args.topk)} n_drop={int(cli_args.n_drop)} hold_thresh=1",
+        flush=True,
+    )
+    print(
+        f"[lgb] model={cli_args.model} num_boost_round={int(cli_args.num_boost_round)} "
+        f"early_stopping_rounds={int(cli_args.early_stopping_rounds)}",
         flush=True,
     )
 
@@ -341,24 +348,30 @@ if __name__ == '__main__':
     # Default path: single production handler only (no handler_no_limit_filter).
     # Contrast verify is gated by --verify-filters / QLIB_VERIFY_FILTERS (slice C).
 
+    # 验证数据加载：零拷贝拿特征列名。get_feature_config() 只构造表达式串（与处理后帧的
+    # 列名同序同名），不触发任何数据加载。禁物化全量 feature 矩阵——本版 qlib 对任意
+    # 切片都先整帧列选拷贝（~5GiB），2026-09-14 长窗两次 MemoryError 均在此路径；
+    # 诊断用途不值得这个代价，数据健康由后续 SignalRecord/回测自检兜底。
+    # --preview-rows >0 仍禁物化；最多对表达式列名做前 N 切片打印（零 IO）。
+    _preview_rows = int(getattr(cli_args, "preview_rows", 0) or 0)
+    with t_rec.timer("handler_feature_names"):
+        _conf_fields, _conf_names = handler.get_feature_config()
+        all_features = pd.Index(_conf_names)
+    if _preview_rows > 0:
+        print(
+            f"[preview] preview-rows 请求了 {_preview_rows}，但全量 fetch 已禁；"
+            f"列名仍走 get_feature_config（零 IO）"
+        )
+        _shown = list(all_features[:_preview_rows])
+        print(f"所有feature列({len(all_features)}; preview first {_preview_rows}): {_shown}")
+    else:
+        print(f"所有feature列({len(all_features)}): {list(all_features)}")
+    available_cols = [col for col in signal_cols if col in all_features]
+    print(f"可用信号列: {available_cols}")
+
     # 定义任务配置字典，包含模型和数据集的详细配置
     task = {
-        "model": {  # 模型配置部分
-            "class": "LGBModel",  # 使用LightGBM模型,除了 LightGBM，QLib 还支持 XGBoost、CatBoost、MLP 等多种模型
-            "module_path": "qlib.contrib.model.gbdt",  # 模型所在的模块路径
-            "kwargs": {  # 传递给模型构造函数的参数（LightGBM的超参数）,LGBModel 是对 LightGBM 的封装，它实现了 QLib 的模型接口，能够与其他组件无缝集成
-                "loss": "mse",  # 损失函数为均方误差
-                "colsample_bytree": 0.8879,  # 构建每棵树时列采样比例
-                "learning_rate": 0.0421,  # 学习率
-                "subsample": 0.8789,  # 样本采样比例
-                "lambda_l1": 205.6999,  # L1正则化系数
-                "lambda_l2": 580.9768,  # L2正则化系数
-                "max_depth": 8,  # 树的最大深度
-                "num_leaves": 210,  # 树的叶子数
-                "num_threads": _lgb_threads,  # LGB_NUM_THREADS（默认 20；与 kernels/dump 独立）
-                # "features": ["COST_J"],
-            },
-        },
+        "model": build_model_task(cli_args, _lgb_threads, n_features=len(all_features)),
         "dataset": {  # 数据集配置部分
             "class": "DatasetH",  # 使用DatasetH数据集类,负责将数据划分为训练集、验证集和测试集，并提供数据加载接口
             "module_path": "qlib.data.dataset",  # 数据集所在的模块路径
@@ -380,27 +393,6 @@ if __name__ == '__main__':
             },
         },
     }
-
-    # 验证数据加载：零拷贝拿特征列名。get_feature_config() 只构造表达式串（与处理后帧的
-    # 列名同序同名），不触发任何数据加载。禁物化全量 feature 矩阵——本版 qlib 对任意
-    # 切片都先整帧列选拷贝（~5GiB），2026-09-14 长窗两次 MemoryError 均在此路径；
-    # 诊断用途不值得这个代价，数据健康由后续 SignalRecord/回测自检兜底。
-    # --preview-rows >0 仍禁物化；最多对表达式列名做前 N 切片打印（零 IO）。
-    _preview_rows = int(getattr(cli_args, "preview_rows", 0) or 0)
-    with t_rec.timer("handler_feature_names"):
-        _conf_fields, _conf_names = handler.get_feature_config()
-        all_features = pd.Index(_conf_names)
-    if _preview_rows > 0:
-        print(
-            f"[preview] preview-rows 请求了 {_preview_rows}，但全量 fetch 已禁；"
-            f"列名仍走 get_feature_config（零 IO）"
-        )
-        _shown = list(all_features[:_preview_rows])
-        print(f"所有feature列({len(all_features)}; preview first {_preview_rows}): {_shown}")
-    else:
-        print(f"所有feature列({len(all_features)}): {list(all_features)}")
-    available_cols = [col for col in signal_cols if col in all_features]
-    print(f"可用信号列: {available_cols}")
 
     with t_rec.timer("model_init"):
         model = init_instance_by_config(task["model"])  # 根据model配置创建模型实例
@@ -516,7 +508,7 @@ if __name__ == '__main__':
         R.log_params(**flatten_dict(task))  # 将任务配置参数扁平化后记录到实验中，便于追踪
         print("[debug] before model.fit", flush=True)
         with t_rec.timer("model_fit"):
-            model.fit(dataset)  # 方法根据数据集对模型进行训练，这个过程会生成模型参数和训练指标 在训练集上训练模型，并在验证集上进行验证
+            model.fit(dataset, **build_fit_kwargs(cli_args))
         print("[debug] after model.fit", flush=True)
         R.save_objects(trained_model=model)  # 将训练好的模型保存到当前实验记录中
         # 保存的模型可以通过 recorder.load_object("trained_model")在后续流程（如回测阶段）中重新加载使用，确保模型的一致性和可复用性
@@ -549,65 +541,63 @@ if __name__ == '__main__':
         # Column_175     80
         # Column_27      77
 
-        # 将特征重要性转换为Series并按降序排序
-        feat_imp_series = feat_imp.sort_values(ascending=False)
+        if feat_imp is not None:
+            feat_imp_series = feat_imp.sort_values(ascending=False)
+            selected_features = feat_imp_series.index.tolist()
+            print(f"将特征重要性转换为Series并按降序排序:")
+            print(selected_features)
 
-        # 选择前K个最重要的特征
-        selected_features = feat_imp_series.index.tolist()
-        print(f"将特征重要性转换为Series并按降序排序:")
-        print(selected_features)
+            selected_features_name = []
+            for col in selected_features:
+                name = str(col)
+                number = None
+                if name.startswith("f") and name[1:].isdigit():
+                    number = int(name[1:])
+                elif "_" in name and name.rsplit("_", 1)[-1].isdigit():
+                    number = int(name.rsplit("_", 1)[-1])
+                elif name.isdigit():
+                    number = int(name)
+                if number is not None and 0 <= number < len(all_features):
+                    selected_features_name.append(all_features[number])
+                else:
+                    selected_features_name.append(name)
+            print(f"重要的特征列名对应的特征名")
+            print(selected_features_name)
 
-        selected_features_name = []
-        for col in selected_features:
-            parts = col.split('_') # Column_17
-            if parts:
-                number = int(parts[-1])
-                selected_features_name.append(all_features[number])
-        print(f"重要的特征列名对应的特征名")
-        print(selected_features_name)
+            K = 50
+            top_features = feat_imp_series.head(K)
+            top_features_name = pd.Series(selected_features_name)
+            top_features_name = top_features_name.head(K)
 
-        K = 50
-        # 6. (可选) 可视化特征重要性
-        top_features = feat_imp_series.head(K)
-        top_features_name = pd.Series(selected_features_name)
-        top_features_name=top_features_name.head(K)
-
-        # 创建水平条形图
-        feature_importance_fig = go.Figure()
-
-        # 添加条形图轨迹
-        feature_importance_fig.add_trace(go.Bar(
-            y=top_features_name.values,
-            # y=top_features.index.tolist(),
-            x=top_features.values,
-            orientation='h',
-            marker=dict(
-                color=top_features.values,
-                colorscale='Viridis',
-                showscale=True,
-                colorbar=dict(title="重要性分数")
-            ),
-            hovertemplate='<b>%{y}</b><br>重要性: %{x:.4f}<extra></extra>'
-        ))
-
-        # 更新布局
-        feature_importance_fig.update_layout(
-            title=dict(
-                text=f'Top {K} 特征重要性',
-                x=0.5,
-                xanchor='center'
-            ),
-            xaxis_title='重要性分数',
-            yaxis_title='特征名称',
-            height=600 + K * 10,  # 动态调整高度以适应特征数量
-            template='plotly_white',
-            showlegend=False
-        )
-
-        # 调整y轴顺序，使最重要的特征在顶部
-        feature_importance_fig.update_yaxes(autorange="reversed")
-
-        feature_importance_fig.show()
+            feature_importance_fig = go.Figure()
+            feature_importance_fig.add_trace(go.Bar(
+                y=top_features_name.values,
+                x=top_features.values,
+                orientation='h',
+                marker=dict(
+                    color=top_features.values,
+                    colorscale='Viridis',
+                    showscale=True,
+                    colorbar=dict(title="重要性分数")
+                ),
+                hovertemplate='<b>%{y}</b><br>重要性: %{x:.4f}<extra></extra>'
+            ))
+            feature_importance_fig.update_layout(
+                title=dict(
+                    text=f'Top {K} 特征重要性',
+                    x=0.5,
+                    xanchor='center'
+                ),
+                xaxis_title='重要性分数',
+                yaxis_title='特征名称',
+                height=600 + K * 10,
+                template='plotly_white',
+                showlegend=False
+            )
+            feature_importance_fig.update_yaxes(autorange="reversed")
+            feature_importance_fig.show()
+        else:
+            print("[feat-imp] skip: model has no feature importance", flush=True)
 
         # 7. 使用筛选后的特征重新训练模型（可选但推荐）
         # 可以创建一个新的Handler或Dataset，仅包含选定的特征
@@ -987,6 +977,9 @@ if __name__ == '__main__':
                 "tradable_universe_on": bool(cli_args.tradable_universe),
                 "buy_state_filter_on": bool(cli_args.buy_state_filter),
                 "preview_rows": int(getattr(cli_args, "preview_rows", 0) or 0),
+                "model": cli_args.model,
+                "model_config": getattr(cli_args, "model_config_path", None)
+                or getattr(cli_args, "model_config", None),
             }
             _cal_data = {}
             try:

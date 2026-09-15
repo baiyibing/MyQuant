@@ -11,8 +11,10 @@ long windows; the default train path must never call it.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 
 import pandas as pd
 
@@ -345,7 +347,140 @@ def parse_train_cli(argv=None):
         default=3,
         help="每次调仓丢弃的最弱持仓数（默认 3）。",
     )
+    parser.add_argument(
+        "--num-boost-round",
+        dest="num_boost_round",
+        type=int,
+        default=1000,
+        help="LGB 最大轮数（默认 1000，与 qlib LGBModel 一致）。第三窗固定轮数时显式传入。",
+    )
+    parser.add_argument(
+        "--early-stopping-rounds",
+        dest="early_stopping_rounds",
+        type=int,
+        default=50,
+        help="LGB 早停耐心（默认 50）。关早停时设为与 --num-boost-round 相同，使回调不会提前停。",
+    )
+    parser.add_argument(
+        "--model",
+        default="lgb",
+        help=(
+            "学习器名或配置文件路径。默认 lgb。"
+            "名字对应 configs/models/<name>.yaml（也认 .yml/.json）。"
+            "换模型：复制一份 YAML 改 class/kwargs，不必改训练脚本。"
+        ),
+    )
+    parser.add_argument(
+        "--model-config",
+        dest="model_config",
+        default=None,
+        help="显式模型配置路径（yaml/yml/json），覆盖 --model 的名字查找。",
+    )
     return parser.parse_args(argv)
+
+
+MODEL_CONFIG_DIR = Path(__file__).resolve().parents[1] / "configs" / "models"
+_MODEL_SUFFIXES = (".yaml", ".yml", ".json")
+
+
+def resolve_model_config_path(args) -> Path:
+    """--model-config > 已有文件路径 > configs/models/<name>.{yaml,yml,json}."""
+    explicit = getattr(args, "model_config", None)
+    if explicit:
+        path = Path(explicit)
+        if not path.is_file():
+            raise FileNotFoundError(f"--model-config not found: {path}")
+        return path
+    raw = str(getattr(args, "model", "lgb") or "lgb")
+    candidate = Path(raw)
+    if candidate.suffix.lower() in _MODEL_SUFFIXES or candidate.is_file():
+        if not candidate.is_file():
+            raise FileNotFoundError(f"--model file not found: {candidate}")
+        return candidate
+    for suffix in _MODEL_SUFFIXES:
+        named = MODEL_CONFIG_DIR / f"{raw}{suffix}"
+        if named.is_file():
+            return named
+    known = ", ".join(sorted(p.stem for p in MODEL_CONFIG_DIR.glob("*.*") if p.suffix.lower() in _MODEL_SUFFIXES))
+    raise FileNotFoundError(
+        f"model config not found for --model {raw!r}. "
+        f"Add configs/models/{raw}.yaml or pass --model-config. Available: {known or '(none)'}"
+    )
+
+
+def _load_model_file(path: Path) -> dict:
+    text = path.read_text(encoding="utf-8")
+    suffix = path.suffix.lower()
+    if suffix == ".json":
+        spec = json.loads(text)
+    elif suffix in (".yaml", ".yml"):
+        import yaml
+
+        spec = yaml.safe_load(text)
+    else:
+        raise ValueError(f"unsupported model config suffix: {path}")
+    if not isinstance(spec, dict):
+        raise ValueError(f"model config must be a mapping: {path}")
+    return spec
+
+
+def _render_placeholders(obj, mapping: dict):
+    if isinstance(obj, dict):
+        return {k: _render_placeholders(v, mapping) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_render_placeholders(v, mapping) for v in obj]
+    if isinstance(obj, str) and obj in mapping:
+        return mapping[obj]
+    return obj
+
+
+def _apply_cli_boost(spec: dict, args) -> dict:
+    n_boost = int(args.num_boost_round)
+    n_stop = int(args.early_stopping_rounds)
+    out = dict(spec)
+    for key in ("kwargs", "fit_kwargs"):
+        block = out.get(key)
+        if not isinstance(block, dict):
+            continue
+        block = dict(block)
+        if "num_boost_round" in block:
+            block["num_boost_round"] = n_boost
+        if "early_stopping_rounds" in block:
+            block["early_stopping_rounds"] = n_stop
+        out[key] = block
+    return out
+
+
+def build_model_task(args, num_threads: int, n_features: int | None = None) -> dict:
+    """Load qlib model task from YAML/JSON. New learner = new file, no code change."""
+    path = resolve_model_config_path(args)
+    spec = _apply_cli_boost(_load_model_file(path), args)
+    spec = _render_placeholders(
+        spec,
+        {
+            "$num_threads": int(num_threads),
+            "$n_features": int(n_features) if n_features else 183,
+        },
+    )
+    missing = [k for k in ("class", "module_path") if k not in spec]
+    if missing:
+        raise ValueError(f"model config {path} missing {missing}")
+    fit_kwargs = spec.get("fit_kwargs") or {}
+    if not isinstance(fit_kwargs, dict):
+        raise ValueError(f"model config {path} fit_kwargs must be a mapping")
+    args.fit_kwargs = dict(fit_kwargs)
+    args.model_config_path = str(path)
+    print(f"[model] source={path} class={spec['class']}", flush=True)
+    return {
+        "class": spec["class"],
+        "module_path": spec["module_path"],
+        "kwargs": dict(spec.get("kwargs") or {}),
+    }
+
+
+def build_fit_kwargs(args) -> dict:
+    extra = getattr(args, "fit_kwargs", None)
+    return dict(extra) if isinstance(extra, dict) else {}
 
 
 def should_verify_filters(args=None) -> bool:

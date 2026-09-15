@@ -1,0 +1,15 @@
+class: XGBModel
+module_path: qlib.contrib.model.xgboost
+kwargs:
+  objective: "reg:squarederror"
+  colsample_bytree: 0.8879
+  eta: 0.0421
+  subsample: 0.8789
+  alpha: 205.6999
+  lambda: 580.9768
+  max_depth: 8
+  nthread: $num_threads
+  verbosity: 1
+fit_kwargs:
+  num_boost_round: 1000
+  early_stopping_rounds: 50

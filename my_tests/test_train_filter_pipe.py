@@ -123,6 +123,46 @@ def test_guard_and_cache_cli_flags_default_off():
     assert args.no_export_analysis is False
     assert args.topk == 10
     assert args.n_drop == 3
+    assert args.num_boost_round == 1000
+    assert args.early_stopping_rounds == 50
+    assert args.model == "lgb"
+    args_xgb = parse_train_cli(["--model", "xgb"])
+    assert args_xgb.model == "xgb"
+    args_cat = parse_train_cli(["--model", "cat"])
+    assert args_cat.model == "cat"
+    from train_wiring import build_model_task
+
+    lgb_task = build_model_task(args, 20)
+    assert lgb_task["class"] == "LGBModel"
+    xgb_task = build_model_task(args_xgb, 20)
+    assert xgb_task["class"] == "XGBModel"
+    assert "num_leaves" not in xgb_task["kwargs"]
+    cat_task = build_model_task(args_cat, 20)
+    assert cat_task["class"] == "CatBoostModel"
+    assert "num_leaves" not in cat_task["kwargs"]
+    assert "rsm" not in cat_task["kwargs"]
+    assert cat_task["kwargs"]["bootstrap_type"] == "Bernoulli"
+    args_dnn = parse_train_cli(["--model", "dnn"])
+    assert args_dnn.model == "dnn"
+    dnn_task = build_model_task(args_dnn, 20, n_features=183)
+    assert dnn_task["class"] == "DNNModelPytorch"
+    assert dnn_task["kwargs"]["optimizer"] == "adam"
+    assert dnn_task["kwargs"]["pt_model_kwargs"]["input_dim"] == 183
+    from train_wiring import MODEL_CONFIG_DIR, build_fit_kwargs, resolve_model_config_path
+
+    assert resolve_model_config_path(args).name == "lgb.yaml"
+    assert build_fit_kwargs(args_xgb)["num_boost_round"] == 1000
+    assert build_fit_kwargs(args_dnn) == {}
+    args_cfg = parse_train_cli(["--model-config", str(MODEL_CONFIG_DIR / "cat.yaml")])
+    cat_from_cfg = build_model_task(args_cfg, 20)
+    assert cat_from_cfg["class"] == "CatBoostModel"
+    missing = parse_train_cli(["--model", "not-a-real-learner"])
+    try:
+        resolve_model_config_path(missing)
+    except FileNotFoundError as exc:
+        assert "not-a-real-learner" in str(exc)
+    else:
+        raise AssertionError("expected FileNotFoundError for unknown --model")
     args_wide = parse_train_cli(["--topk", "50", "--n-drop", "5"])
     assert args_wide.topk == 50
     assert args_wide.n_drop == 5

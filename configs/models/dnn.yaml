@@ -1,0 +1,15 @@
+class: DNNModelPytorch
+module_path: qlib.contrib.model.pytorch_nn
+kwargs:
+  lr: 0.001
+  max_steps: 8000
+  batch_size: 16384
+  early_stop_rounds: 50
+  eval_steps: 20
+  optimizer: adam
+  loss: mse
+  GPU: 0
+  weight_decay: 0.0
+  pt_model_kwargs:
+    input_dim: $n_features
+    layers: [256, 128]
