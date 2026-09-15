@@ -777,6 +777,34 @@ if __name__ == '__main__':
         position_dict = {str(key): value for key, value in positions.items()}
         generate_position_report(position_dict)
 
+        # 盘后分析包：复用 PortAna 已落盘的 hist_positions / pred，不第二遍回测。
+        if not getattr(cli_args, "no_export_analysis", False):
+            try:
+                from analysis_export import print_bundle_summary, write_analysis_bundle
+
+                _ex = port_analysis_config["backtest"]["exchange_kwargs"]
+                _bundle_dir = os.path.join(base_dir, "exports", "analysis", str(rid))
+                _bundle = write_analysis_bundle(
+                    positions=positions,
+                    out_dir=_bundle_dir,
+                    open_rate=float(_ex.get("open_cost", 0.0005)),
+                    close_rate=float(_ex.get("close_cost", 0.0015)),
+                    min_cost=float(_ex.get("min_cost", 5)),
+                    account=float(port_analysis_config["backtest"]["account"]),
+                    pred=pred_df,
+                    report=report_normal_df,
+                    topk=int(port_analysis_config["strategy"]["kwargs"]["topk"]),
+                    use_qlib_close=True,
+                    extra_summary={
+                        "source": "train",
+                        "exp_name": exp_name,
+                        "recorder_id": rid,
+                    },
+                )
+                print_bundle_summary(_bundle)
+            except Exception as _exp_exc:
+                print(f"[export-analysis] skipped: {_exp_exc}")
+
         analysis_df = recorder.load_object("portfolio_analysis/port_analysis_1day.pkl")  # 分析报告
         print("分析报告")
         print(analysis_df.head(10))

@@ -315,6 +315,14 @@ def parse_train_cli(argv=None):
         ),
     )
     parser.add_argument(
+        "--no-export-analysis",
+        action="store_true",
+        help=(
+            "跳过盘后分析包（持仓/成交/流水账/荐股 CSV）。"
+            "默认在 PortAna 之后从已落盘 positions 导出，不重回测。"
+        ),
+    )
+    parser.add_argument(
         "--timing-interval-steps",
         type=int,
         default=10,
