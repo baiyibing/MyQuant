@@ -20,10 +20,31 @@ jobs:
           python-version: "3.12"
 
       # qlib 按开发基准 commit 源码安装（requirements.txt 注明的口径，勿用发布包）
+      # eng-perf P1-8: cache qlib-dev tree; key binds OS + py3.12 + literal 79633dd9 + reqs hash
+      - name: Cache qlib-dev (pinned 79633dd9)
+        id: cache-qlib
+        uses: actions/cache@v4
+        with:
+          path: qlib-dev
+          key: ${{ runner.os }}-py3.12-qlib-79633dd9-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-py3.12-qlib-79633dd9-
+
       - name: Install qlib (pinned source commit 79633dd9)
+        shell: bash
         run: |
-          git clone https://github.com/microsoft/qlib.git qlib-dev
-          git -C qlib-dev checkout 79633dd9
+          set -euo pipefail
+          if [[ ! -d qlib-dev/.git ]]; then
+            git clone https://github.com/microsoft/qlib.git qlib-dev
+            git -C qlib-dev checkout 79633dd9
+          else
+            head="$(git -C qlib-dev rev-parse HEAD)"
+            if [[ "$head" != 79633dd9* ]]; then
+              echo "::error::qlib-dev cache pin mismatch: expected 79633dd9*, got $head"
+              exit 1
+            fi
+            echo "qlib-dev cache HIT; verified pin $head"
+          fi
           pip install -e qlib-dev
 
       - name: Install project deps
