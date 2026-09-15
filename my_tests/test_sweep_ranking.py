@@ -462,10 +462,11 @@ def test_run_sweep_parent_manifest_three_arms(tmp_path: Path):
     assert parent["data"]["shared_handler_cache_key"] == "sharedkey123"
     assert len(parent["data"]["arm_ids"]) == 3
     parent_names = {n["name"] for n in parent["timings"]["nodes"]}
-    assert "init_once" in parent_names or "handler_init" in parent_names
+    # Alias labels may both appear; total must be wall clock, not sum.
+    assert "handler_init" in parent_names
+    assert "init_once" in parent_names
     assert parent["timings"].get("unknown") is not True
-    assert parent["timings"]["total_seconds"] is not None
-    assert parent["timings"]["total_seconds"] > 0
+    assert parent["timings"]["total_seconds"] == 100.0
 
     for r in results:
         man = load_manifest(r.manifest_path)
@@ -484,6 +485,43 @@ def test_run_sweep_parent_manifest_three_arms(tmp_path: Path):
     m1 = load_manifest(results[1].manifest_path)
     assert m1["data"]["arm_mode"] == "ARM_ONLY"
     assert any(n["name"] == "arm_only" for n in m1["timings"]["nodes"])
+
+
+def test_parent_total_seconds_does_not_double_count_init_aliases(tmp_path: Path):
+    """handler_init + init_once are aliases of one wall clock — parent must not sum."""
+
+    def fake(cfg: SweepConfig):
+        return {
+            "ic": 0.02,
+            "ir": 0.2,
+            "notes": "alias",
+            "data": {
+                "arm_mode": "INIT_ONCE",
+                "shared_handler_cache_key": "k",
+            },
+            "timings": {
+                "total_seconds": 100.0,
+                "nodes": [
+                    {"name": "handler_init", "seconds": 100.0},
+                    {"name": "init_once", "seconds": 100.0},
+                ],
+            },
+        }
+
+    man_dir = tmp_path / "manifests"
+    run_sweep(
+        [SweepConfig(5, 1, 1).with_id()],
+        train_predict_fn=fake,
+        manifests_dir=man_dir,
+        repo_root=_ROOT,
+        write_manifests=True,
+    )
+    parent = load_manifest(next(man_dir.glob("sweep_parent_*.json")))
+    names = {n["name"] for n in parent["timings"]["nodes"]}
+    assert names == {"handler_init", "init_once"}
+    assert parent["timings"]["total_seconds"] == 100.0
+    # Regression: naive sum(node.seconds) would be 200.
+    assert parent["timings"]["total_seconds"] != 200.0
 
 
 def test_run_sweep_parent_skipped_when_no_manifests(tmp_path: Path):

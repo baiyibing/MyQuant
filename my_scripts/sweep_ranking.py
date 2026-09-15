@@ -85,6 +85,8 @@ class SweepResult:
     notes: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
     parent_shared_nodes: list[dict[str, Any]] = field(default_factory=list)
+    # INIT_ONCE payload wall clock (not sum of alias node labels).
+    parent_shared_wall_seconds: float | None = None
 
 
 def parse_int_list(text: str) -> list[int]:
@@ -326,6 +328,12 @@ def run_one(
         extra["_shared_handler_cache_key"] = data.get("shared_handler_cache_key")
     if data.get("arm_mode") is not None:
         extra["_arm_mode"] = data.get("arm_mode")
+    parent_wall: float | None = None
+    if parent_shared_nodes and raw_timings is not None:
+        raw_total = raw_timings.get("total_seconds")
+        if raw_total is not None:
+            parent_wall = float(raw_total)
+
     return SweepResult(
         config=cfg,
         ic=ic,
@@ -334,6 +342,7 @@ def run_one(
         notes=notes,
         extra=extra,
         parent_shared_nodes=parent_shared_nodes,
+        parent_shared_wall_seconds=parent_wall,
     )
 
 
@@ -371,6 +380,7 @@ def run_sweep(
         cache_key: str | None = None
         segments: Any = None
         arm_ids: list[dict[str, Any]] = []
+        parent_wall: float | None = None
         git_commit = None
         git_branch = None
         git_dirty = None
@@ -381,6 +391,11 @@ def run_sweep(
                     continue
                 seen_names.add(str(name))
                 shared_nodes.append(dict(node))
+            if parent_wall is None and r.parent_shared_wall_seconds is not None:
+                # First arm with shared work supplies the batch wall clock
+                # (INIT_ONCE payload total_seconds). Do not sum alias labels
+                # like handler_init + init_once — they name the same elapsed.
+                parent_wall = float(r.parent_shared_wall_seconds)
             if cache_key is None and r.extra.get("_shared_handler_cache_key") is not None:
                 cache_key = r.extra.get("_shared_handler_cache_key")
             if segments is None and r.extra.get("_segments") is not None:
@@ -394,7 +409,11 @@ def run_sweep(
             )
 
         if shared_nodes:
-            total = float(sum(float(n.get("seconds") or 0) for n in shared_nodes))
+            if parent_wall is not None:
+                total = float(parent_wall)
+            else:
+                # No payload total: take max, never sum (aliases share one clock).
+                total = float(max(float(n.get("seconds") or 0) for n in shared_nodes))
             parent_timings: dict[str, Any] = {
                 "total_seconds": total,
                 "nodes": shared_nodes,
