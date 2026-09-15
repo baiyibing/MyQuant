@@ -941,6 +941,7 @@ if __name__ == '__main__':
                 _cal_data["handler_cache_hit"] = bool(_hc_obs.get("cache_hit"))
                 _cal_data["handler_cache_key"] = _hc_obs.get("digest")
                 _cal_data["handler_cache_size_mb"] = _hc_obs.get("size_mb")
+                _cal_data["handler_cache_peak_rss_mb"] = _hc_obs.get("peak_rss_mb")
                 _cal_data["handler_cache_miss_reason"] = _hc_obs.get("miss_reason")
             _written = write_train_manifest(
                 manifests_dir=os.path.join(base_dir, "manifests"),
