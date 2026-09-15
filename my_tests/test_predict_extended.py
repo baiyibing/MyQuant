@@ -35,7 +35,7 @@ from export_daily_pool import build_parser as export_build_parser  # noqa: E402
 DEFAULT = {
     "train": ("2026-01-01", "2026-01-31"),
     "valid": ("2026-02-01", "2026-02-28"),
-    "test": ("2026-03-01", "2026-09-08"),
+    "test": ("2026-03-01", "2026-09-14"),
 }
 
 
@@ -115,7 +115,7 @@ def test_validate_segments_rejects_order_and_missing():
 
 
 def test_handler_span_is_min_max():
-    assert handler_span(DEFAULT) == ("2026-01-01", "2026-09-08")
+    assert handler_span(DEFAULT) == ("2026-01-01", "2026-09-14")
 
 
 def test_pred_series_to_frame_from_multiindex():
@@ -163,7 +163,7 @@ def test_run_with_injected_predict_writes_csv_and_manifest(tmp_path: Path):
     text = pred_path.read_text(encoding="utf-8")
     assert text.startswith("datetime,instrument,score\n")
     assert "SZ300190" in text
-    assert result["handler_span"] == ("2026-01-01", "2026-09-08")
+    assert result["handler_span"] == ("2026-01-01", "2026-09-14")
     assert result["manifest_paths"]
     man = load_manifest(result["manifest_paths"][0])
     assert man["stage"] == "train"
@@ -171,13 +171,13 @@ def test_run_with_injected_predict_writes_csv_and_manifest(tmp_path: Path):
     assert man["config"]["segments"] == {
         "train": ["2026-01-01", "2026-01-31"],
         "valid": ["2026-02-01", "2026-02-28"],
-        "test": ["2026-03-01", "2026-09-08"],
+        "test": ["2026-03-01", "2026-09-14"],
     }
     assert man["config"]["portana"] is False
     assert man["config"]["alignment_check"] is False
     assert man["git_commit"] == "deadbeef"
     assert man["config"]["handler_start"] == "2026-01-01"
-    assert man["config"]["handler_end"] == "2026-09-08"
+    assert man["config"]["handler_end"] == "2026-09-14"
 
 
 def test_main_rejects_unordered_segments(capsys):
@@ -188,7 +188,7 @@ def test_main_rejects_unordered_segments(capsys):
             "--valid",
             "2026-02-01:2026-02-28",
             "--test",
-            "2026-03-01:2026-09-08",
+            "2026-03-01:2026-09-14",
             "--no-manifest",
         ]
     )
@@ -201,7 +201,7 @@ def test_m5r2_export_cli_args_locked():
     """任务 2：as-of / topk 锁死；out-dir 约定与文档一致。"""
     assert M5R2_EXPORT_ASOF == "pred_minus_one"
     assert M5R2_EXPORT_TOPK == 10
-    assert M5R2_EXPORT_OUT_DIR == "exports/m5r2_pred_topn10_20260302_20260908"
+    assert M5R2_EXPORT_OUT_DIR == "exports/m5r2_pred_topn10_20260302_20260914"
     args = export_build_parser().parse_args(
         [
             "--pred",

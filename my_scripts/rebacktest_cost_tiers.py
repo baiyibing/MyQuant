@@ -7,7 +7,7 @@
 用法（在 my_scripts 目录下，Phase 1 跑完之后）::
 
     python rebacktest_cost_tiers.py --recorder-id <manifest 里的 recorder_id> \
-        --test 2026-01-01:2026-09-08
+        --test 2026-01-01:2026-09-14
 
 不传 --recorder-id 时取该实验最近一次 recorder（打印 id 供与 manifest 核对）。
 """

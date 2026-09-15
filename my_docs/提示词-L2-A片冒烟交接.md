@@ -9,8 +9,8 @@
 
 ## 名单源（只读，勿改勿拷）
 
-首选：`E:\PycharmProjects\MyQuant\exports\m5r2_pred_topn10_20260302_20260908\`
-- 131 个 `YYYYMMDD.csv`（20260303~20260908 全窗无缺日）、每文件 10 码、裸六位、LF 无 BOM
+首选：`E:\PycharmProjects\MyQuant\exports\m5r2_pred_topn10_20260302_20260914\`
+- 日频 `YYYYMMDD.csv`（20260303~20260914 全窗无缺日）、每文件 10 码、裸六位、LF 无 BOM
 - 它是模型名单（晋升链的目标源），比 hand 快照（129 日，缺 20260525/20260605）更适合首冒烟
 
 ## 命令草案（以 1.3 侧实际入口/环境为准，参数名已对过 `backtest/lebs/cli.py`）
@@ -18,8 +18,8 @@
 ```bash
 python -m backtest.lebs \
   --strategy csv_v5 \
-  --pool-dir "E:/PycharmProjects/MyQuant/exports/m5r2_pred_topn10_20260302_20260908" \
-  --start 20260303 --end 20260908 --freq 1d \
+  --pool-dir "E:/PycharmProjects/MyQuant/exports/m5r2_pred_topn10_20260302_20260914" \
+  --start 20260303 --end 20260914 --freq 1d \
   --cash 1000000 --track pessimistic \
   --out docs/backtest/reports/l2_smoke_pred_v5
 ```

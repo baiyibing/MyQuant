@@ -189,7 +189,7 @@ def test_resolve_segments_requires_all_three():
         resolve_segments(parse_train_cli(["--train", "2020-01-01:2024-12-31"]))
     with pytest.raises(SystemExit):
         resolve_segments(
-            parse_train_cli(["--train", "2020-01-01:2024-12-31", "--test", "2026-01-01:2026-09-08"])
+            parse_train_cli(["--train", "2020-01-01:2024-12-31", "--test", "2026-01-01:2026-09-14"])
         )
 
 
@@ -199,13 +199,13 @@ def test_resolve_segments_long_window_ordering():
             [
                 "--train", "2020-01-01:2024-12-31",
                 "--valid", "2025-01-01:2025-12-31",
-                "--test", "2026-01-01:2026-09-08",
+                "--test", "2026-01-01:2026-09-14",
             ]
         )
     )
     assert segs["train"] == ("2020-01-01", "2024-12-31")
     assert segs["valid"] == ("2025-01-01", "2025-12-31")
-    assert segs["test"] == ("2026-01-01", "2026-09-08")
+    assert segs["test"] == ("2026-01-01", "2026-09-14")
 
 
 def test_resolve_segments_rejects_bad_ordering():

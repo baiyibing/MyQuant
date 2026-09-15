@@ -13,7 +13,7 @@
 
 用法（在 my_scripts 目录下）::
 
-    python export_positions_trades.py --recorder-id <id> --test 2026-01-01:2026-09-08 \
+    python export_positions_trades.py --recorder-id <id> --test 2026-01-01:2026-09-14 \
         [--no-limit-threshold] [--cost-tier realistic] [--tag noguards]
 
 注意：买卖由持仓差分推得。TopkDropout 按整笔调仓，差分即逐笔成交；

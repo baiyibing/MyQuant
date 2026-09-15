@@ -3,9 +3,9 @@
 - 日期：2026-09-13
 - 发起机：Thinkpad 笔记本（本机，E:\PycharmProjects\MyQuant）
 - 目标：在另一台高配置开发机上跑全市场长窗实验（handler_init 是重头，本机估 2~6 小时，高配机按核数缩短）
-- 实验定义：train 2020-01-01~2024-12-31 / valid 2025-01-01~2025-12-31 / test 2026-01-01~2026-09-08；
+- 实验定义：train 2020-01-01~2024-12-31 / valid 2025-01-01~2025-12-31 / test 2026-01-01~2026-09-14；
   Alpha158CostKDJ（171 特征）+ LGBM + TopkDropout(topk=10, n_drop=3)；benchmark=SH000300
-- 背景：`docs/qlib-data-state-2026-09-13.md`（数据状态）、`my_docs/提示词-指数数据修补.md`（数据修复背景）
+- 背景：`docs/qlib-data-state-2026-09-15.md`（当前数据状态）、`my_docs/提示词-指数数据修补.md`（数据修复背景）
 
 ## 1. 传输物清单（三样）
 
@@ -15,11 +15,10 @@
 | 2 | qlib 数据包 | `C:\Users\Thinkpad\.qlib\qlib_data\my_data_20260913_longwin.7z`（203 MiB / 212,935,952 字节） | **MD5 `2e8d7e26a2baf8ab3a8196af353e2813`** |
 | 3 | （仅重建数据才需要）F 湖 + `F:\qlibdata` CSV 批 + `my_data_20260410_archived` 前缀 | F:/G: 盘 | 本次实验**不需要**，数据包已是最终态 |
 
-数据包内容 = 2026-09-13 22:10 的最终 `my_data`
-（日历 2020-01-02~2026-09-08 共 1621 天、5583 只股票、指数 SH000300/SH000001 全覆盖、
-含重建后的 `calendars/day_future.txt`——day.txt 全量 + 末日后 5 个工作日（至 2026-09-15），
-回测交易日历 `future=True` 依赖；比早上的版本多了指数 `index.txt` 登记范围修复与
-day_future 重建两项。**旧 MD5 `35acc693…` 的包缺 day_future.txt，勿再使用**）。
+数据包内容 = 当前线上 `my_data`（见 `docs/qlib-data-state-2026-09-15.md`）
+（日历 2020-01-02~2026-09-14 共 1625 天、5587 只股票、指数 SH000300/SH000001 全覆盖、
+含重建后的 `calendars/day_future.txt`——day.txt 全量 + 末日后 5 个工作日（至 2026-09-21），
+回测交易日历 `future=True` 依赖。**旧 MD5 `35acc693…` 的包缺 day_future.txt，勿再使用**）。
 
 数据传输方式任选：U盘/移动硬盘、局域网共享（scp/robocopy）、网盘。传完先对 MD5 再解压。
 
@@ -58,13 +57,13 @@ from qlib.config import REG_CN
 from qlib.data import D
 qlib.init(provider_uri='~/.qlib/qlib_data/my_data', region=REG_CN)
 cal = D.calendar()
-print('calendar:', cal[0].date(), '->', cal[-1].date(), len(cal), 'days')   # 期望 2020-01-02 -> 2026-09-08, 1621
+print('calendar:', cal[0].date(), '->', cal[-1].date(), len(cal), 'days')   # 期望 2020-01-02 -> 2026-09-14, 1625
 fut = D.calendar(future=True)
-print('future calendar:', len(fut), 'days, last =', fut[-1].date())   # 期望 last > 2026-09-08（day_future.txt 顺延；若 =2026-04-17 说明包内是陈旧文件，见下方注）
-df = D.features(['SH000300'], ['$close'], start_time='2026-09-01', end_time='2026-09-08')
-print(df)   # 期望 2026-09-08 close=4558.74（指数修复后的真值；数据无此行=解压不完整）
+print('future calendar:', len(fut), 'days, last =', fut[-1].date())   # 期望 last > 2026-09-14（day_future.txt 顺延；若 =2026-04-17 说明包内是陈旧文件，见下方注）
+df = D.features(['SH000300'], ['$close'], start_time='2026-09-14', end_time='2026-09-14')
+print(df)   # 期望 2026-09-14 close≈4480.08（指数修复后的真值；数据无此行=解压不完整）
 inst = D.list_instruments(D.instruments(market='all'), as_list=True)
-print('universe:', len(inst))   # 期望 5583
+print('universe:', len(inst))   # 期望 5587
 "
 ```
 
@@ -80,8 +79,8 @@ print('universe:', len(inst))   # 期望 5583
 ```bash
 cd MyQuant/my_scripts
 MLFLOW_DISABLE_AGENT_HINT=1 python custom_train_backtest.py \
-    --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 --test 2026-01-01:2026-09-08 \
-    > train_longwindow_20260913.log 2>&1
+    --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 --test 2026-01-01:2026-09-14 \
+    > train_longwindow_20260914.log 2>&1
 ```
 
 - 窗口参数是 `START:END` 格式，三段必须齐全；全缺省则回落到现役三月窗（向后兼容）。
@@ -103,7 +102,7 @@ MLFLOW_DISABLE_AGENT_HINT=1 python custom_train_backtest.py \
 cd MyQuant/my_scripts
 python rebacktest_cost_tiers.py \
     --recorder-id <§4 manifest 里的 recorder_id> \
-    --test 2026-01-01:2026-09-08
+    --test 2026-01-01:2026-09-14
 ```
 
 - 三档成本：zero / qlib_default(0.0005/0.0015) / realistic(0.001/0.002)，均含涨跌停 0.095 限制。
@@ -188,9 +187,9 @@ EXCLUDE_STOCKS_DEFAULT；PIT 精确层由 ③ 的 `--st-daily-file` 在策略级
 新机若已有完整 my_data 且想复核，才重跑（约 1～3 分钟，依赖 numba）：
 
 ```bash
-python build_winner_ratio.py --test 2026-01-01:2026-09-08 --workers 8 \
+python build_winner_ratio.py --test 2026-01-01:2026-09-14 --workers 8 \
     --out F:/stock_data/cyq_winner_ratio/cyq_winner_ratio_daily_2026.parquet
-# 期望: DONE stocks≈5569/5583 rows≈912350
+# 期望: DONE stocks≈5569+/5587 rows 随末日前推略增
 ```
 
 ### ③ 四开关全开重回测（topk10 与 topk50 各一轮）
@@ -199,13 +198,13 @@ python build_winner_ratio.py --test 2026-01-01:2026-09-08 --workers 8 \
 export MLFLOW_DISABLE_AGENT_HINT=1 LOKY_MAX_CPU_COUNT=8
 python rebacktest_cost_tiers.py \
     --recorder-id 4410e4a3a4714f4f9e261120449232d1 \
-    --test 2026-01-01:2026-09-08 --topk 10 --n-drop 3 \
+    --test 2026-01-01:2026-09-14 --topk 10 --n-drop 3 \
     --buy-state-filter --st-filter --age-filter \
     --st-daily-file "F:/stock_data/vendor_wind_st_status/st_daily.parquet" \
     --winner-ratio-file "F:/stock_data/cyq_winner_ratio/cyq_winner_ratio_daily_2026.parquet"
 python rebacktest_cost_tiers.py \
     --recorder-id 4410e4a3a4714f4f9e261120449232d1 \
-    --test 2026-01-01:2026-09-08 --topk 50 --n-drop 5 \
+    --test 2026-01-01:2026-09-14 --topk 50 --n-drop 5 \
     --buy-state-filter --st-filter --age-filter \
     --st-daily-file "F:/stock_data/vendor_wind_st_status/st_daily.parquet" \
     --winner-ratio-file "F:/stock_data/cyq_winner_ratio/cyq_winner_ratio_daily_2026.parquet"
