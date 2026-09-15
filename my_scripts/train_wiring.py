@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import argparse
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 import pandas as pd
 
@@ -339,3 +339,23 @@ def should_verify_filters(args=None) -> bool:
     if args is not None and getattr(args, "verify_filters", False):
         return True
     return os.environ.get("QLIB_VERIFY_FILTERS", "").strip().lower() in ("1", "true", "yes")
+
+
+def unique_pred_export_names(
+    recorder_id: str,
+    topk: int,
+    n_drop: int,
+    *,
+    created_utc: str | None = None,
+) -> tuple[str, str]:
+    """Stamp pred CSVs so a new train never overwrites ``预测结果.csv``.
+
+    Example: ``预测结果_20260915T061116Z_907edbfb_10n3.csv``.
+    """
+    if created_utc:
+        ts = created_utc.replace("-", "").replace(":", "")
+    else:
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    rid = (recorder_id or "norec")[:8]
+    tag = f"{ts}_{rid}_{int(topk)}n{int(n_drop)}"
+    return f"预测结果_{tag}.csv", f"预测结果和真实标签_{tag}.csv"
