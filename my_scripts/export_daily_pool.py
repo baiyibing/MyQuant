@@ -205,13 +205,16 @@ def export_daily_pool(
         raise ValueError(f"unsupported asof: {asof}")
 
     output = _safe_output_dir(Path(out_dir))
-    dates = sorted(predictions["datetime"].drop_duplicates().tolist())
     written: list[Path] = []
     illegal_count = 0
 
+    # eng-perf P1-7: one groupby instead of per-day full-table boolean scan.
+    # Neutralize (if any) already ran in main() before this call — do not cache
+    # post-neutralize ranks across configs.
     day_codes: dict[pd.Timestamp, list[str]] = {}
-    for pred_date in dates:
-        day = predictions.loc[predictions["datetime"] == pred_date].copy()
+    dates: list[pd.Timestamp] = []
+    for pred_date, day in predictions.groupby("datetime", sort=True):
+        dates.append(pred_date)
         day = day.sort_values(
             ["score", "instrument"], ascending=[False, True], kind="mergesort"
         )

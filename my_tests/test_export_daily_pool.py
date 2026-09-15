@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import pandas as pd
 import pytest
 
 import my_scripts.export_daily_pool as edp
@@ -332,3 +333,29 @@ def test_export_manifest_includes_pred_md5(tmp_path: Path, monkeypatch: pytest.M
     assert manifests, "expected export manifest"
     man = load_manifest(manifests[0])
     assert man["config"]["pred_md5"] == md5_file(pred)
+
+
+def test_export_uses_single_groupby(tmp_path, monkeypatch):
+    """eng-perf P1-7: one groupby("datetime"), not per-day full-table scans."""
+    predictions = _pred(
+        tmp_path,
+        "datetime,instrument,score\n"
+        "2026-03-02,SZ300190,2\n"
+        "2026-03-02,SH600000,1\n"
+        "2026-03-05,BJ920014,3\n"
+        "2026-03-09,SZ000001,4\n",
+    )
+    calls = {"n": 0}
+    real_groupby = pd.DataFrame.groupby
+
+    def counting_groupby(self, *args, **kwargs):
+        if args and args[0] == "datetime":
+            calls["n"] += 1
+        return real_groupby(self, *args, **kwargs)
+
+    monkeypatch.setattr(pd.DataFrame, "groupby", counting_groupby)
+
+    written, illegal = export_daily_pool(predictions, tmp_path / "g", topk=1)
+    assert calls["n"] == 1
+    assert illegal == 0
+    assert [p.name for p in written] == ["20260305.csv", "20260309.csv"]

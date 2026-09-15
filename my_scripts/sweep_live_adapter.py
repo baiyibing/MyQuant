@@ -116,6 +116,7 @@ def set_segments(segments: Mapping[str, Any]) -> None:
     _STATE.pop("last_timings", None)
     _STATE.pop("pred_path", None)
     _STATE.pop("pred_md5", None)
+    _STATE.pop("pred_day_ranks", None)
 
 
 def _handler_span(segments: Mapping[str, tuple[str, str]]) -> tuple[str, str]:
@@ -179,6 +180,7 @@ def configure_pred_handoff(
         "last_timings",
         "pred_path",
         "pred_md5",
+        "pred_day_ranks",
     ):
         _STATE.pop(key, None)
 
@@ -692,22 +694,50 @@ def _predict_once() -> tuple[pd.Series, pd.Series]:
     return _STATE["pred"], _STATE["label"]
 
 
+def _prebuild_pred_day_ranks(pred: pd.Series) -> dict[str, Any]:
+    """Process-local day ranks for one pred Series (eng-perf P1-7).
+
+    Built once per pred identity: sorted dates + per-day descending index and
+    rank map. Arms share this structure; each keeps its own ``held`` state.
+    """
+    dates = sorted(pred.index.get_level_values(0).unique())
+    by_day: dict[Any, tuple[pd.Index, dict[Any, int]]] = {}
+    for day in dates:
+        scored = pred.xs(day).sort_values(ascending=False)
+        ranked_pos = {inst: i for i, inst in enumerate(scored.index)}
+        by_day[day] = (scored.index, ranked_pos)
+    return {"pred_id": id(pred), "dates": dates, "by_day": by_day}
+
+
+def _get_pred_day_ranks(pred: pd.Series) -> dict[str, Any]:
+    """Return cached day ranks for ``pred``, rebuilding when identity changes."""
+    cached = _STATE.get("pred_day_ranks")
+    if cached is not None and cached.get("pred_id") == id(pred):
+        return cached
+    built = _prebuild_pred_day_ranks(pred)
+    _STATE["pred_day_ranks"] = built
+    return built
+
+
 def _simulate_list(pred: pd.Series, label: pd.Series, topk: int, n_drop: int, hold_thresh: int) -> pd.Series:
-    """TopkDropout 近似：返回每个交易日的持有名单等权次日收益（index=日期）。"""
+    """TopkDropout 近似：返回每个交易日的持有名单等权次日收益（index=日期）。
+
+    Day sort / rank maps come from ``_get_pred_day_ranks`` (once per pred).
+    """
     held: dict[str, int] = {}
     daily: dict[pd.Timestamp, float] = {}
-    dates = sorted(pred.index.get_level_values(0).unique())
+    ranks = _get_pred_day_ranks(pred)
+    dates = ranks["dates"]
+    by_day = ranks["by_day"]
     for day in dates:
-        # 结算前一日名单的收益
-        scored = pred.xs(day).sort_values(ascending=False)
+        scored_index, ranked_pos = by_day[day]
         # 淘汰：持有满 hold_thresh 的里面，pred 最低的 n_drop 只
-        ranked_pos = {inst: i for i, inst in enumerate(scored.index)}
         droppable = [s for s in held if held[s] >= hold_thresh and s in ranked_pos]
         droppable.sort(key=lambda s: ranked_pos[s], reverse=True)
         for s in droppable[:n_drop]:
             del held[s]
         # 买入：pred 最高且未持有的补足 topk
-        for inst in scored.index:
+        for inst in scored_index:
             if len(held) >= topk:
                 break
             held.setdefault(inst, 0)
