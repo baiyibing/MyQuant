@@ -6,6 +6,13 @@ from qlib.contrib.rolling.base import Rolling
 from loguru import logger
 from custom_ops import SMA
 
+import sys
+from pathlib import Path as _Path
+_my_scripts = str(_Path(__file__).resolve().parent.parent / "my_scripts")
+if _my_scripts not in sys.path:
+    sys.path.insert(0, _my_scripts)
+from handler_frame_cache import resolve_qlib_kernels
+
 # from qlib.tests.data import GetData
 # import fire
 # from qlib import auto_init
@@ -68,12 +75,14 @@ if __name__ == "__main__":
     # qlib.init(provider_uri=config_dict["qlib_init"]["provider_uri"],
     #           region=config_dict["qlib_init"]["region"])
 
+    _kernels = resolve_qlib_kernels()
+    print(f"[qlib] kernels={_kernels} (QLIB_KERNELS, default 1)", flush=True)
     qlib.init(
         # 数据存储路径
         provider_uri = "~/.qlib/qlib_data/my_data",  # target_dir
         # 中国市场
         region=REG_CN,
-        kernels=16,
+        kernels=_kernels,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。
         redis_host='127.0.0.1',
         redis_port=6379,

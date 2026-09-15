@@ -44,6 +44,7 @@ import host_env  # noqa: E402,F401
 
 from run_manifest import capture_git_provenance, write_train_manifest  # noqa: E402
 from sweep_ranking import parse_date_range  # noqa: E402
+from handler_frame_cache import resolve_qlib_kernels  # noqa: E402
 
 REPO_ROOT = _SCRIPT_DIR.parent
 
@@ -177,7 +178,9 @@ def live_predict(
     start_time, end_time = handler_span(segs)
     fit_start, fit_end = segs["train"]
 
-    qlib.init(provider_uri=provider_uri, region="cn")
+    _kernels = resolve_qlib_kernels()
+    print(f"[qlib] kernels={_kernels} (QLIB_KERNELS, default 1)", flush=True)
+    qlib.init(provider_uri=provider_uri, region="cn", kernels=_kernels)
 
     instruments = build_filtered_instruments(
         start_time=start_time, end_time=end_time, exclude_stocks=["SZ000004", "SH600107"]

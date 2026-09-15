@@ -29,6 +29,13 @@ from qlib.contrib.report import analysis_model, analysis_position
 from qlib.data import D  # 导入数据模块
 from custom_handler import Alpha158CostKDJ
 from custom_ops import SMA
+
+import sys
+from pathlib import Path as _Path
+_my_scripts = str(_Path(__file__).resolve().parent.parent / "my_scripts")
+if _my_scripts not in sys.path:
+    sys.path.insert(0, _my_scripts)
+from handler_frame_cache import resolve_qlib_kernels
 import plotly.graph_objects as go
 
 # ====== 2. 创建测试用的简单类（不依赖任何策略） ======
@@ -90,12 +97,14 @@ if __name__ == '__main__':
     logger.remove(0)
     logger.add("orders.log")
 
+    _kernels = resolve_qlib_kernels()
+    print(f"[qlib] kernels={_kernels} (QLIB_KERNELS, default 1)", flush=True)
     qlib.init(
         # 数据存储路径
         provider_uri = "~/.qlib/qlib_data/cn_data",  # target_dir
         # 中国市场
         region=REG_CN,
-        kernels=16,
+        kernels=_kernels,
         # QLib 使用 Redis 进行缓存和锁机制,如果 Redis 连接失败，QLib 会自动降级为不使用缓存，这可能会影响性能但不会导致程序错误。
         redis_host='127.0.0.1',
         redis_port=6379,
