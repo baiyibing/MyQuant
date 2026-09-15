@@ -44,6 +44,8 @@ DEFAULT_QLIB_DIR = Path.home() / ".qlib/qlib_data/my_data"
 DEFAULT_LAKE_INDEX_ROOT = Path("F:/stock_data/index/period=1d/dividend_type=none")
 DEFAULT_LAKE_SYMBOL = "000001_SH"
 DEFAULT_MAX_WORKERS = 8  # 硬约束：禁止 16
+# eng-perf P1-1 三钮：dump max_workers（本常量）≠ qlib.init(kernels=) ≠ LGB num_threads。
+# 勿把 dump workers 写入 qlib.init(kernels=)；统一解析见 my_scripts/handler_frame_cache.resolve_dump_max_workers。
 DEFAULT_EXPECTED_DELIST_MAX = 50
 DEFAULT_OFFSITE_DIRS = ("F:/", "G:/")
 WIN_7Z = Path(r"C:\Program Files\7-Zip\7z.exe")
@@ -200,7 +202,15 @@ def build_merge_cmd(cfg: RefreshConfig) -> StepPlan:
 
 
 def build_dump_cmd(cfg: RefreshConfig) -> StepPlan:
-    """只允许 dump_all；max_workers 钉死为 8。永不调用 dump_update。"""
+    """只允许 dump_all；max_workers 钉死为 8。永不调用 dump_update。
+
+    三钮分账（eng-perf P1-1）：此处 dump max_workers 与 qlib kernels / LGB threads 无关。
+    """
+    print(
+        f"[parallelism] dump_max_workers={DEFAULT_MAX_WORKERS} "
+        f"(refresh pin; ≠ QLIB_KERNELS / LGB_NUM_THREADS)",
+        flush=True,
+    )
     script = str(SCRIPTS_DIR / "dump_bin.py")
     argv = [
         str(cfg.python),

@@ -33,7 +33,9 @@ from custom_strategy import build_close_cache
 from handler_frame_cache import (
     attach_calendar_fingerprint,
     load_or_build_handler,
+    log_parallelism_knobs,
     make_handler_cache_payload,
+    resolve_lgb_num_threads,
     resolve_qlib_kernels,
 )
 from train_wiring import (
@@ -123,7 +125,10 @@ if __name__ == '__main__':
 
     # Windows：kernels>1 时每次 D.features 固定 ~29s 进程池开销；窗C 实证 16 核
     # Loading 3115s vs 单进程裸读 405s。QLIB_KERNELS 可覆盖（Linux 高配可设 8/16）。
+    # eng-perf P1-1：kernels ≠ dump max_workers ≠ LGB num_threads（三钮独立）。
     _kernels = resolve_qlib_kernels()
+    _lgb_threads = resolve_lgb_num_threads()
+    _parallelism = log_parallelism_knobs(kernels=_kernels, lgb_num_threads=_lgb_threads)
     print(f"[qlib] kernels={_kernels} (QLIB_KERNELS, default 1)", flush=True)
     if cli_args.expr_cache or cli_args.dataset_cache:
         print(
@@ -316,7 +321,7 @@ if __name__ == '__main__':
                 "lambda_l2": 580.9768,  # L2正则化系数
                 "max_depth": 8,  # 树的最大深度
                 "num_leaves": 210,  # 树的叶子数
-                "num_threads": 20,  # 并行线程数
+                "num_threads": _lgb_threads,  # LGB_NUM_THREADS（默认 20；与 kernels/dump 独立）
                 # "features": ["COST_J"],
             },
         },
@@ -890,6 +895,8 @@ if __name__ == '__main__':
                 "expr_cache": bool(cli_args.expr_cache),
                 "handler_cache": bool(cli_args.handler_cache),
                 "qlib_kernels": _kernels,
+                "dump_max_workers": _parallelism["dump_max_workers"],
+                "lgb_num_threads": _lgb_threads,
                 # 买入资格开关（默认全关）
                 "tradable_universe_on": bool(cli_args.tradable_universe),
                 "buy_state_filter_on": bool(cli_args.buy_state_filter),

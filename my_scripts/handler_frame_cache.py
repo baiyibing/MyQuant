@@ -28,8 +28,95 @@ _SOURCE_MISSING_SENTINEL = "missing"
 
 
 def resolve_qlib_kernels() -> int:
+    """Feature-engine process pool size for qlib.init(kernels=...). Default 1 (Win-safe).
+
+    Independent of dump max_workers and LGB num_threads (eng-perf P1-1 three knobs).
+    Override: QLIB_KERNELS.
+    """
     raw = str(os.environ.get("QLIB_KERNELS", "1") or "1").strip() or "1"
     return int(raw)
+
+
+# Align with qlib_scripts/refresh_mydata.DEFAULT_MAX_WORKERS (dump_all pin; forbid 16).
+DEFAULT_DUMP_MAX_WORKERS = 8
+DEFAULT_LGB_NUM_THREADS = 20
+
+
+def resolve_dump_max_workers() -> int:
+    """CSV→bin dump_all worker count. Default 8; independent of qlib kernels.
+
+    Override: QLIB_DUMP_MAX_WORKERS. Value 16 is rejected (refresh discipline) → default.
+    Invalid / non-positive → default with warning.
+    """
+    raw = str(os.environ.get("QLIB_DUMP_MAX_WORKERS", str(DEFAULT_DUMP_MAX_WORKERS)) or "").strip()
+    if not raw:
+        return DEFAULT_DUMP_MAX_WORKERS
+    try:
+        val = int(raw)
+    except ValueError:
+        print(
+            f"[parallelism] QLIB_DUMP_MAX_WORKERS={raw!r} invalid; using {DEFAULT_DUMP_MAX_WORKERS}",
+            flush=True,
+        )
+        return DEFAULT_DUMP_MAX_WORKERS
+    if val == 16:
+        print(
+            f"[parallelism] QLIB_DUMP_MAX_WORKERS=16 forbidden (refresh dump_all pin); "
+            f"using {DEFAULT_DUMP_MAX_WORKERS}",
+            flush=True,
+        )
+        return DEFAULT_DUMP_MAX_WORKERS
+    if val < 1:
+        print(
+            f"[parallelism] QLIB_DUMP_MAX_WORKERS={val} invalid; using {DEFAULT_DUMP_MAX_WORKERS}",
+            flush=True,
+        )
+        return DEFAULT_DUMP_MAX_WORKERS
+    return val
+
+
+def resolve_lgb_num_threads() -> int:
+    """LightGBM in-tree thread count. Default 20 (production); does not change training effect unless overridden.
+
+    Override: LGB_NUM_THREADS. Independent of kernels and dump max_workers.
+    """
+    raw = str(os.environ.get("LGB_NUM_THREADS", str(DEFAULT_LGB_NUM_THREADS)) or "").strip()
+    if not raw:
+        return DEFAULT_LGB_NUM_THREADS
+    try:
+        val = int(raw)
+    except ValueError:
+        print(
+            f"[parallelism] LGB_NUM_THREADS={raw!r} invalid; using {DEFAULT_LGB_NUM_THREADS}",
+            flush=True,
+        )
+        return DEFAULT_LGB_NUM_THREADS
+    if val < 1:
+        print(
+            f"[parallelism] LGB_NUM_THREADS={val} invalid; using {DEFAULT_LGB_NUM_THREADS}",
+            flush=True,
+        )
+        return DEFAULT_LGB_NUM_THREADS
+    return val
+
+
+def log_parallelism_knobs(
+    *,
+    kernels: int | None = None,
+    dump_max_workers: int | None = None,
+    lgb_num_threads: int | None = None,
+) -> dict[str, int]:
+    """One-line log making the three independent knobs explicit (eng-perf P1-1)."""
+    k = resolve_qlib_kernels() if kernels is None else int(kernels)
+    d = resolve_dump_max_workers() if dump_max_workers is None else int(dump_max_workers)
+    t = resolve_lgb_num_threads() if lgb_num_threads is None else int(lgb_num_threads)
+    print(
+        f"[parallelism] kernels={k} (QLIB_KERNELS) "
+        f"dump_max_workers={d} (QLIB_DUMP_MAX_WORKERS) "
+        f"lgb_num_threads={t} (LGB_NUM_THREADS)",
+        flush=True,
+    )
+    return {"kernels": k, "dump_max_workers": d, "lgb_num_threads": t}
 
 
 def resolve_handler_cache_dir() -> Path:
