@@ -265,3 +265,124 @@ def test_manifest_receives_arm_mode_and_cache_key(tmp_path: Path, monkeypatch: p
     assert any(n["name"] in {"init_once", "handler_init"} for n in m1["timings"]["nodes"])
     assert any(n["name"] == "arm_only" for n in m2["timings"]["nodes"])
 
+
+
+def _write_toy_pred_label_csvs(tmp_path: Path):
+    pred, label = _toy_pred_label()
+    pred_path = tmp_path / "pred.csv"
+    label_path = tmp_path / "label.csv"
+    sla.write_pred_artifact(pred, pred_path, label=label, segments=MARCH)
+    # write_pred_artifact also writes .label.csv sidecar; keep explicit label_path
+    return pred_path, sla._label_sidecar_path(pred_path), pred, label
+
+
+def test_pred_from_hit_skips_build(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    pred_path, label_path, _pred, _label = _write_toy_pred_label_csvs(tmp_path)
+    builds = {"n": 0}
+
+    def boom():
+        builds["n"] += 1
+        raise AssertionError("_build_pred_label must not run on PRED_FROM HIT")
+
+    monkeypatch.setattr(sla, "_build_pred_label", boom)
+    sla.configure_pred_handoff(pred_from=pred_path, label_from=label_path)
+    payload = sla.train_predict_fn(SweepConfig(5, 2, 1))
+    assert builds["n"] == 0
+    assert payload["data"]["arm_mode"] == "PRED_FROM"
+    assert payload["pred_path"] == str(pred_path)
+    assert payload["pred_md5"]
+    assert payload["data"]["pred_md5"] == payload["pred_md5"]
+    assert any(n["name"] == "pred_from" for n in payload["timings"]["nodes"])
+
+    # second arm uses in-process cache
+    p2 = sla.train_predict_fn(SweepConfig(10, 3, 1))
+    assert builds["n"] == 0
+    assert p2["data"]["arm_mode"] == "ARM_ONLY"
+
+
+def test_pred_from_missing_file_miss(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    missing = tmp_path / "nope.csv"
+    builds = {"n": 0}
+
+    def fake_build():
+        builds["n"] += 1
+        return _toy_pred_label()
+
+    monkeypatch.setattr(sla, "_build_pred_label", fake_build)
+    sla.configure_pred_handoff(pred_from=missing, label_from=tmp_path / "lab.csv")
+    with pytest.raises(FileNotFoundError, match="missing_file"):
+        sla.train_predict_fn(SweepConfig(5, 2, 1))
+    assert builds["n"] == 0  # must not fall through to build
+
+
+def test_pred_from_empty_table_miss(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    empty = tmp_path / "empty.csv"
+    empty.write_text("datetime,instrument,score\n", encoding="utf-8")
+    label = tmp_path / "label.csv"
+    label.write_text(
+        "datetime,instrument,label\n2026-03-02,SH600000,0.01\n", encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        sla, "_build_pred_label", lambda: (_ for _ in ()).throw(AssertionError("no build"))
+    )
+    sla.configure_pred_handoff(pred_from=empty, label_from=label)
+    with pytest.raises(ValueError, match="empty"):
+        sla.train_predict_fn(SweepConfig(5, 2, 1))
+
+
+def test_pred_from_missing_label_miss(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    pred, _label = _toy_pred_label()
+    pred_path = tmp_path / "pred_only.csv"
+    # write pred without label sidecar / meta label_path
+    frame = sla.series_to_pred_frame(pred)
+    frame.to_csv(pred_path, index=False, encoding="utf-8", lineterminator="\n")
+    monkeypatch.setattr(
+        sla, "_build_pred_label", lambda: (_ for _ in ()).throw(AssertionError("no build"))
+    )
+    sla.configure_pred_handoff(pred_from=pred_path, label_from=None)
+    with pytest.raises(ValueError, match="missing_label"):
+        sla.train_predict_fn(SweepConfig(5, 2, 1))
+
+
+def test_pred_from_key_mismatch_miss(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    pred_path, label_path, _p, _l = _write_toy_pred_label_csvs(tmp_path)
+    # meta was written for MARCH; switch to OOS → key mismatch
+    monkeypatch.setattr(
+        sla, "_build_pred_label", lambda: (_ for _ in ()).throw(AssertionError("no build"))
+    )
+    sla.set_segments(OOS)
+    sla.configure_pred_handoff(pred_from=pred_path, label_from=label_path)
+    with pytest.raises(ValueError, match="shared_handler_cache_key mismatch|segments mismatch"):
+        sla.train_predict_fn(SweepConfig(5, 2, 1))
+
+
+def test_pred_out_then_pred_from_metrics_match(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    pred, label = _toy_pred_label()
+    monkeypatch.setattr(sla, "_build_pred_label", lambda: (pred, label))
+    out = tmp_path / "handoff" / "pred.csv"
+    sla.configure_pred_handoff(pred_out=out)
+    live = sla.train_predict_fn(SweepConfig(5, 2, 1))
+    assert live["data"]["arm_mode"] == "INIT_ONCE"
+    assert Path(live["pred_path"]).is_file()
+    assert live["pred_md5"]
+    assert (tmp_path / "handoff" / "pred.csv.meta.json").is_file()
+    assert sla._label_sidecar_path(out).is_file()
+
+    # fresh process-like state: clear and load from disk
+    sla._STATE.clear()
+    sla._ACTIVE_SEGMENTS.clear()
+    sla._ACTIVE_SEGMENTS.update({k: (v[0], v[1]) for k, v in sla.SEGMENTS.items()})
+    builds = {"n": 0}
+
+    def boom():
+        builds["n"] += 1
+        raise AssertionError("offline arm must not rebuild")
+
+    monkeypatch.setattr(sla, "_build_pred_label", boom)
+    sla.configure_pred_handoff(pred_from=out)  # label via sidecar/meta
+    offline = sla.train_predict_fn(SweepConfig(5, 2, 1))
+    assert builds["n"] == 0
+    assert offline["data"]["arm_mode"] == "PRED_FROM"
+    assert offline["ic"] == pytest.approx(live["ic"])
+    assert offline["ir"] == pytest.approx(live["ir"])
+    assert offline["pred_md5"] == live["pred_md5"]
