@@ -386,3 +386,71 @@ def test_pred_out_then_pred_from_metrics_match(tmp_path: Path, monkeypatch: pyte
     assert offline["ic"] == pytest.approx(live["ic"])
     assert offline["ir"] == pytest.approx(live["ir"])
     assert offline["pred_md5"] == live["pred_md5"]
+
+
+# --- eng-perf P1-7: same-pred day ranks built once -------------------------
+
+
+def _naive_simulate_list(pred, label, topk, n_drop, hold_thresh):
+    """Reference: per-day xs + sort (pre-P1-7 semantics)."""
+    held: dict[str, int] = {}
+    daily = {}
+    dates = sorted(pred.index.get_level_values(0).unique())
+    for day in dates:
+        scored = pred.xs(day).sort_values(ascending=False)
+        ranked_pos = {inst: i for i, inst in enumerate(scored.index)}
+        droppable = [s for s in held if held[s] >= hold_thresh and s in ranked_pos]
+        droppable.sort(key=lambda s: ranked_pos[s], reverse=True)
+        for s in droppable[:n_drop]:
+            del held[s]
+        for inst in scored.index:
+            if len(held) >= topk:
+                break
+            held.setdefault(inst, 0)
+        rets = [label.get((day, s)) for s in held]
+        rets = [r for r in rets if r == r and r is not None]
+        if rets:
+            daily[day] = float(__import__("numpy").mean(rets))
+        for s in list(held):
+            held[s] += 1
+    return pd.Series(daily, name="list_ret").sort_index()
+
+
+def test_pred_day_ranks_built_once_across_arms(monkeypatch: pytest.MonkeyPatch):
+    pred, label = _toy_pred_label()
+    builds = {"n": 0}
+    real = sla._prebuild_pred_day_ranks
+
+    def wrapped(p):
+        builds["n"] += 1
+        return real(p)
+
+    monkeypatch.setattr(sla, "_prebuild_pred_day_ranks", wrapped)
+    for topk, n_drop, hold in ((2, 1, 1), (3, 1, 1), (2, 1, 2)):
+        sla._simulate_list(pred, label, topk, n_drop, hold)
+    assert builds["n"] == 1
+    assert sla._STATE["pred_day_ranks"]["pred_id"] == id(pred)
+
+
+def test_simulate_list_matches_naive_multi_arm():
+    pred, label = _toy_pred_label()
+    for topk, n_drop, hold in ((1, 1, 1), (2, 1, 1), (3, 2, 2), (5, 2, 1)):
+        got = sla._simulate_list(pred, label, topk, n_drop, hold)
+        exp = _naive_simulate_list(pred, label, topk, n_drop, hold)
+        pd.testing.assert_series_equal(got, exp, check_names=True)
+
+
+def test_set_segments_clears_pred_day_ranks(monkeypatch: pytest.MonkeyPatch):
+    pred, label = _toy_pred_label()
+    sla._simulate_list(pred, label, 2, 1, 1)
+    assert "pred_day_ranks" in sla._STATE
+    sla.set_segments(OOS)
+    assert "pred_day_ranks" not in sla._STATE
+
+
+def test_configure_pred_handoff_clears_pred_day_ranks():
+    pred, label = _toy_pred_label()
+    sla._simulate_list(pred, label, 2, 1, 1)
+    assert "pred_day_ranks" in sla._STATE
+    sla.configure_pred_handoff(pred_from=None, label_from=None, pred_out=None)
+    assert "pred_day_ranks" not in sla._STATE
