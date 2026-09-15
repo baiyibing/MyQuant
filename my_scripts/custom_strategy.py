@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from pprint import pprint                                           # 导入美观打印模块，用于格式化输出数据结构
 
 from qlib.contrib.strategy import TopkDropoutStrategy               # 导入基础策略类
@@ -115,16 +117,32 @@ def build_close_cache(codes, start_time, end_time, lookback_days: int = 5) -> pd
 
 
 class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
+    """Topk+dropout with return-gate filter and always-on bar call-spectrum counters.
+
+    eng-perf P1-6 (measure-only): ``timing_interval_steps`` (default **10**) still gates
+    TimerRecorder sampling for long runs. Short-window diagnostics should pass
+    ``timing_interval_steps=1`` (CLI ``--timing-interval-steps``) without changing the
+    production default. Exchange-side call counts are always-on and independent of that
+    sample gate. Preload / quote caching is out of scope for this knife.
+    """
+
     def __init__(self, *args, timing_interval_steps: int = 10, close_cache=None, **kwargs):
         super().__init__(*args, **kwargs)   # 调用父类构造函数
         self.max_return_threshold = 0.15    # 设置最大收益阈值（15%），超过此阈值的股票将被过滤
         self.lookback_days = 5              # 设置回溯天数（5天），用于计算历史收益
         self.logger = get_module_logger("TopkDropoutStrategyWithFilter")    # 获取模块专用的日志记录器
+        # Default 10 keeps TimerRecorder JSON lean on long runs; use 1 for short-window bar diagnosis.
         self.timing_interval_steps = int(timing_interval_steps) if timing_interval_steps else 10
         self._close_wide = wide_close_from_features(close_cache) if close_cache is not None else None
         # 同 bar 回退路径：复用已取 close，仅对新增 instruments 差量拉取
         self._bar_close_scratch = None
+        # Always-on call spectrum (not gated by timing_interval_steps / do_timing).
         self.df_calls = 0  # D.features 次数（有 _close_wide 时期望保持 0）
+        self.tradable_calls = 0
+        self.deal_price_calls = 0
+        self.factor_calls = 0
+        self.cache_hit = 0  # return-gate close-wide / same-bar scratch hits
+        self.n_stocks = 0  # cumulative instruments considered in return-gate
 
 
     def _filter_stocks_by_return_threshold_old(self, stocks, trade_start_time,initial_required_count):
@@ -252,16 +270,21 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             return stocks
 
         # 5. 优先查预取宽表；未预取时单次区间 D.features + 同 bar 差量 scratch
+        self.n_stocks += len(stocks) if stocks is not None else 0
         start_series = end_series = None
+        used_wide = False
         if self._close_wide is not None:
             start_series = closes_on_date(self._close_wide, prev_dates_last)
             end_series = closes_on_date(self._close_wide, prev_dates_first)
+            used_wide = start_series is not None and end_series is not None
         if start_series is None or end_series is None:
             start_series, end_series = self._endpoint_closes_via_features(
                 stocks, prev_dates_last, prev_dates_first, trade_start_time
             )
             if start_series is None or end_series is None:
                 return stocks
+        elif used_wide:
+            self.cache_hit += 1
 
         filtered_stocks = select_by_return_threshold(
             stocks, start_series, end_series, self.max_return_threshold, initial_required_count
@@ -282,6 +305,60 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         """bar 结束或交易日变化时清掉同 bar close 差量缓存。"""
         self._bar_close_scratch = None
 
+    def bar_call_spectrum(self) -> dict:
+        """JSON-able always-on bar IO counters (eng-perf P1-6 measure-only)."""
+        return {
+            "df_calls": int(self.df_calls),
+            "tradable_calls": int(self.tradable_calls),
+            "deal_price_calls": int(self.deal_price_calls),
+            "factor_calls": int(self.factor_calls),
+            "cache_hit": int(getattr(self, "cache_hit", 0)),
+            "n_stocks": int(getattr(self, "n_stocks", 0)),
+            "timing_interval_steps": int(self.timing_interval_steps),
+        }
+
+    def reset_bar_call_spectrum(self) -> None:
+        """Zero always-on spectrum counters (keeps timing_interval_steps)."""
+        self.df_calls = 0
+        self.tradable_calls = 0
+        self.deal_price_calls = 0
+        self.factor_calls = 0
+        self.cache_hit = 0
+        self.n_stocks = 0
+
+    def _ex_is_stock_tradable(self, **kwargs):
+        self.tradable_calls += 1
+        return self.trade_exchange.is_stock_tradable(**kwargs)
+
+    def _ex_get_deal_price(self, **kwargs):
+        self.deal_price_calls += 1
+        return self.trade_exchange.get_deal_price(**kwargs)
+
+    def _ex_get_factor(self, **kwargs):
+        self.factor_calls += 1
+        return self.trade_exchange.get_factor(**kwargs)
+
+    def _emit_bar_spectrum(self, trade_step: int) -> None:
+        """Low-frequency BAR_SPECTRUM line; OSKH_BAR_SPECTRUM=1 forces stdout every bar."""
+        spec = self.bar_call_spectrum()
+        core = (
+            int(spec["df_calls"])
+            + int(spec["tradable_calls"])
+            + int(spec["deal_price_calls"])
+            + int(spec["factor_calls"])
+        )
+        if core <= 0:
+            return
+        line = f"BAR_SPECTRUM step={trade_step} {spec}"
+        env_on = os.environ.get("OSKH_BAR_SPECTRUM", "").strip().lower() in ("1", "true", "yes", "on")
+        if env_on:
+            print(line, flush=True)
+            return
+        # Default: brief summary on TimerRecorder sample steps (keeps long-run logs lean).
+        interval = int(self.timing_interval_steps) if self.timing_interval_steps else 10
+        if interval > 0 and trade_step % interval == 0:
+            self.logger.info(line)
+
     def _endpoint_closes_via_features(self, stocks, prev_dates_last, prev_dates_first, trade_start_time):
         """无宽表时：单次区间拉取两端交易日 close；同 bar 仅差量补 instruments。"""
         key = self._bar_scratch_key(trade_start_time, prev_dates_last, prev_dates_first)
@@ -297,6 +374,8 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
 
         stock_list = list(stocks)
         needed = [s for s in stock_list if s not in scratch["instruments"]]
+        if not needed and scratch["instruments"]:
+            self.cache_hit += 1
         if needed:
             try:
                 range_price = D.features(
@@ -383,6 +462,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             pred_score = pred_score.iloc[:, 0]
         if pred_score is None:
             self.clear_bar_close_scratch()
+            self._emit_bar_spectrum(trade_step)
             return TradeDecisionWO([], self)
 
         # 根据是否只考虑可交易股票设置不同的过滤函数
@@ -397,7 +477,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
                 res = []
                 for si in reversed(li) if reverse else li:
                     # 检查股票是否可交易
-                    if self.trade_exchange.is_stock_tradable(
+                    if self._ex_is_stock_tradable(
                             stock_id=si,
                             start_time=trade_start_time,
                             end_time=trade_end_time
@@ -414,7 +494,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
 
             def filter_stock(li):
                 """过滤可交易股票"""
-                return [si for si in li if self.trade_exchange.is_stock_tradable(
+                return [si for si in li if self._ex_is_stock_tradable(
                     stock_id=si,
                     start_time=trade_start_time,
                     end_time=trade_end_time
@@ -537,7 +617,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         with (rec.timer("strategy.order_sell_loop") if rec is not None else nullcontext()):
             for code in current_stock_list:
                 # 检查股票是否可交易
-                if not self.trade_exchange.is_stock_tradable(
+                if not self._ex_is_stock_tradable(
                         stock_id=code,
                         start_time=trade_start_time,
                         end_time=trade_end_time,
@@ -582,7 +662,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             for code in buy:
                 # check is stock suspended
                 # 检查股票是否可交易
-                if not self.trade_exchange.is_stock_tradable(
+                if not self._ex_is_stock_tradable(
                         stock_id=code,
                         start_time=trade_start_time,
                         end_time=trade_end_time,
@@ -591,14 +671,14 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
                     continue
                 # buy order
                 # 创建买入订单
-                buy_price = self.trade_exchange.get_deal_price(
+                buy_price = self._ex_get_deal_price(
                     stock_id=code,
                     start_time=trade_start_time,
                     end_time=trade_end_time,
                     direction=OrderDir.BUY,
                 )
                 buy_amount = value / buy_price
-                factor = self.trade_exchange.get_factor(
+                factor = self._ex_get_factor(
                     stock_id=code,
                     start_time=trade_start_time,
                     end_time=trade_end_time,
@@ -614,4 +694,5 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
                 buy_order_list.append(buy_order)
         # 返回交易决策（包含所有买卖订单）
         self.clear_bar_close_scratch()
+        self._emit_bar_spectrum(trade_step)
         return TradeDecisionWO(sell_order_list + buy_order_list, self)
