@@ -13,13 +13,16 @@ if _MY_SCRIPTS not in sys.path:
     sys.path.insert(0, _MY_SCRIPTS)
 
 from handler_frame_cache import (  # noqa: E402
+    DEFAULT_HANDLER_CACHE_WARN_MB,
     attach_source_hashes,
     cache_paths,
     file_sha256,
     handler_cache_digest,
     load_or_build_handler,
     make_handler_cache_payload,
+    resolve_handler_cache_warn_mb,
     resolve_qlib_kernels,
+    sample_peak_rss_mb,
     save_handler,
 )
 
@@ -111,6 +114,7 @@ def test_load_or_build_round_trip(tmp_path, monkeypatch, capsys):
     assert obs1["miss_reason"] == "missing"
     assert obs1["path"] is not None and Path(obs1["path"]).is_file()
     assert obs1["size_mb"] is not None and obs1["size_mb"] > 0
+    assert "peak_rss_mb" in obs1  # may be float or None
     pkl, meta = cache_paths(digest, tmp_path)
     assert pkl.is_file() and meta.is_file()
     out1 = capsys.readouterr().out
@@ -154,6 +158,7 @@ def test_cache_hit_skips_builder(tmp_path, monkeypatch, capsys):
     assert obs["miss_reason"] is None
     assert obs["path"] == str(pkl)
     assert obs["size_mb"] is not None
+    assert "peak_rss_mb" in obs
     out = capsys.readouterr().out
     assert "HANDLER_CACHE HIT" in out and f"key={digest[:16]}" in out and "reason=None" in out
 
@@ -170,6 +175,7 @@ def test_save_dummy_and_disabled_skips_disk(tmp_path, capsys):
     assert hit is False and h.n == 1
     assert obs["miss_reason"] == "disabled"
     assert obs["path"] is None and obs["size_mb"] is None
+    assert "peak_rss_mb" in obs
     assert obs["digest"] == digest
     pkl, _ = cache_paths(digest, tmp_path)
     assert not pkl.exists()
@@ -177,3 +183,49 @@ def test_save_dummy_and_disabled_skips_disk(tmp_path, capsys):
     assert "HANDLER_CACHE MISS" in out and "reason=disabled" in out
     save_handler(_DummyHandler(3), digest, payload, tmp_path)
     assert pkl.is_file()
+
+
+def test_resolve_handler_cache_warn_mb_default_and_override(monkeypatch):
+    monkeypatch.delenv("OSKH_HANDLER_CACHE_WARN_MB", raising=False)
+    assert resolve_handler_cache_warn_mb() == float(DEFAULT_HANDLER_CACHE_WARN_MB)
+    monkeypatch.setenv("OSKH_HANDLER_CACHE_WARN_MB", "8192")
+    assert resolve_handler_cache_warn_mb() == 8192.0
+    monkeypatch.setenv("OSKH_HANDLER_CACHE_WARN_MB", "0")
+    assert resolve_handler_cache_warn_mb() == float(DEFAULT_HANDLER_CACHE_WARN_MB)
+
+
+def test_save_warns_when_size_exceeds_threshold(tmp_path, monkeypatch, capsys):
+    """Over-threshold pickle size → stdout WARN; file still written (warn-only)."""
+    monkeypatch.setenv("OSKH_HANDLER_CACHE_WARN_MB", "0.000001")
+    payload = _payload()
+    digest = handler_cache_digest(payload)
+    written = save_handler(_DummyHandler(3), digest, payload, tmp_path)
+    assert written.is_file()
+    out = capsys.readouterr().out
+    assert "[handler-cache] WARN size_mb=" in out
+    assert "OSKH_HANDLER_CACHE_WARN_MB=" in out
+    assert "warn-only" in out
+
+
+def test_load_or_build_warns_and_exposes_peak_rss(tmp_path, monkeypatch, capsys):
+    monkeypatch.setenv("OSKH_HANDLER_CACHE_DIR", str(tmp_path))
+    monkeypatch.setenv("OSKH_HANDLER_CACHE_WARN_MB", "0.000001")
+    payload = _payload()
+    h, hit, obs = load_or_build_handler(
+        payload=payload,
+        builder=lambda: _DummyHandler(5),
+        enabled=True,
+        cache_dir=tmp_path,
+    )
+    assert hit is False and h.n == 5
+    assert "peak_rss_mb" in obs
+    # Linux box should sample via resource; tolerate None on exotic platforms.
+    rss = obs["peak_rss_mb"]
+    assert rss is None or (isinstance(rss, float) and rss >= 0)
+    out = capsys.readouterr().out
+    assert "[handler-cache] WARN size_mb=" in out
+
+
+def test_sample_peak_rss_mb_best_effort():
+    val = sample_peak_rss_mb()
+    assert val is None or (isinstance(val, float) and val >= 0)

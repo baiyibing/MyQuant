@@ -286,6 +286,7 @@ def parse_train_cli(argv=None):
             "项目级单文件 handler 缓存（to_pickle dump_all，默认 ~/.cache/qlib_handler_cache；"
             "OSKH_HANDLER_CACHE_DIR 可改）。键含窗/闸门/特征开关/日历指纹。"
             "同配置二次运行跳过 handler_init；换配置或刷新 my_data 自动 miss。"
+            "写后 size 超 OSKH_HANDLER_CACHE_WARN_MB（默认 4096；Win 分档 4096/8192）仅 WARN。"
         ),
     )
     parser.add_argument(

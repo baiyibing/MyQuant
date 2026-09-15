@@ -11,18 +11,28 @@ Hit path: Alpha158CostKDJ.load(pkl). Miss: build then atomic write.
 Key = config_hash of windows / feature flags / 闸门 / calendar fingerprint
 + custom_ops/custom_handler source sha256 (data refresh changes calendar_last → miss;
 changing ops/handler source → miss).
+
+eng-perf P1-4: after write, if pickle size_mb exceeds OSKH_HANDLER_CACHE_WARN_MB
+(default 4096; Win tiers 4096 default / 8192 high-RAM), stdout WARN but still keep
+the file (warn-only; no fatal). obs may include peak_rss_mb (resource/psutil; None
+if unavailable).
 """
 
 from __future__ import annotations
 
 import hashlib
 import os
+import sys
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional
 
 from run_manifest import canonical_json, config_hash
 
 _CACHE_DIR_ENV = "OSKH_HANDLER_CACHE_DIR"
+_WARN_MB_ENV = "OSKH_HANDLER_CACHE_WARN_MB"
+# Win pickle-size tiers (MiB): 4096 default hosts; 8192 high-RAM (~64 GiB commit).
+# Warn-only for now (eng-perf P1-4); fatal deferred until Win RSS curves stabilize.
+DEFAULT_HANDLER_CACHE_WARN_MB = 4096
 _DEFAULT_PROVIDER = "~/.qlib/qlib_data/my_data"
 _SOURCE_MISSING_SENTINEL = "missing"
 
@@ -124,6 +134,62 @@ def resolve_handler_cache_dir() -> Path:
     if raw:
         return Path(raw)
     return Path.home() / ".cache" / "qlib_handler_cache"
+
+
+def resolve_handler_cache_warn_mb() -> float:
+    """Pickle size WARN threshold in MiB (OSKH_HANDLER_CACHE_WARN_MB).
+
+    Default 4096. Win host tiers (document only; override via env):
+    - 4096 — default / typical Win commit budget
+    - 8192 — high-RAM hosts (~64 GiB pagefile/commit)
+    Invalid / non-positive → default.
+    """
+    raw = str(os.environ.get(_WARN_MB_ENV, str(DEFAULT_HANDLER_CACHE_WARN_MB)) or "").strip()
+    if not raw:
+        return float(DEFAULT_HANDLER_CACHE_WARN_MB)
+    try:
+        val = float(raw)
+    except ValueError:
+        print(
+            f"[handler-cache] {_WARN_MB_ENV}={raw!r} invalid; using {DEFAULT_HANDLER_CACHE_WARN_MB}",
+            flush=True,
+        )
+        return float(DEFAULT_HANDLER_CACHE_WARN_MB)
+    if val <= 0:
+        print(
+            f"[handler-cache] {_WARN_MB_ENV}={val} invalid; using {DEFAULT_HANDLER_CACHE_WARN_MB}",
+            flush=True,
+        )
+        return float(DEFAULT_HANDLER_CACHE_WARN_MB)
+    return val
+
+
+def sample_peak_rss_mb() -> float | None:
+    """Best-effort peak RSS in MiB; None when unavailable (never blocks cache I/O).
+
+    Linux/macOS: ``resource.getrusage(RUSAGE_SELF).ru_maxrss`` (Linux KiB, Darwin bytes).
+    Else optional ``psutil`` (peak_wset on Win, else rss). Not a hard dependency.
+    """
+    try:
+        import resource
+
+        rss = float(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)
+        if sys.platform == "darwin":
+            return rss / (1024.0 ** 2)
+        # Linux (and most Unix): KiB
+        return rss / 1024.0
+    except Exception:
+        pass
+    try:
+        import psutil  # type: ignore
+
+        mi = psutil.Process().memory_info()
+        peak = getattr(mi, "peak_wset", None)
+        if peak is not None:
+            return float(peak) / (1024.0 ** 2)
+        return float(mi.rss) / (1024.0 ** 2)
+    except Exception:
+        return None
 
 
 def source_file_paths() -> tuple[Path, Path]:
@@ -277,6 +343,7 @@ def save_handler(
     handler.to_pickle(str(tmp), dump_all=True)
     tmp.replace(pkl)
     nbytes = pkl.stat().st_size
+    size_mb = float(nbytes) / (1024.0 ** 2)
     meta_body: dict[str, Any] = {
         "digest": digest,
         "bytes": nbytes,
@@ -293,6 +360,14 @@ def save_handler(
         f"[handler-cache] wrote {pkl} ({nbytes / (1024 ** 3):.2f} GiB) digest={digest[:16]}",
         flush=True,
     )
+    warn_mb = resolve_handler_cache_warn_mb()
+    if size_mb > warn_mb:
+        print(
+            f"[handler-cache] WARN size_mb={size_mb:.4f} exceeds "
+            f"{_WARN_MB_ENV}={warn_mb:g} "
+            f"(Win tiers: 4096 default / 8192 high-RAM; warn-only, still wrote)",
+            flush=True,
+        )
     return pkl
 
 
@@ -303,6 +378,7 @@ def _obs(
     path: str | None,
     size_mb: float | None,
     miss_reason: str | None,
+    peak_rss_mb: float | None = None,
 ) -> dict[str, Any]:
     return {
         "cache_hit": bool(cache_hit),
@@ -310,6 +386,7 @@ def _obs(
         "path": path,
         "size_mb": size_mb,
         "miss_reason": miss_reason,
+        "peak_rss_mb": peak_rss_mb,
     }
 
 
@@ -334,8 +411,9 @@ def load_or_build_handler(
 ) -> tuple[Any, bool, dict[str, Any]]:
     """Return (handler, cache_hit, obs).
 
-    ``obs`` keys: cache_hit, digest, path, size_mb, miss_reason
-    (miss_reason: ``disabled`` / ``missing`` / ``load_failed`` / None on HIT).
+    ``obs`` keys: cache_hit, digest, path, size_mb, miss_reason, peak_rss_mb
+    (miss_reason: ``disabled`` / ``missing`` / ``load_failed`` / None on HIT;
+    peak_rss_mb may be None when sampling is unavailable).
     """
     digest = handler_cache_digest(payload)
     if not enabled:
@@ -346,6 +424,7 @@ def load_or_build_handler(
             path=None,
             size_mb=None,
             miss_reason="disabled",
+            peak_rss_mb=sample_peak_rss_mb(),
         )
         _log_cache_line("MISS", info)
         return handler, False, info
@@ -365,6 +444,7 @@ def load_or_build_handler(
             path=str(pkl),
             size_mb=_size_mb(pkl),
             miss_reason=None,
+            peak_rss_mb=sample_peak_rss_mb(),
         )
         _log_cache_line("HIT", info)
         return hit, True, info
@@ -378,6 +458,7 @@ def load_or_build_handler(
         path=str(written),
         size_mb=_size_mb(written),
         miss_reason=miss_reason,
+        peak_rss_mb=sample_peak_rss_mb(),
     )
     _log_cache_line("MISS", info)
     return handler, False, info
