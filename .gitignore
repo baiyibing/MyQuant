@@ -28,6 +28,20 @@ mlartifacts/
 *.hd5
 *.h5
 
+# 本机训练/回测落盘（体积大或每跑一份；结论只进 docs/reviews/**/runs）
+manifests/train_*.json
+manifests/export_*.json
+my_scripts/train_*.json
+my_scripts/export_*.json
+my_scripts/rebacktest_cost_tiers_summary_*.json
+my_scripts/timing_*.json
+timing_*.json
+my_scripts/position_analysis.txt
+my_scripts/预测结果.csv
+my_scripts/预测结果和真实标签.csv
+my_scripts/预测结果_ext.csv
+my_scripts/exports/
+
 # 日志
 *.log
 logs/
