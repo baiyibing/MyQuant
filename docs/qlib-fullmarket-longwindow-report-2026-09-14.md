@@ -65,12 +65,12 @@
 # Phase 1（训练+回测；同配置复跑加 --handler-cache，不要默认开 expr/dataset 小文件缓存）
 cd my_scripts && MLFLOW_DISABLE_AGENT_HINT=1 LOKY_MAX_CPU_COUNT=8 \
 python custom_train_backtest.py \
-    --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 --test 2026-01-01:2026-09-08 \
+    --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 --test 2026-01-01:2026-09-14 \
     --handler-cache
 
 # Phase 2（三档成本+等权，~7 分钟）
 python rebacktest_cost_tiers.py \
-    --recorder-id 4410e4a3a4714f4f9e261120449232d1 --test 2026-01-01:2026-09-08
+    --recorder-id 4410e4a3a4714f4f9e261120449232d1 --test 2026-01-01:2026-09-14
 ```
 
 工程注记（长窗在本机跑通的三个前提）：Windows 页面文件扩至 ~24 GiB（提交上限 40→64 GiB，`ProcessInf`/fetch 整帧 5 GiB 级分配不再崩）；`drop_raw=True` + 诊断改零拷贝（去掉 ~10 GiB 无谓持有）；`LOKY_MAX_CPU_COUNT=8`（ProcessInf 内部 `n_jobs=-1` 拉满 20+ worker 曾致偶发 BrokenProcessPool）。

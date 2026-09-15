@@ -30,13 +30,13 @@ from handler_frame_cache import (  # noqa: E402
 def _payload(**overrides):
     base = dict(
         start_time="2020-01-01",
-        end_time="2026-09-08",
+        end_time="2026-09-14",
         fit_start_time="2020-01-01",
         fit_end_time="2024-12-31",
         segments={
             "train": ("2020-01-01", "2024-12-31"),
             "valid": ("2025-01-01", "2025-12-31"),
-            "test": ("2026-01-01", "2026-09-08"),
+            "test": ("2026-01-01", "2026-09-14"),
         },
         include_alpha158=True,
         include_cost_kdj=True,

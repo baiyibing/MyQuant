@@ -19,7 +19,7 @@
 
 用法::
 
-    python build_winner_ratio.py --test 2026-01-01:2026-09-08 \
+    python build_winner_ratio.py --test 2026-01-01:2026-09-14 \
         [--out F:/stock_data/cyq_winner_ratio_daily_2026.parquet] [--workers 8]
         [--shares free|circ] [--codes SH688366,SZ002007]
 """

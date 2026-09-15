@@ -21,12 +21,12 @@ train/valid/test 三段 min start ~ max end；模型与 processors 同 M3-A
     python my_scripts/predict_extended.py \\
         --train 2026-01-01:2026-01-31 \\
         --valid 2026-02-01:2026-02-28 \\
-        --test 2026-03-01:2026-09-08
+        --test 2026-03-01:2026-09-14
 
 导出 Qlib 臂（任务 2，as-of / topk 锁死，见 docs/m5r2-export-qlib-arm.md）::
 
     python my_scripts/export_daily_pool.py --pred my_scripts/预测结果_ext.csv \\
-        --out-dir exports/m5r2_pred_topn10_20260302_20260908
+        --out-dir exports/m5r2_pred_topn10_20260302_20260914
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ REPO_ROOT = _SCRIPT_DIR.parent
 DEFAULT_SEGMENTS: dict[str, tuple[str, str]] = {
     "train": ("2026-01-01", "2026-01-31"),
     "valid": ("2026-02-01", "2026-02-28"),
-    "test": ("2026-03-01", "2026-09-08"),
+    "test": ("2026-03-01", "2026-09-14"),
 }
 
 PRED_CSV_NAME = "预测结果_ext.csv"
@@ -63,7 +63,7 @@ PRED_CSV_NAME = "预测结果_ext.csv"
 DEFAULT_PROVIDER_URI = "C:/Users/Thinkpad/.qlib/qlib_data/my_data"
 
 # 任务 2：导出命令约定（as-of 默认 pred_minus_one，topk 默认 10）
-M5R2_EXPORT_OUT_DIR = "exports/m5r2_pred_topn10_20260302_20260908"
+M5R2_EXPORT_OUT_DIR = "exports/m5r2_pred_topn10_20260302_20260914"
 M5R2_EXPORT_TOPK = 10
 M5R2_EXPORT_ASOF = "pred_minus_one"
 

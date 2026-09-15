@@ -225,8 +225,8 @@ kernels 的进程池叠加；旧机已实踩并写入 runbook §5.5：务必带 
 cd MyQuant/my_scripts
 export MLFLOW_DISABLE_AGENT_HINT=1 LOKY_MAX_CPU_COUNT=8
 PY=/d/anaconda3/envs/vanna312/python.exe
-$PY custom_train_backtest.py --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 --test 2026-01-01:2026-09-08 > p_nocache.log 2>&1
-$PY custom_train_backtest.py --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 --test 2026-01-01:2026-09-08 --no-exclude-filter --no-limit-filter --no-limit-threshold --expr-cache --dataset-cache > p_cold.log 2>&1
-$PY custom_train_backtest.py --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 --test 2026-01-01:2026-09-08 --no-exclude-filter --no-limit-filter --no-limit-threshold --expr-cache --dataset-cache > p_warm.log 2>&1
+$PY custom_train_backtest.py --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 --test 2026-01-01:2026-09-14 > p_nocache.log 2>&1
+$PY custom_train_backtest.py --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 --test 2026-01-01:2026-09-14 --no-exclude-filter --no-limit-filter --no-limit-threshold --expr-cache --dataset-cache > p_cold.log 2>&1
+$PY custom_train_backtest.py --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 --test 2026-01-01:2026-09-14 --no-exclude-filter --no-limit-filter --no-limit-threshold --expr-cache --dataset-cache > p_warm.log 2>&1
 $PY custom_train_backtest.py --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 --test 2025-01-01:2025-12-31 --expr-cache --dataset-cache > p_winC.log 2>&1
 ```

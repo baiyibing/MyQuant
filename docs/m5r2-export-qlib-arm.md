@@ -9,7 +9,7 @@
 
 ```bash
 python my_scripts/export_daily_pool.py --pred my_scripts/预测结果_ext.csv \
-    --out-dir exports/m5r2_pred_topn10_20260302_20260908
+    --out-dir exports/m5r2_pred_topn10_20260302_20260914
 ```
 
 约定：
