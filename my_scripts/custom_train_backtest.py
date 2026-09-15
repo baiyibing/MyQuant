@@ -292,11 +292,12 @@ if __name__ == '__main__':
 
     print("[debug] before handler_init(filtered)", flush=True)
     with t_rec.timer("handler_init"):
-        handler, _hc_hit, _hc_digest = load_or_build_handler(
+        handler, _hc_hit, _hc_obs = load_or_build_handler(
             payload=_hc_payload,
             builder=lambda: Alpha158CostKDJ(**data_handler_config),
             enabled=bool(cli_args.handler_cache),
         )
+    _hc_digest = _hc_obs.get("digest")
     print("[debug] after handler_init(filtered)", flush=True)
     # Default path: single production handler only (no handler_no_limit_filter).
     # Contrast verify is gated by --verify-filters / QLIB_VERIFY_FILTERS (slice C).
@@ -904,6 +905,11 @@ if __name__ == '__main__':
                     }
             except Exception as _cal_exc:
                 print(f"[manifest] calendar snapshot skipped: {_cal_exc}")
+            if bool(cli_args.handler_cache):
+                _cal_data["handler_cache_hit"] = bool(_hc_obs.get("cache_hit"))
+                _cal_data["handler_cache_key"] = _hc_obs.get("digest")
+                _cal_data["handler_cache_size_mb"] = _hc_obs.get("size_mb")
+                _cal_data["handler_cache_miss_reason"] = _hc_obs.get("miss_reason")
             _written = write_train_manifest(
                 manifests_dir=os.path.join(base_dir, "manifests"),
                 config=_manifest_cfg,
