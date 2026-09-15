@@ -1,0 +1,77 @@
+你是 MyQuant qlib 头脑风暴席位「cursor」（真 CLI R2-live）。
+主题：工程性能（墙钟/缓存/kernels）。
+方向 f 宿主/CI 分工 + g 扫漏否决（盲抬 kernels、关正确性 gate）。≥3 卡含否决。中文。
+每张卡必须含：标题；本仓锚点；提案；收益；成本与风险；冻结检查；对抗预填；建议裁决（采纳/裁剪后采纳/登记远期/否决）；重提条件。
+只出想法，不改代码、不重训、不跑长实验。用 Markdown。全文写入你的回答（我会落盘）。
+
+===== HOST（权威，以此为准）=====
+# Host · MyQuant qlib **工程性能**还能不能抬（2026-09-15）
+
+**Host**：qlib  
+**范围**：**墙钟耗时 / 吞吐 / 缓存 / kernels / OOM**——不是年化收益（收益会见 `../2026-09-15-qlib-perf-brainstorm/`）  
+**模式**：多 agent 多轮；只出想法卡，**不改代码、不重训、不跑长实验**  
+**Roster**：grok / kimi / Codex / cursor（Qoder 暂停）
+
+## 0. 任务
+
+在已落地的 perf 修复之上，头脑风暴：**训练 / 导出 / 过滤回测 / sweep 还能不能明显更快、更稳、更省内存？** 每卡四态：采纳 / 裁剪后采纳 / 登记远期 / 否决。
+
+## 1. 硬纪律
+
+1. 不把「跑得快」当成改 topk/过滤默认的理由（收益纪律另册）。  
+2. Windows 宿主是主战场：进程池固定开销、spawn、路径；Linux VM 可作对照但多数真跑在 Win。  
+3. 缓存必须可证伪：HIT/MISS、digest 键、改 gate/窗必须 miss。  
+4. 禁止用 `fetch()` 落巨型 parquet 再拷（已 OOM 先例）。  
+5. 合批验证：涉及 handler_init 的片合批跑，一片一跑会耗死（路线图）。  
+6. 本轮不改代码。
+
+## 2. 已测锚点（锁定）
+
+| 项 | 证据 |
+|----|------|
+| Win kernels>1 小查询 | 单日 50 股 D.features ~**29s** → kernels=1 时 **0.09s**（#39 系） |
+| 过滤回测 | 开过滤曾 ~**100s/bar**（~4.6h/轮）→ kernels=1 后 ~**3.6s/bar** |
+| #40 close cache + CYQ 跳过 Quantile | topk50 四开关重回测 **41.6 min → 7.2 min**（~7.5×）；return gate 对齐后真正生效 |
+| #43 train kernels=1 | 16-kernel Loading **~52 min miss** vs kernels=1 **~405s** bare-read |
+| #43 `--handler-cache` | 单文件 `to_pickle(dump_all=True)`；禁 fetch→parquet；同配置 HIT、改 gate/窗 MISS |
+| `--expr-cache --dataset-cache` | 仅同配置 Win 重跑；gate/窗变优先 handler-cache |
+| handler_init 量级 | 历史 ~18 min / ~907s 量级；sweep 设计「一次 init 多配置」 |
+| model_fit | ~5.6s（相对 init 可忽略） |
+| mlflow 事故 | file-store maintenance 白付 ~17 min init（followups plan） |
+
+## 3. 方向
+
+a. **kernels / 进程池**：默认 1 之外，何时值得 >1？按查询粒度自适应？  
+b. **缓存层**：handler-cache 键是否够？表达式/日特征/过滤路径二级缓存？失效与脏标记？  
+c. **过滤路径热点**：D.features 次数、close 预载、CYQ 跳过 Quantile 之后还有哪些 bar 内重复 IO？  
+d. **训练 vs 导出 vs sweep**：一次 init 多臂、manifest 计时节点、避免重复 Loading。  
+e. **内存 / OOM**：大宇宙、长窗、pickle 体积、并行度上限。  
+f. **宿主/CI 分工**：何物必须 Win 真跑、何物可 Linux 烟测；超时与逃生口（mlflow）。  
+g. **自由发挥 + 扫漏否决**（如「为快关掉正确性 gate」「盲目拉高 kernels」）。
+
+## 4. 想法卡格式
+
+- 标题 / 本仓锚点（文件或 PR + 现状一句） / 提案（缓存级/调度级/IO级/纪律级）  
+- 收益：具体砍哪段墙钟（init / bar / 整轮 min）  
+- 成本与风险：正确性、缓存脏读、Win/Linux 差异  
+- 冻结检查 / 对抗预填 / 建议裁决 / 重提条件  
+
+## 5. R1 分配
+
+| agent | 方向 | 输出 |
+|-------|------|------|
+| grok | a kernels；c 过滤路径热点 | `r1/grok.md` |
+| kimi | b 缓存层；e 内存 OOM | `r1/kimi.md` |
+| Codex | d 训练/导出/sweep 调度 | `r1/codex.md` |
+| cursor | f 宿主分工；g 扫漏否决 | `r1/cursor.md` |
+
+每家 ≥3 卡，中文。若 CLI 额度/挂起：**立即**据本 HOST 自写落盘，勿空转。
+
+
+## R2-live（2026-09-15 真 CLI 重开）
+
+- 输出目录：`r2-live/{grok,kimi,codex,cursor}.md`
+- Roster：grok CLI / **cursor-agent --model kimi-k2.7-code**（原生 kimi QUOTA）/ codex / cursor-agent
+- 纪律同 §0–§1；只出想法卡，不改代码。
+
+===== END HOST =====
