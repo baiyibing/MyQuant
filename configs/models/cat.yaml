@@ -1,0 +1,14 @@
+class: CatBoostModel
+module_path: qlib.contrib.model.catboost_model
+kwargs:
+  loss: RMSE
+  learning_rate: 0.0421
+  depth: 8
+  l2_leaf_reg: 580.9768
+  subsample: 0.8789
+  bootstrap_type: Bernoulli
+  thread_count: $num_threads
+  devices: "0"
+fit_kwargs:
+  num_boost_round: 1000
+  early_stopping_rounds: 50
