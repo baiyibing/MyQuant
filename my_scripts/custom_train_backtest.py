@@ -49,6 +49,7 @@ from train_wiring import (
     parse_train_cli,
     resolve_segments,
     should_verify_filters,
+    unique_pred_export_names,
     verify_limit_up_filter,
 )
 from custom_ops import SMA
@@ -631,7 +632,13 @@ if __name__ == '__main__':
         print("预测结果head")
         print(pred_df.head(10))
 
-        pred_df.to_csv('预测结果.csv', encoding='utf-8')
+        _pred_csv, _pred_label_csv = unique_pred_export_names(
+            rid,
+            int(port_analysis_config["strategy"]["kwargs"]["topk"]),
+            int(port_analysis_config["strategy"]["kwargs"]["n_drop"]),
+        )
+        pred_df.to_csv(_pred_csv, encoding='utf-8')
+        print(f"pred csv saved: {_pred_csv}", flush=True)
         # 预测结果
         #                           score
         # datetime   instrument
@@ -924,7 +931,8 @@ if __name__ == '__main__':
         pred_label = pd.concat([label_df, pred_df], axis=1, sort=True).reindex(label_df.index)
         print("pred_label结果head")
         print(pred_label.head(10))
-        pred_label.to_csv('预测结果和真实标签.csv', encoding='utf-8')
+        pred_label.to_csv(_pred_label_csv, encoding='utf-8')
+        print(f"pred+label csv saved: {_pred_label_csv}", flush=True)
         #                           label     score
         # datetime   instrument
         # 2025-01-02 SH600000    0.008949 -0.000373
@@ -948,7 +956,7 @@ if __name__ == '__main__':
         # 打印完成信息
         # M4-B: train run-manifest（不依赖 18min 重跑即可单测 write_train_manifest）
         try:
-            _pred_csv = os.path.abspath("预测结果.csv")
+            _pred_csv = os.path.abspath(_pred_csv)
             _pred_rows = int(len(pred_df)) if pred_df is not None else None
             _manifest_cfg = {
                 "exp_name": exp_name,

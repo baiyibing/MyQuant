@@ -22,6 +22,7 @@ from train_wiring import (  # noqa: E402
     parse_train_cli,
     resolve_segments,
     should_verify_filters,
+    unique_pred_export_names,
     verify_limit_up_filter,
 )
 
@@ -222,3 +223,16 @@ def test_resolve_segments_rejects_bad_ordering():
                 ]
             )
         )
+
+
+def test_unique_pred_export_names_never_bare():
+    pred, labeled = unique_pred_export_names(
+        "907edbfbd9ae48b0b5d8828626ec4476",
+        10,
+        3,
+        created_utc="2026-09-15T06:11:16Z",
+    )
+    assert pred == "预测结果_20260915T061116Z_907edbfb_10n3.csv"
+    assert labeled == "预测结果和真实标签_20260915T061116Z_907edbfb_10n3.csv"
+    assert pred != "预测结果.csv"
+    assert labeled != "预测结果和真实标签.csv"
