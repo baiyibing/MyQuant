@@ -93,6 +93,17 @@ def closes_on_date(close_wide: pd.DataFrame, dt) -> pd.Series | None:
     return close_wide.loc[hits[0]]
 
 
+def closes_from_range_frame(range_df: pd.DataFrame, start_date, end_date):
+    """区间 D.features → 两端交易日点查 Series（与两次单日 closes_by_instrument 对齐）。
+
+    用交易日定位切片，不用 groupby first/last，避免缺日/停牌时滑到中间日。
+    """
+    if range_df is None or range_df.empty:
+        return None, None
+    wide = wide_close_from_features(range_df)
+    return closes_on_date(wide, start_date), closes_on_date(wide, end_date)
+
+
 def build_close_cache(codes, start_time, end_time, lookback_days: int = 5) -> pd.DataFrame:
     """整窗一次取 $close（含 lookback 热身），供涨幅过滤查表，避免每根 bar 两次 D.features。"""
     codes = list(dict.fromkeys(str(c) for c in codes))
@@ -111,6 +122,9 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         self.logger = get_module_logger("TopkDropoutStrategyWithFilter")    # 获取模块专用的日志记录器
         self.timing_interval_steps = int(timing_interval_steps) if timing_interval_steps else 10
         self._close_wide = wide_close_from_features(close_cache) if close_cache is not None else None
+        # 同 bar 回退路径：复用已取 close，仅对新增 instruments 差量拉取
+        self._bar_close_scratch = None
+        self.df_calls = 0  # D.features 次数（有 _close_wide 时期望保持 0）
 
 
     def _filter_stocks_by_return_threshold_old(self, stocks, trade_start_time,initial_required_count):
@@ -237,33 +251,17 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             logger.warning(f"prev_dates_last无效交易日 for {trade_start_time} - {(self.lookback_days+1)} days ago")
             return stocks
 
-        # 5. 优先查预取宽表；未预取时才回退两次 D.features（Windows 上每根 bar ~3.6s）
+        # 5. 优先查预取宽表；未预取时单次区间 D.features + 同 bar 差量 scratch
         start_series = end_series = None
         if self._close_wide is not None:
             start_series = closes_on_date(self._close_wide, prev_dates_last)
             end_series = closes_on_date(self._close_wide, prev_dates_first)
         if start_series is None or end_series is None:
-            try:
-                start_price = D.features(
-                    instruments=stocks,
-                    fields=["$close"],
-                    start_time=prev_dates_last,
-                    end_time=prev_dates_last,
-                )
-                end_price = D.features(
-                    instruments=stocks,
-                    fields=["$close"],
-                    start_time=prev_dates_first,
-                    end_time=prev_dates_first,
-                )
-            except Exception as e:
-                logger.error(f"Data fetch failed: {str(e)}")
+            start_series, end_series = self._endpoint_closes_via_features(
+                stocks, prev_dates_last, prev_dates_first, trade_start_time
+            )
+            if start_series is None or end_series is None:
                 return stocks
-            if start_price.empty or end_price.empty:
-                logger.warning("Empty price data for start/end dates")
-                return stocks
-            start_series = closes_by_instrument(start_price)
-            end_series = closes_by_instrument(end_price)
 
         filtered_stocks = select_by_return_threshold(
             stocks, start_series, end_series, self.max_return_threshold, initial_required_count
@@ -272,6 +270,81 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
             f"Filtered {len(stocks)} stocks to {len(filtered_stocks)} using threshold {self.max_return_threshold:.2%}"
         )
         return filtered_stocks
+
+    def _bar_scratch_key(self, trade_start_time, prev_dates_last, prev_dates_first):
+        return (
+            pd.Timestamp(trade_start_time).normalize(),
+            pd.Timestamp(prev_dates_last).normalize(),
+            pd.Timestamp(prev_dates_first).normalize(),
+        )
+
+    def clear_bar_close_scratch(self):
+        """bar 结束或交易日变化时清掉同 bar close 差量缓存。"""
+        self._bar_close_scratch = None
+
+    def _endpoint_closes_via_features(self, stocks, prev_dates_last, prev_dates_first, trade_start_time):
+        """无宽表时：单次区间拉取两端交易日 close；同 bar 仅差量补 instruments。"""
+        key = self._bar_scratch_key(trade_start_time, prev_dates_last, prev_dates_first)
+        scratch = self._bar_close_scratch
+        if scratch is None or scratch.get("key") != key:
+            scratch = {
+                "key": key,
+                "start_series": pd.Series(dtype=float),
+                "end_series": pd.Series(dtype=float),
+                "instruments": set(),
+            }
+            self._bar_close_scratch = scratch
+
+        stock_list = list(stocks)
+        needed = [s for s in stock_list if s not in scratch["instruments"]]
+        if needed:
+            try:
+                range_price = D.features(
+                    instruments=needed,
+                    fields=["$close"],
+                    start_time=prev_dates_last,
+                    end_time=prev_dates_first,
+                )
+                self.df_calls += 1
+                logger.debug(
+                    "return-gate D.features df_calls={} n_needed={} span={}->{}",
+                    self.df_calls,
+                    len(needed),
+                    prev_dates_last,
+                    prev_dates_first,
+                )
+            except Exception as e:
+                logger.error(f"Data fetch failed: {str(e)}")
+                return None, None
+            if range_price is None or range_price.empty:
+                logger.warning("Empty price data for start/end dates")
+                return None, None
+            start_new, end_new = closes_from_range_frame(
+                range_price, prev_dates_last, prev_dates_first
+            )
+            if start_new is None or end_new is None:
+                logger.warning("Empty price data for start/end dates")
+                return None, None
+            if not scratch["start_series"].empty:
+                scratch["start_series"] = (
+                    pd.concat([scratch["start_series"], start_new]).groupby(level=0).last()
+                )
+            else:
+                scratch["start_series"] = start_new
+            if not scratch["end_series"].empty:
+                scratch["end_series"] = (
+                    pd.concat([scratch["end_series"], end_new]).groupby(level=0).last()
+                )
+            else:
+                scratch["end_series"] = end_new
+            scratch["instruments"].update(needed)
+
+        start_series = scratch["start_series"]
+        end_series = scratch["end_series"]
+        if start_series is None or end_series is None or start_series.empty or end_series.empty:
+            logger.warning("Empty price data for start/end dates")
+            return None, None
+        return start_series, end_series
 
     # 方法 generate_trade_decision Qlib 策略基类 BaseStrategy中定义的抽象方法，所有自定义策略都必须实现它。它在回测的每个时间步（由执行器频率决定，默认为每天）都会被回测引擎调用，是策略逻辑的核心入口
     # 参数 execute_result：它包含了上一个交易决策的执行结果（例如，哪些订单成交了，成交价格多少）。在策略开始运行时或没有待处理订单时，它可能是 None。策略可以根据这些信息来调整当前的决策
@@ -309,6 +382,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         if isinstance(pred_score, pd.DataFrame):    # 处理信号数据类型：如果为DataFrame则取第一列
             pred_score = pred_score.iloc[:, 0]
         if pred_score is None:
+            self.clear_bar_close_scratch()
             return TradeDecisionWO([], self)
 
         # 根据是否只考虑可交易股票设置不同的过滤函数
@@ -539,4 +613,5 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
                 )
                 buy_order_list.append(buy_order)
         # 返回交易决策（包含所有买卖订单）
+        self.clear_bar_close_scratch()
         return TradeDecisionWO(sell_order_list + buy_order_list, self)
