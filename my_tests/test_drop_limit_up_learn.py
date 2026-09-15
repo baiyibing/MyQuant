@@ -11,8 +11,17 @@ import pytest
 
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _MY_SCRIPTS = os.path.join(_ROOT, "my_scripts")
-if _MY_SCRIPTS not in sys.path:
-    sys.path.insert(0, _MY_SCRIPTS)
+# Force my_scripts ahead of qlib_scripts: earlier tests (e.g. test_csv_float_scan)
+# may have inserted qlib_scripts at front; a mere "not in path" check then skips
+# insert and bare `import custom_handler` hits the wrong file.
+while _MY_SCRIPTS in sys.path:
+    sys.path.remove(_MY_SCRIPTS)
+sys.path.insert(0, _MY_SCRIPTS)
+_ch = sys.modules.get("custom_handler")
+if _ch is not None:
+    _origin = os.path.abspath(getattr(_ch, "__file__", "") or "")
+    if not _origin.startswith(os.path.abspath(_MY_SCRIPTS) + os.sep):
+        del sys.modules["custom_handler"]
 
 from custom_handler import (  # noqa: E402
     DropLimitUpLearn,
