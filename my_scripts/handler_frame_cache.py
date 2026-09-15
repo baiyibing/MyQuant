@@ -9,11 +9,13 @@ Why pickle, not fetch()→parquet (perf archive N1):
 
 Hit path: Alpha158CostKDJ.load(pkl). Miss: build then atomic write.
 Key = config_hash of windows / feature flags / 闸门 / calendar fingerprint
-(data refresh changes calendar_last → miss).
++ custom_ops/custom_handler source sha256 (data refresh changes calendar_last → miss;
+changing ops/handler source → miss).
 """
 
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional
@@ -22,6 +24,7 @@ from run_manifest import canonical_json, config_hash
 
 _CACHE_DIR_ENV = "OSKH_HANDLER_CACHE_DIR"
 _DEFAULT_PROVIDER = "~/.qlib/qlib_data/my_data"
+_SOURCE_MISSING_SENTINEL = "missing"
 
 
 def resolve_qlib_kernels() -> int:
@@ -34,6 +37,40 @@ def resolve_handler_cache_dir() -> Path:
     if raw:
         return Path(raw)
     return Path.home() / ".cache" / "qlib_handler_cache"
+
+
+def source_file_paths() -> tuple[Path, Path]:
+    """Paths to custom_ops.py / custom_handler.py (same dir as this module)."""
+    root = Path(__file__).resolve().parent
+    return root / "custom_ops.py", root / "custom_handler.py"
+
+
+def file_sha256(path: Path | str) -> str:
+    """sha256 hex of file bytes; fixed sentinel when path is missing."""
+    p = Path(path)
+    if not p.is_file():
+        return _SOURCE_MISSING_SENTINEL
+    h = hashlib.sha256()
+    with p.open("rb") as fh:
+        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def attach_source_hashes(
+    payload: Mapping[str, Any],
+    *,
+    ops_path: Path | str | None = None,
+    handler_path: Path | str | None = None,
+) -> dict[str, Any]:
+    """Bind cache key to custom_ops / custom_handler source fingerprints."""
+    default_ops, default_handler = source_file_paths()
+    out = dict(payload)
+    out["ops_source_hash"] = file_sha256(ops_path if ops_path is not None else default_ops)
+    out["handler_source_hash"] = file_sha256(
+        handler_path if handler_path is not None else default_handler
+    )
+    return out
 
 
 def make_handler_cache_payload(
@@ -54,9 +91,11 @@ def make_handler_cache_payload(
     cost_window: int = 250,
     provider_uri: str = _DEFAULT_PROVIDER,
     handler_class: str = "Alpha158CostKDJ",
+    ops_path: Path | str | None = None,
+    handler_path: Path | str | None = None,
 ) -> dict[str, Any]:
     """Serializable key material. Strategy-only flags (buy-state, limit_threshold) stay out."""
-    return {
+    base = {
         "handler_class": handler_class,
         "start_time": str(start_time),
         "end_time": str(end_time),
@@ -77,6 +116,7 @@ def make_handler_cache_payload(
         "cost_window": int(cost_window),
         "provider_uri": str(provider_uri),
     }
+    return attach_source_hashes(base, ops_path=ops_path, handler_path=handler_path)
 
 
 def attach_calendar_fingerprint(payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -103,6 +143,24 @@ def cache_paths(digest: str, cache_dir: Optional[Path] = None) -> tuple[Path, Pa
     root = cache_dir if cache_dir is not None else resolve_handler_cache_dir()
     stem = f"handler_{digest[:16]}"
     return root / f"{stem}.pkl", root / f"{stem}.meta.json"
+
+
+def _size_mb(path: Path) -> float:
+    return float(path.stat().st_size) / (1024.0 ** 2)
+
+
+def _feature_cols_hash(handler: Any) -> str | None:
+    """Short hash of sorted feature/learn columns for meta.json (not digest)."""
+    try:
+        frame = getattr(handler, "_learn", None)
+        if frame is None:
+            frame = getattr(handler, "_infer", None)
+        if frame is None or not hasattr(frame, "columns"):
+            return None
+        cols = tuple(sorted(str(c) for c in frame.columns))
+        return hashlib.sha256(",".join(cols).encode("utf-8")).hexdigest()[:16]
+    except Exception:
+        return None
 
 
 def try_load_handler(digest: str, cache_dir: Optional[Path] = None) -> Any:
@@ -132,15 +190,16 @@ def save_handler(
     handler.to_pickle(str(tmp), dump_all=True)
     tmp.replace(pkl)
     nbytes = pkl.stat().st_size
+    meta_body: dict[str, Any] = {
+        "digest": digest,
+        "bytes": nbytes,
+        "payload": dict(payload),
+    }
+    cols_hash = _feature_cols_hash(handler)
+    if cols_hash is not None:
+        meta_body["feature_cols_hash"] = cols_hash
     meta.write_text(
-        canonical_json(
-            {
-                "digest": digest,
-                "bytes": nbytes,
-                "payload": dict(payload),
-            }
-        )
-        + "\n",
+        canonical_json(meta_body) + "\n",
         encoding="utf-8",
     )
     print(
@@ -150,23 +209,88 @@ def save_handler(
     return pkl
 
 
+def _obs(
+    *,
+    cache_hit: bool,
+    digest: str,
+    path: str | None,
+    size_mb: float | None,
+    miss_reason: str | None,
+) -> dict[str, Any]:
+    return {
+        "cache_hit": bool(cache_hit),
+        "digest": digest,
+        "path": path,
+        "size_mb": size_mb,
+        "miss_reason": miss_reason,
+    }
+
+
+def _log_cache_line(kind: str, info: Mapping[str, Any]) -> None:
+    digest = str(info.get("digest") or "")
+    path = info.get("path")
+    size_mb = info.get("size_mb")
+    reason = info.get("miss_reason")
+    size_s = f"{float(size_mb):.4f}" if size_mb is not None else "None"
+    print(
+        f"HANDLER_CACHE {kind} key={digest[:16]} path={path} size_mb={size_s} reason={reason}",
+        flush=True,
+    )
+
+
 def load_or_build_handler(
     *,
     payload: Mapping[str, Any],
     builder: Callable[[], Any],
     enabled: bool,
     cache_dir: Optional[Path] = None,
-) -> tuple[Any, bool, str]:
-    """Return (handler, cache_hit, digest). When disabled, just builder()."""
+) -> tuple[Any, bool, dict[str, Any]]:
+    """Return (handler, cache_hit, obs).
+
+    ``obs`` keys: cache_hit, digest, path, size_mb, miss_reason
+    (miss_reason: ``disabled`` / ``missing`` / ``load_failed`` / None on HIT).
+    """
     digest = handler_cache_digest(payload)
-    if enabled:
+    if not enabled:
+        handler = builder()
+        info = _obs(
+            cache_hit=False,
+            digest=digest,
+            path=None,
+            size_mb=None,
+            miss_reason="disabled",
+        )
+        _log_cache_line("MISS", info)
+        return handler, False, info
+
+    pkl, _meta = cache_paths(digest, cache_dir)
+    if not pkl.is_file():
+        miss_reason = "missing"
+        hit = None
+    else:
         hit = try_load_handler(digest, cache_dir)
-        if hit is not None:
-            pkl, _ = cache_paths(digest, cache_dir)
-            print(f"[handler-cache] HIT {pkl} digest={digest[:16]}", flush=True)
-            return hit, True, digest
-        print(f"[handler-cache] MISS digest={digest[:16]}", flush=True)
+        miss_reason = None if hit is not None else "load_failed"
+
+    if hit is not None:
+        info = _obs(
+            cache_hit=True,
+            digest=digest,
+            path=str(pkl),
+            size_mb=_size_mb(pkl),
+            miss_reason=None,
+        )
+        _log_cache_line("HIT", info)
+        return hit, True, info
+
+    print(f"[handler-cache] MISS digest={digest[:16]} reason={miss_reason}", flush=True)
     handler = builder()
-    if enabled:
-        save_handler(handler, digest, payload, cache_dir)
-    return handler, False, digest
+    written = save_handler(handler, digest, payload, cache_dir)
+    info = _obs(
+        cache_hit=False,
+        digest=digest,
+        path=str(written),
+        size_mb=_size_mb(written),
+        miss_reason=miss_reason,
+    )
+    _log_cache_line("MISS", info)
+    return handler, False, info
