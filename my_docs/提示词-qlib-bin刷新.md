@@ -1,13 +1,19 @@
 # 提示词：qlib bin 全量刷新（my_data）
 
 > 发给实施 agent（Cursor / Codex）或未来的自己。SSOT：本文件 + `qlib_scripts/refresh_mydata.py`。
-> 固化自 2026-09-13 首次编排器落地，以及 **2026-09-14** 把 `F:\qlibdata20260914` 合并进
-> `~/.qlib/qlib_data/my_data`（日历到 2026-09-14、补 `$winratio`、指数同步）的实踩。
+> 固化自 2026-09-13 首次编排器落地，**2026-09-14** 把 `F:\qlibdata20260914` 灌进
+> `~/.qlib/qlib_data/my_data`（日历到 2026-09-14、补 `$winratio`、指数同步），以及
+> **2026-09-15** 用哈希目录批纠错/修赢筹浮点（日历末日不变，仍走 `dump_all`）。
 > 指数-only 补丁仍见 `my_docs/提示词-指数数据修补.md`。
 
 ## 任务边界
 
-把一批新 CSV（及可选旧档前缀）灌进 qlib bin，使线上 `my_data` 的**个股 + 指数**日历对齐到 CSV/湖末日，CSV 多出的列（如 `winratio`）进 `$field` bin。
+把一批新 CSV（及可选旧档前缀）灌进 qlib bin。常见两种意图，**流程相同**：
+
+1. **日历前推**：个股 + 指数对齐到 CSV/湖新末日。
+2. **质量修复**（2026-09-15）：日历末日可以不变，只修源错误 / 赢筹浮点。**禁止**因为「末日没变」就改走 `dump_update` 或跳过 dump。
+
+CSV 多出的列（如 `winratio`）进 `$field` bin。旧档已有同名列时 merge 日志会是 `extra_csv(0)`，属预期。
 
 **只走编排器**，不要手工串 `merge_archive_and_csv` / `dump_bin dump_all` / `patch_index_data`。`~/.qlib` 只准经 `refresh_mydata.py` 改。
 
@@ -21,6 +27,9 @@
 ## 执行方式
 
 解释器钉死 **`D:\anaconda3\envs\vanna312\python.exe`**（不要 vanna310 / 系统 Python）。
+
+`--csv-dir` **以用户给的路径为准**。可以是 `F:/qlibdataYYYYMMDD/qlibdata`，也可以是下载器哈希目录
+`F:/<hash>_<id>/qlibdata`（2026-09-15 实踩）。不要先改名再灌。
 
 ```bash
 cd E:\PycharmProjects\MyQuant
@@ -39,6 +48,8 @@ D:/anaconda3/envs/vanna312/python.exe -u qlib_scripts/refresh_mydata.py \
   --python D:/anaconda3/envs/vanna312/python.exe
 ```
 
+常用入口：盘中刷新时 CSV/湖通常仍停在**上一交易日**（2026-09-15 上午即如此）。先核湖末日，不要空等当天 bar。
+
 常用开关：
 
 | 开关 | 何时用 |
@@ -53,44 +64,54 @@ D:/anaconda3/envs/vanna312/python.exe -u qlib_scripts/refresh_mydata.py \
 
 失败后续跑：**看日志定位到哪一步**，用 skip 续跑，禁止对半成品目录盲目 `dump_all`。
 
-## 日历更新（昨晚 / 今天上午踩过，三件不是一件）
+## 日历更新（三件不是一件）
 
 qlib 里「日历」其实有三份，只改其中一份就会看起来像「日历没更新」：
 
-| 文件 | 谁写 | 这次有没有跟上 |
+| 文件 | 谁写 | 2026-09-15 线上 |
 |---|---|---|
-| `calendars/day.txt` | **只有 `dump_all`** 从 staging 日期并集重建 | 已解决：线上 **2020-01-02 ~ 2026-09-14（1625 天）** |
-| `calendars/day_future.txt` | 编排器 `refresh_day_future_calendar`（dump **不会**写它） | 已解决：swap 前必重建；停在旧末日则回测 `end_time==数据末日` 越界（**2026-09-13 晚**实踩） |
-| `instruments/index.txt` 起止日 | patch 的 `upsert_index_txt_dates` | 已解决：曾停在 09-08，bin 已到 09-14（**今天**实踩） |
+| `calendars/day.txt` | **只有 `dump_all`** 从 staging 日期并集重建 | **2020-01-02 ~ 2026-09-14（1625 天）**（质量修复，末日未前推） |
+| `calendars/day_future.txt` | 编排器 `refresh_day_future_calendar`（dump **不会**写它） | swap 前必重建；现至 **2026-09-21**（+5 工作日） |
+| `instruments/index.txt` 起止日 | patch 的 `upsert_index_txt_dates` | 必须写成日历首末日，不是改 day.txt 就会自动变 |
 
 另外两件容易混进来：
 
-- **禁止 `dump_update` 去「更新日历」**：它按个股自己的日期 append，新区间停牌一天就整体错位一天（无声）。要加交易日必须 `dump_all` 进新目录。
-- **门禁 1 vs 湖**：今天上午湖一度停在 09-11、CSV 到 09-14。先复测湖；真落后才 `--allow-beyond-lake`。晚上湖已到 09-14。
+- **禁止 `dump_update` 去「更新日历」或「只修字段」**：它按个股自己的日期 append，新区间停牌一天就整体错位一天（无声）。要加交易日 **或** 重写已有字段，都必须 `dump_all` 进新目录。
+- **门禁 1 vs 湖**：先复测湖；真落后才 `--allow-beyond-lake`。旗标只管「日历比湖新」；湖范围内缺日仍失败。盘中湖末日 = 上一交易日属正常。
 
 手工只跑 `dump_bin dump_all`、不走编排器 → `day.txt` 新了、`day_future.txt` 仍旧，这就是「日历更新了回测却炸」。
+
+## 2026-09-15 经验教训（质量修复 / 赢筹浮点）
+
+1. **日历末日不变仍要全量 `dump_all`。** 用户说明「修数据错误、赢筹浮点」时，不要因为 CSV/湖/线上都停在同一天就改 `dump_update` 或 `--skip-dump`。字段值必须重写 bin。
+2. **`--csv-dir` 可以是哈希下载目录。** 本次源是 `F:\0d3fdd3bdb348a5179176bf4d7e34597_8160708623260420\qlibdata`（5561 文件），不是 `F:\qlibdata20260915`。路径以用户为准。
+3. **扫描先看 `by_column`，再看文件列表。** 09-14 批有 winratio `-1.#J`；09-15 批 `fatal=0`、**winratio 已干净**，只剩 12 只票末日 `vwap=-1.#IND`（0 成交，coerce→NaN）。编排器现在打印 `[csv-scan] by_column: ...`。
+4. **`extra_csv(0)` 是重灌同 schema 的正常结果。** 线上 archive 已有 `winratio` 时不会再进 `extra_csv_fields`。merge 仍会是大量 `csv_only` + 少量 `archive_only` 退市股。
+5. **盘中刷新日历通常不前推。** 09-15 周二上午，CSV/湖末日仍是 09-14。先核湖，不要为「今天为什么没有」空转或误开 `--allow-beyond-lake`。
+6. **冒烟读 bin 用 `read_bin_field`，不要裸 `np.fromfile`。** qlib day.bin 首元素是日历起始下标（1626 vs 1625 就是这个）。编排器 swap 后会抽一只 `$winratio` 打 `[0,1]` 区间。
+7. **PowerShell 会吃掉 `$close` / `$winratio`。** 双引号 `-c "..."` 里的 `$field` 被当成变量，`D.features` 变非法语法。用单引号 here-string `@' ... '@`，或直接调 `refresh_mydata.read_bin_field`。不要为了躲 `$` 去改买点过滤。
 
 ## 2026-09-14 经验教训（再犯即返工）
 
 1. **半成品 dump 必须删干净再重灌。** `dump_all` 不是断点续传。第一次因 `winratio=-1.#J` 炸在 `astype("<f")` 后，目录里日历/部分 bin 会骗人。编排器现在拒绝往非空 `new_qlib_dir` 上 dump，除非 `--wipe-new-qlib-dir`。
 2. **MSVC/Windows NaN 会进 CSV。** `-1.#J`（winratio，可整列缺失）和 `-1.#IND`（0 成交日 vwap）。OHLC 出现 = 导出事故，中止。merge 与 `dump_bin._data_to_bin` 均 `pd.to_numeric(..., errors="coerce")`。不要改 5561 个源文件。
-3. **CSV 多出的列要进 staging。** `extra_csv_fields` 保留 `winratio` 这类旧档没有的列；旧档日期填 NaN。
+3. **CSV 多出的列要进 staging。** `extra_csv_fields` 保留 `winratio` 这类旧档没有的列；旧档日期填 NaN。重灌已含该列的线上档时见上一节第 4 条。
 4. **指数 bins ≠ index.txt 登记。** dump_all 可能把归档里的 SH000001/SH000300 按旧末日写进 all.txt；`DumpDataFix` **不更新已有标的区间**。必须 `move_indices_out_of_all_txt` + `upsert_index_txt_dates` 写成日历首末日。验收看 index.txt **和** bin 末收。
 5. **门禁 2 不能抽 all.txt 前几只。** 按代码排序常是北交所 BJ920000，2020-01-02 无 bin。抽样必须覆盖日历首末日（`pick_sample_symbols` 已按 all.txt 起止日过滤）。
 6. **先核湖再 `--allow-beyond-lake`。** 09-14 白天湖一度停在 09-11，晚上已到 09-14。旗标只管「日历比湖新」；湖范围内缺日仍失败。
 7. **C 盘空间。** 线上 `my_data` 约 0.5GB features + 数 GB `features_cache`（随旧目录备份走）。staging 默认别放 C:，用 `F:\qlib_staging_YYYYMMDD`。
 8. **archive-dir 可以是当前线上 my_data。** CSV 已从 2020-01-02 起时，前缀为空、整段走 CSV；退市股仍靠旧档/线上仅存部分保留。不要误用过期 `my_data_20260410_archived` 当唯一前缀还以为日历会停在 04-10。
 9. **dump 是否完成看日志 `end of features dump`，不要看进程还在。** 进程被打断后日历可能已经是新的。
-10. **swap 后冒烟。** 日历末日、index.txt 两端、`D.features` 读 `$close`/`$winratio`、指数末收对湖。买点过滤不因此改源。
-11. **Windows 预检/权限。** 动 `~/.qlib` 的 shell 需要非沙箱；PowerShell 无 bash HEREDOC。
+10. **swap 后冒烟。** 日历末日、index.txt 两端、`read_bin_field` 读 close/winratio（或 PowerShell 单引号 here-string 调 `D.features`）、指数末收对湖。买点过滤不因此改源。
+11. **Windows 预检/权限。** 动 `~/.qlib` 的 shell 需要非沙箱。PowerShell 没有 bash HEREDOC，但有 `@' ... '@` 单引号 here-string；双引号会展开 `$`。
 
 ## 验收清单（全部满足才算完成）
 
 - [ ] 四门禁过：日历 vs 湖 0 缺日；抽样首末日 close 对 CSV；`all.txt` 无 SH000/SZ399；宇宙 diff 打印且退市未超预期（或已 `--force`）
 - [ ] `index.txt` 起止日 = 日历首末日；SH000001/SH000300 bin 行数 = 日历天数、nan_close=0、末收对湖
 - [ ] `market="all"` 宇宙无指数泄漏
-- [ ] CSV 多出的列（如 `$winratio`）有 bin；抽一只合法值在 [0,1]；源里整列 `-1.#J` 的票该列为 NaN
-- [ ] `calendars/day_future.txt` 在数据末日后再顺延约 5 个工作日
+- [ ] `$winratio` 有 bin；扫描 `by_column` 无 OHLC fatal；抽一只合法值在 [0,1]（编排器 smoke 已打）；源里若仍有整列 `-1.#J` 则该列为 NaN
+- [ ] `calendars/day_future.txt` 在数据末日后再顺延约 5 个工作日（末日未变也必须重建）
 - [ ] 线上目录已 swap（除非 `--skip-swap`）；备份 `my_data_backup_YYYYMMDD_pre_refresh` 在
 - [ ] 单测：`python -m pytest my_tests/test_refresh_mydata.py my_tests/test_patch_index_data.py my_tests/test_merge_archive_and_csv.py my_tests/test_csv_float_scan.py`
 
@@ -99,18 +120,22 @@ qlib 里「日历」其实有三份，只改其中一份就会看起来像「日
 | 症状 | 动作 |
 |---|---|
 | `could not convert string to float: '-1.#J'` | 确认 dump_bin 已 coerce；`--wipe-new-qlib-dir --skip-merge` 重 dump |
+| 扫描 winratio 仍有 `-1.#J`、用户说已修复 | 核 `by_column` 是否真是旧批；不要改源 CSV，coerce 后 bin 应为 NaN |
 | 门禁 2 BJ920xxx 无 bin 值 | 抽样过滤已修；不要用 `--sample-symbol BJ...` |
 | 门禁 1 日历比湖新 | 复测湖 `000001_SH` parquet 末日；真落后才 `--allow-beyond-lake` |
+| 盘中刷新、日历没动 | 预期：CSV/湖停在上一交易日。质量修复仍应 dump_all + swap |
 | index.txt 停在旧日、bin 已到新日 | 重跑 patch（编排器 `--skip-merge --skip-dump`），依赖 `upsert_index_txt_dates` |
 | dump 目标已存在且非空 | `--wipe-new-qlib-dir` 或换 `--new-qlib-dir` |
 | C 盘不足 | `--staging-dir F:\...`；必要时把 new 目录也放到空间更大的盘（swap 仍回 `~/.qlib`） |
+| `D.features` `invalid syntax` / `field []` | PowerShell 吞了 `$close`；改用 `read_bin_field` 或 `@' ... '@` |
+| 裸 `fromfile` 长度 = 日历天数 + 1 | 首元素是 start index，用 `read_bin_field` |
 
 ## 相关文件
 
 - 编排器 `qlib_scripts/refresh_mydata.py`（单测 `my_tests/test_refresh_mydata.py`）
-- 扫描 `qlib_scripts/csv_float_scan.py`
+- 扫描 `qlib_scripts/csv_float_scan.py`（`by_column` 汇总）
 - 拼接 `qlib_scripts/merge_archive_and_csv.py`
 - 写入 `qlib_scripts/dump_bin.py`（禁止 dump_update；max_workers=8）
 - 指数 `qlib_scripts/patch_index_data.py`
-- 数据快照 `docs/qlib-data-state-2026-09-14.md`
+- 当前快照 `docs/qlib-data-state-2026-09-15.md`（上一份 `docs/qlib-data-state-2026-09-14.md`）
 - 技能 `.cursor/skills/qlib-bin-refresh/SKILL.md`

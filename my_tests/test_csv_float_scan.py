@@ -10,7 +10,12 @@ _QLIB_SCRIPTS = os.path.join(_ROOT, "qlib_scripts")
 if _QLIB_SCRIPTS not in sys.path:
     sys.path.insert(0, _QLIB_SCRIPTS)
 
-from csv_float_scan import inspect_csv_illegal, scan_csv_dir  # noqa: E402
+from csv_float_scan import (  # noqa: E402
+    format_scan_report,
+    inspect_csv_illegal,
+    scan_csv_dir,
+    summarize_hits_by_column,
+)
 
 
 def test_inspect_winratio_junk_is_warn(tmp_path):
@@ -52,3 +57,34 @@ def test_scan_csv_dir_splits_fatal_and_warn(tmp_path):
     assert len(report["fatal"]) == 1
     assert report["fatal"][0]["file"] == "bad.csv"
     assert len(report["warn"]) == 1
+    assert report["by_column"]["winratio"]["fatal"] is False
+    assert report["by_column"]["winratio"]["files"] == 1
+    assert report["by_column"]["open"]["fatal"] is True
+
+
+def test_summarize_hits_by_column_separates_winratio_and_vwap():
+    hits = [
+        {"file": "A.csv", "column": "winratio", "count": 10, "fatal": False, "sample": "-1.#J"},
+        {"file": "B.csv", "column": "vwap", "count": 1, "fatal": False, "sample": "-1.#IND"},
+        {"file": "C.csv", "column": "vwap", "count": 1, "fatal": False, "sample": "-1.#IND"},
+    ]
+    summary = summarize_hits_by_column(hits)
+    assert summary["winratio"]["files"] == 1
+    assert summary["winratio"]["count"] == 10
+    assert summary["vwap"]["files"] == 2
+    assert summary["vwap"]["count"] == 2
+    text = format_scan_report(
+        {
+            "files_scanned": 3,
+            "files_hit": 3,
+            "hits": hits,
+            "fatal": [],
+            "warn": hits,
+            "by_column": summary,
+        }
+    )
+    assert "by_column:" in text
+    assert "winratio warn" in text
+    assert "vwap warn" in text
+    assert "-1.#J" in text
+    assert "-1.#IND" in text

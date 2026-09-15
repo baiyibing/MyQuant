@@ -1,6 +1,6 @@
 # qlib 数据最终状态（2026-09-13 全量重建）
 
-> **已过时。** 当前线上状态见 `docs/qlib-data-state-2026-09-14.md`（日历至 2026-09-14，含 `$winratio`）。刷新流程与教训见 `my_docs/提示词-qlib-bin刷新.md`。
+> **已过时。** 当前线上状态见 `docs/qlib-data-state-2026-09-15.md`（日历仍至 2026-09-14，含已修复浮点的 `$winratio`）。刷新流程与教训见 `my_docs/提示词-qlib-bin刷新.md`。
 
 - 日期：2026-09-13 凌晨（继 09-12 指数补丁、数据刷新之后的最终版）
 - 数据目录：`C:\Users\Thinkpad\.qlib\qlib_data\my_data`
