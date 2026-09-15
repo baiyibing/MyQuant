@@ -304,7 +304,17 @@ def timings_from_recorder(timer_recorder: Any) -> dict[str, Any]:
         total = float(timer() - t0)
     if total is None:
         total = float(sum(float(n.get("seconds", 0)) for n in nodes if isinstance(n, Mapping)))
-    return {"total_seconds": total, "nodes": nodes}
+    payload = {"total_seconds": total, "nodes": nodes}
+    rollup = getattr(timer_recorder, "rollup", None)
+    if callable(rollup):
+        try:
+            payload["rollup"] = list(rollup())
+        except Exception:
+            pass
+    counters = getattr(timer_recorder, "counters", None)
+    if isinstance(counters, Mapping):
+        payload["counters"] = dict(counters)
+    return payload
 
 
 def write_train_manifest(

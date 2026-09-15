@@ -38,6 +38,12 @@ from buy_eligibility import (
 )
 from custom_ops import SMA
 from custom_strategy import build_close_cache
+from custom_utils import (
+    TimerRecorder,
+    install_features_probe,
+    maybe_timer,
+    set_global_timer_recorder,
+)
 from train_wiring import EXCLUDE_STOCKS_DEFAULT, parse_segment
 
 # 三档成本（open_cost=买入费率，close_cost=卖出费率含印花）。
@@ -170,9 +176,11 @@ def run_tiers(args) -> dict:
     pred_score = args.pred_score
     start_time, end_time = args.test_window
 
-    ew = equal_weight_daily_returns(start_time, end_time)
+    with maybe_timer("equal_weight"):
+        ew = equal_weight_daily_returns(start_time, end_time)
 
-    strategy_config = build_strategy_config(args)
+    with maybe_timer("strategy_config"):
+        strategy_config = build_strategy_config(args)
 
     summary = {
         "exp_name": args.exp_name,
@@ -194,7 +202,8 @@ def run_tiers(args) -> dict:
     }
     for tier, costs in COST_TIERS.items():
         print(f"[rebacktest] tier={tier} costs={costs} backtesting ...", flush=True)
-        report, _positions = backtest_daily(
+        with maybe_timer(f"backtest.{tier}"):
+            report, _positions = backtest_daily(
             start_time=start_time,
             end_time=end_time,
             strategy=strategy_config,
@@ -266,26 +275,31 @@ if __name__ == "__main__":
     # kernels 默认 1：Windows 下 kernels>1 时每次小查询付出 ~30s 进程池开销
     # （实测 D.features 50 股单日 29s → 0.09s）。资格过滤策略每日有小查询，
     # 大取数（preload/等权基准）单次调用不受影响。可用 QLIB_KERNELS 覆盖。
+    t_rec = TimerRecorder()
+    set_global_timer_recorder(t_rec)
     _kernels = int(os.environ.get("QLIB_KERNELS", "1"))
-    qlib.init(
-        provider_uri="~/.qlib/qlib_data/my_data",
-        region=REG_CN,
-        kernels=_kernels,
-        redis_host="127.0.0.1",
-        redis_port=6379,
-        redis_password="123456",
-        redis_task_db=1,
-        custom_ops=[SMA],
-        exp_manager={
-            "class": "MLflowExpManager",
-            "module_path": "qlib.workflow.expm",
-            "kwargs": {"uri": "mlruns", "default_exp_name": "MyExperiment"},
-        },
-        logging_level=__import__("logging").INFO,
-    )
+    with t_rec.timer("qlib.init"):
+        qlib.init(
+            provider_uri="~/.qlib/qlib_data/my_data",
+            region=REG_CN,
+            kernels=_kernels,
+            redis_host="127.0.0.1",
+            redis_port=6379,
+            redis_password="123456",
+            redis_task_db=1,
+            custom_ops=[SMA],
+            exp_manager={
+                "class": "MLflowExpManager",
+                "module_path": "qlib.workflow.expm",
+                "kwargs": {"uri": "mlruns", "default_exp_name": "MyExperiment"},
+            },
+            logging_level=__import__("logging").INFO,
+        )
+    uninstall_probe = install_features_probe(t_rec)
 
     args.test_window = parse_segment(args.test, "test")
-    _recorder, pred = load_pred(args.exp_name, args.recorder_id)
+    with t_rec.timer("load_pred"):
+        _recorder, pred = load_pred(args.exp_name, args.recorder_id)
     args.recorder_id = _recorder.id
     args.pred_score = pred["score"] if isinstance(pred, pd.DataFrame) else pred
 
@@ -296,3 +310,12 @@ if __name__ == "__main__":
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
     print(f"=== Rebacktest summary saved: {summary_path} ===")
+    try:
+        uninstall_probe()
+        t_rec.print_summary()
+        timing_path = os.path.abspath(f"timing_rebacktest_{stamp}.json")
+        t_rec.dump_json(timing_path, extra={"recorder_id": args.recorder_id})
+        print(f"=== Timing saved: {timing_path} ===")
+    except Exception as exc:
+        print(f"[rebacktest] timing dump skipped: {exc}")
+    set_global_timer_recorder(None)

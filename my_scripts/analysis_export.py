@@ -501,24 +501,36 @@ def write_analysis_bundle(
     encoding: str = "utf-8-sig",
 ) -> dict[str, Any]:
     """Write the analysis CSV pack. Returns {paths, summary}."""
+    from contextlib import nullcontext
+
+    try:
+        from custom_utils import maybe_timer as _span
+    except Exception:  # pragma: no cover - recorder is optional
+        def _span(_name: str):
+            return nullcontext()
+
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    pos_df, snapshots = positions_frame(positions)
+    with _span("analysis.positions_frame"):
+        pos_df, snapshots = positions_frame(positions)
     if close_of is None and use_qlib_close:
-        try:
-            close_of = build_qlib_close_lookup(snapshots)
-        except Exception as exc:
-            print(f"[export] close lookup skipped: {exc}", flush=True)
-            close_of = None
-    trd_df = trades_frame(snapshots, open_rate, close_rate, min_cost=min_cost, close_of=close_of)
-    led_df = attach_portfolio_context(
-        ledger_frame(snapshots, open_rate, close_rate, min_cost=min_cost, close_of=close_of),
-        pos_df,
-    )
-    pnl_df = pnl_from_ledger(led_df)
-    picks_df = daily_picks_frame(pred, snapshots, topk=topk, asof=asof) if pred is not None else pd.DataFrame()
-    nav_df = nav_from_report(report) if report is not None else pd.DataFrame()
+        with _span("analysis.close_lookup"):
+            try:
+                close_of = build_qlib_close_lookup(snapshots)
+            except Exception as exc:
+                print(f"[export] close lookup skipped: {exc}", flush=True)
+                close_of = None
+    with _span("analysis.ledger"):
+        trd_df = trades_frame(snapshots, open_rate, close_rate, min_cost=min_cost, close_of=close_of)
+        led_df = attach_portfolio_context(
+            ledger_frame(snapshots, open_rate, close_rate, min_cost=min_cost, close_of=close_of),
+            pos_df,
+        )
+        pnl_df = pnl_from_ledger(led_df)
+    with _span("analysis.daily_picks"):
+        picks_df = daily_picks_frame(pred, snapshots, topk=topk, asof=asof) if pred is not None else pd.DataFrame()
+        nav_df = nav_from_report(report) if report is not None else pd.DataFrame()
 
     names = {
         "positions_daily": pos_df,
