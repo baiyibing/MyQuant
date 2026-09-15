@@ -3,14 +3,15 @@
 
 把 2026-09-13 手工串起来的三件套固化成一条命令。现有脚本接口不变，本脚本只
 用子进程调用它们。硬约束见 docs/plan-midterm-m1m4m2m3-2026-09-13.md §0 与
-my_docs/提示词-qlib-bin刷新.md（2026-09-14 实踩补丁）：
+my_docs/提示词-qlib-bin刷新.md（2026-09-14 / **2026-09-15** 实踩）：
 
 - dump_all 必须 --max_workers 8（禁止 16）
-- 禁止 dump_update
+- 禁止 dump_update；日历末日不变（纠错/赢筹浮点）也必须 dump_all
 - 指数不得留在 instruments/all.txt（由 patch_index_data 第 4 步挪走）
 - ~/.qlib 数据只准经本编排器改动；换目录前自动备份 my_data_backup_YYYYMMDD_pre_*
 - 半成品 dump 目录必须先删再重灌（--wipe-new-qlib-dir）
 - CSV 里 Windows NaN（-1.#J / -1.#IND）在 merge/dump 收成 NaN；OHLC 出现则中止
+- 扫描报告按列汇总（赢筹干净 vs 只剩 vwap）；swap 后抽样 $winratio ∈ [0,1]
 
 用法::
 
@@ -296,7 +297,11 @@ def format_dry_run(cfg: RefreshConfig, steps: Sequence[StepPlan]) -> str:
     )
     lines.append("integrity gates: calendar / sample values / no-index-in-all / universe diff (fail → no swap)")
     lines.append("atomic swap: backup my_data_backup_YYYYMMDD_pre_* then mv; rollback on error")
-    lines.append("post-swap smoke: calendar last / index.txt / winratio bin count")
+    lines.append("note: 日历末日不变也要 dump_all（纠错/赢筹浮点）；禁止 dump_update")
+    lines.append(
+        "post-swap smoke: calendar last / index.txt / winratio bins + [0,1] sample "
+        "via read_bin_field（首元素是起始下标；PowerShell 双引号勿写 $close）"
+    )
     if cfg.archive:
         lines.append(f"archive (M1-C): my_data_{cfg.today.strftime('%Y%m%d')}_full.7z")
     if cfg.offsite:
@@ -394,8 +399,53 @@ def run_preflight(cfg: RefreshConfig, *, usage_fn=shutil.disk_usage, remover=shu
     ensure_dump_target_clean(cfg, remover=remover)
 
 
+def _fmt_opt_float(value) -> str:
+    if value is None:
+        return "nan"
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return "nan"
+    if np.isnan(number) or np.isinf(number):
+        return "nan"
+    return f"{number:.4f}"
+
+
+def smoke_winratio_sample(
+    qlib_dir: Path, calendar: pd.DatetimeIndex | None = None
+) -> dict | None:
+    """抽一只 $winratio：合法值应在 [0,1]。bin 首元素是日历起始下标，禁止裸 fromfile。"""
+    qlib_dir = Path(qlib_dir)
+    bins = list((qlib_dir / "features").glob("*/winratio.day.bin"))
+    if not bins:
+        return None
+    calendar = calendar if calendar is not None else read_calendar(qlib_dir)
+    symbol = None
+    if (qlib_dir / "instruments" / "all.txt").is_file():
+        try:
+            symbol = pick_sample_symbols(qlib_dir, n=1)[0]
+        except RefreshError:
+            symbol = None
+    if symbol is None:
+        symbol = bins[0].parent.name.upper()
+    series = read_bin_field(qlib_dir, symbol, "winratio", calendar)
+    valid = series.replace([np.inf, -np.inf], np.nan).dropna()
+    out_of = int(((valid < 0) | (valid > 1)).sum()) if len(valid) else 0
+    last = series.iloc[-1] if len(series) else None
+    return {
+        "symbol": symbol,
+        "n": int(len(series)),
+        "valid": int(len(valid)),
+        "nan": int(series.isna().sum()),
+        "last": None if last is None or pd.isna(last) else float(last),
+        "vmin": float(valid.min()) if len(valid) else None,
+        "vmax": float(valid.max()) if len(valid) else None,
+        "out_of_01": out_of,
+    }
+
+
 def print_refresh_summary(qlib_dir: Path) -> None:
-    """swap 后冒烟：日历末日、day_future、index.txt、winratio bin 数。"""
+    """swap 后冒烟：日历末日、day_future、index.txt、winratio bin 数 + [0,1] 抽样。"""
     qlib_dir = Path(qlib_dir)
     calendar = read_calendar(qlib_dir)
     print(
@@ -418,6 +468,21 @@ def print_refresh_summary(qlib_dir: Path) -> None:
                 print(f"[smoke] index {ln}")
     wr = list((qlib_dir / "features").glob("*/winratio.day.bin"))
     print(f"[smoke] winratio bins={len(wr)}")
+    try:
+        sample = smoke_winratio_sample(qlib_dir, calendar)
+    except (RefreshError, ValueError, OSError) as exc:
+        print(f"[smoke] WARN winratio 抽样失败: {exc}")
+        return
+    if sample is None:
+        return
+    print(
+        f"[smoke] winratio {sample['symbol']} last={_fmt_opt_float(sample['last'])} "
+        f"valid={sample['valid']} nan={sample['nan']} "
+        f"range=[{_fmt_opt_float(sample['vmin'])},{_fmt_opt_float(sample['vmax'])}] "
+        f"out_of_[0,1]={sample['out_of_01']}"
+    )
+    if sample["out_of_01"]:
+        print("[smoke] WARN winratio 存在超出 [0,1] 的值（源纠错批不应再出现）")
 
 
 # ---------------------------------------------------------------------------

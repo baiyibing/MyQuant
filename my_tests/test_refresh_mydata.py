@@ -145,6 +145,8 @@ def test_dry_run_mentions_wipe_and_csv_scan(tmp_path):
     text = format_dry_run(cfg, build_plan(cfg))
     assert "--wipe-new-qlib-dir" in text
     assert "illegal-float" in text
+    assert "日历末日不变也要 dump_all" in text
+    assert "read_bin_field" in text
 
 
 from refresh_mydata import (  # noqa: E402
@@ -154,6 +156,7 @@ from refresh_mydata import (  # noqa: E402
     ensure_dump_target_clean,
     print_refresh_summary,
     run_csv_scan_preflight,
+    smoke_winratio_sample,
 )
 
 
@@ -234,6 +237,12 @@ def test_print_refresh_summary(tmp_path, capsys):
     assert "2026-09-14" in out
     assert "day_future .. 2026-09-15" in out
     assert "winratio bins=1" in out
+    assert "winratio SH600000" in out
+    assert "out_of_[0,1]=0" in out
+    sample = smoke_winratio_sample(qlib)
+    assert sample is not None
+    assert sample["symbol"] == "SH600000"
+    assert sample["out_of_01"] == 0
 
 
 # ----- M1-B：门禁 + 原子 swap -----

@@ -5,6 +5,10 @@
 - ``-1.#J``：MSVC NaN 截断，出现在 winratio
 - ``-1.#IND``：标准 Windows NaN，出现在 0 成交日的 vwap
 
+2026-09-15 哈希目录批（纠错/赢筹浮点修复）扫描：fatal=0，**winratio 已无 -1.#J**，
+仅 12 只票 2026-09-14 ``vwap=-1.#IND``（0 成交）。报告必须按列汇总，才能一眼看出
+「赢筹干净、只剩 vwap」而不是只盯文件列表。
+
 OHLC / volume / factor 若出现这类串，说明导出坏了，应中止入库。
 winratio / vwap 上的串由 merge/dump 的 ``pd.to_numeric(..., errors="coerce")`` 收成 NaN。
 """
@@ -13,7 +17,9 @@ from __future__ import annotations
 
 import argparse
 import re
+from collections import defaultdict
 from pathlib import Path
+from typing import Sequence
 
 import pandas as pd
 
@@ -88,7 +94,47 @@ def scan_csv_dir(csv_dir: Path) -> dict:
         "hits": hits,
         "fatal": fatal,
         "warn": warn,
+        "by_column": summarize_hits_by_column(hits),
     }
+
+
+def summarize_hits_by_column(hits: Sequence[dict]) -> dict[str, dict]:
+    """按列汇总：一眼区分 winratio=-1.#J 与 0 成交 vwap=-1.#IND。"""
+    files: dict[str, set[str]] = defaultdict(set)
+    counts: dict[str, int] = defaultdict(int)
+    fatal: dict[str, bool] = defaultdict(bool)
+    samples: dict[str, set[str]] = defaultdict(set)
+    for h in hits:
+        col = str(h.get("column") or "?").strip() or "?"
+        files[col].add(str(h.get("file") or ""))
+        counts[col] += int(h.get("count") or 0)
+        fatal[col] = fatal[col] or bool(h.get("fatal"))
+        if h.get("sample"):
+            samples[col].add(str(h["sample"]))
+    return {
+        col: {
+            "column": col,
+            "files": len(files[col]),
+            "count": counts[col],
+            "fatal": fatal[col],
+            "samples": sorted(samples[col]),
+        }
+        for col in sorted(files)
+    }
+
+
+def format_column_summary(by_column: dict[str, dict]) -> str:
+    if not by_column:
+        return "[csv-scan] by_column: (none)"
+    parts = []
+    for col, info in by_column.items():
+        kind = "fatal" if info.get("fatal") else "warn"
+        sample = ",".join(info.get("samples") or [])
+        parts.append(
+            f"{col} {kind} files={info.get('files', 0)} cells={info.get('count', 0)}"
+            + (f" samples={sample}" if sample else "")
+        )
+    return "[csv-scan] by_column: " + "; ".join(parts)
 
 
 def format_scan_report(report: dict) -> str:
@@ -96,15 +142,17 @@ def format_scan_report(report: dict) -> str:
         f"[csv-scan] files={report['files_scanned']} hit={report['files_hit']} "
         f"fatal={len(report['fatal'])} warn={len(report['warn'])}"
     ]
+    by_column = report.get("by_column") or summarize_hits_by_column(report.get("hits") or [])
+    lines.append(format_column_summary(by_column))
     for h in report["fatal"][:20]:
         lines.append(
-            f"  FATAL {h['file']} {h['column']} {h['count']}/{h['rows']} "
-            f"from {h['first_date'] or '?'} sample={h['sample']}"
+            f"  FATAL {h['file']} {h['column']} {h['count']}/{h.get('rows', '?')} "
+            f"from {h.get('first_date') or '?'} sample={h.get('sample')}"
         )
     for h in report["warn"][:20]:
         lines.append(
-            f"  WARN  {h['file']} {h['column']} {h['count']}/{h['rows']} "
-            f"from {h['first_date'] or '?'} sample={h['sample']}"
+            f"  WARN  {h['file']} {h['column']} {h['count']}/{h.get('rows', '?')} "
+            f"from {h.get('first_date') or '?'} sample={h.get('sample')}"
         )
     extra = len(report["warn"]) - 20
     if extra > 0:
