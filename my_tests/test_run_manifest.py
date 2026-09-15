@@ -26,8 +26,10 @@ from run_manifest import (  # noqa: E402
     load_manifest,
     manifest_to_json_bytes,
     md5_file,
+    unknown_timings,
     validate_manifest,
     write_manifest,
+    write_sweep_parent_manifest,
 )
 
 
@@ -132,3 +134,57 @@ def test_manifest_to_json_bytes_roundtrip():
     assert isinstance(raw, bytes)
     assert not raw.startswith(b"\xef\xbb\xbf")
     assert json.loads(raw.decode("utf-8"))["config"]["a"] == 1
+
+
+def test_write_sweep_parent_manifest(tmp_path: Path):
+    written = write_sweep_parent_manifest(
+        manifests_dir=tmp_path / "manifests",
+        parent_id="20260915T010203Z_deadbeef",
+        shared_handler_cache_key="abc" * 10 + "abcd",  # 64-ish
+        arm_ids=[
+            {"grid_id": "topk5_ndrop1_hold1", "manifest_path": "train_sweep_a.json"},
+            {"grid_id": "topk10_ndrop1_hold1", "manifest_path": "train_sweep_b.json"},
+        ],
+        timings={
+            "total_seconds": 12.5,
+            "nodes": [
+                {"name": "init_once", "seconds": 12.0},
+                {"name": "predict_once", "seconds": 0.5},
+            ],
+        },
+        segments={
+            "train": ["2026-01-01", "2026-01-31"],
+            "valid": ["2026-02-01", "2026-02-28"],
+            "test": ["2026-03-01", "2026-03-23"],
+        },
+        git_commit_sha="deadbeef",
+        created_utc="2026-09-15T01:02:03Z",
+    )
+    assert len(written) == 1
+    assert written[0].name == "sweep_parent_20260915T010203Z_deadbeef.json"
+    man = load_manifest(written[0])
+    assert man["stage"] == "sweep_parent"
+    assert man["data"]["parent_id"] == "20260915T010203Z_deadbeef"
+    assert man["data"]["shared_handler_cache_key"].startswith("abc")
+    assert len(man["data"]["arm_ids"]) == 2
+    assert man["config"]["segments"]["test"] == ["2026-03-01", "2026-03-23"]
+    names = [n["name"] for n in man["timings"]["nodes"]]
+    assert "init_once" in names and "predict_once" in names
+    assert man["timings"]["total_seconds"] == pytest.approx(12.5)
+    assert man["timings"].get("unknown") is not True
+
+
+def test_write_sweep_parent_unknown_timings_no_fake_zero(tmp_path: Path):
+    written = write_sweep_parent_manifest(
+        manifests_dir=tmp_path / "manifests",
+        parent_id="parent_unknown",
+        timings=None,
+        git_commit_sha="g",
+    )
+    man = load_manifest(written[0])
+    assert man["timings"] == unknown_timings() or (
+        man["timings"].get("unknown") is True
+        and man["timings"]["total_seconds"] is None
+        and man["timings"]["nodes"] == []
+    )
+    assert man["timings"]["total_seconds"] is None

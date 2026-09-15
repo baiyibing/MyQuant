@@ -253,6 +253,7 @@ def _predict_once() -> tuple[pd.Series, pd.Series]:
     _STATE["pred"], _STATE["label"] = pred, label
     _STATE["shared_handler_cache_key"] = key
     _STATE["arm_mode"] = "INIT_ONCE"
+    # Node names init_once / handler_init are stable — sweep parent (P0-5) peels them.
     _STATE["last_timings"] = {
         "total_seconds": float(elapsed),
         "nodes": [

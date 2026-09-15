@@ -394,3 +394,191 @@ def test_run_one_missing_timings_marks_unknown(tmp_path: Path):
     assert man["timings"]["nodes"] == []
     assert man["timings"]["total_seconds"] is None
 
+
+def test_run_sweep_parent_manifest_three_arms(tmp_path: Path):
+    """P0-5: 1 parent + 3 arms; arms ref parent_id; parent owns shared init; no arm re-amortizes init."""
+    calls = {"n": 0}
+    segs = {
+        "train": ["2026-01-01", "2026-01-31"],
+        "valid": ["2026-02-01", "2026-02-28"],
+        "test": ["2026-03-01", "2026-03-23"],
+    }
+
+    def fake(cfg: SweepConfig):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return {
+                "ic": 0.01,
+                "ir": 0.1,
+                "notes": "init",
+                "config": {"segments": segs},
+                "data": {
+                    "arm_mode": "INIT_ONCE",
+                    "shared_handler_cache_key": "sharedkey123",
+                },
+                "timings": {
+                    "total_seconds": 100.0,
+                    "nodes": [
+                        {"name": "handler_init", "seconds": 90.0},
+                        {"name": "init_once", "seconds": 100.0},
+                    ],
+                },
+            }
+        return {
+            "ic": 0.01 + 0.001 * cfg.topk,
+            "ir": 0.1,
+            "notes": "arm",
+            "config": {"segments": segs},
+            "data": {
+                "arm_mode": "ARM_ONLY",
+                "shared_handler_cache_key": "sharedkey123",
+            },
+            "timings": {
+                "total_seconds": 0.05,
+                "nodes": [{"name": "arm_only", "seconds": 0.05}],
+            },
+        }
+
+    configs = [
+        SweepConfig(5, 1, 1).with_id(),
+        SweepConfig(10, 1, 1).with_id(),
+        SweepConfig(20, 1, 1).with_id(),
+    ]
+    man_dir = tmp_path / "manifests"
+    results = run_sweep(
+        configs,
+        train_predict_fn=fake,
+        manifests_dir=man_dir,
+        repo_root=_ROOT,
+        write_manifests=True,
+    )
+    assert len(results) == 3
+    parents = list(man_dir.glob("sweep_parent_*.json"))
+    assert len(parents) == 1
+    parent = load_manifest(parents[0])
+    assert parent["stage"] == "sweep_parent"
+    parent_id = parent["data"]["parent_id"]
+    assert parent_id
+    assert parent["data"]["shared_handler_cache_key"] == "sharedkey123"
+    assert len(parent["data"]["arm_ids"]) == 3
+    parent_names = {n["name"] for n in parent["timings"]["nodes"]}
+    # Alias labels may both appear; total must be wall clock, not sum.
+    assert "handler_init" in parent_names
+    assert "init_once" in parent_names
+    assert parent["timings"].get("unknown") is not True
+    assert parent["timings"]["total_seconds"] == 100.0
+
+    for r in results:
+        man = load_manifest(r.manifest_path)
+        assert man["data"]["parent_id"] == parent_id
+        assert man["data"]["shared_handler_cache_key"] == "sharedkey123"
+        arm_names = [n["name"] for n in man["timings"]["nodes"]]
+        # 无臂把 init 秒写成自己的「全量训练」
+        assert "init_once" not in arm_names
+        assert "handler_init" not in arm_names
+        assert man["timings"].get("unknown") is not True
+
+    # first arm peeled to arm_only; later arms keep exclusive arm_only
+    m0 = load_manifest(results[0].manifest_path)
+    assert any(n["name"] == "arm_only" for n in m0["timings"]["nodes"])
+    assert m0["data"]["arm_mode"] == "INIT_ONCE"
+    m1 = load_manifest(results[1].manifest_path)
+    assert m1["data"]["arm_mode"] == "ARM_ONLY"
+    assert any(n["name"] == "arm_only" for n in m1["timings"]["nodes"])
+
+
+def test_parent_total_seconds_does_not_double_count_init_aliases(tmp_path: Path):
+    """handler_init + init_once are aliases of one wall clock — parent must not sum."""
+
+    def fake(cfg: SweepConfig):
+        return {
+            "ic": 0.02,
+            "ir": 0.2,
+            "notes": "alias",
+            "data": {
+                "arm_mode": "INIT_ONCE",
+                "shared_handler_cache_key": "k",
+            },
+            "timings": {
+                "total_seconds": 100.0,
+                "nodes": [
+                    {"name": "handler_init", "seconds": 100.0},
+                    {"name": "init_once", "seconds": 100.0},
+                ],
+            },
+        }
+
+    man_dir = tmp_path / "manifests"
+    run_sweep(
+        [SweepConfig(5, 1, 1).with_id()],
+        train_predict_fn=fake,
+        manifests_dir=man_dir,
+        repo_root=_ROOT,
+        write_manifests=True,
+    )
+    parent = load_manifest(next(man_dir.glob("sweep_parent_*.json")))
+    names = {n["name"] for n in parent["timings"]["nodes"]}
+    assert names == {"handler_init", "init_once"}
+    assert parent["timings"]["total_seconds"] == 100.0
+    # Regression: naive sum(node.seconds) would be 200.
+    assert parent["timings"]["total_seconds"] != 200.0
+
+
+def test_run_sweep_parent_skipped_when_no_manifests(tmp_path: Path):
+    def fake(cfg: SweepConfig):
+        return {
+            "ic": 0.01,
+            "ir": 0.1,
+            "data": {"arm_mode": "INIT_ONCE", "shared_handler_cache_key": "k"},
+            "timings": {
+                "total_seconds": 1.0,
+                "nodes": [{"name": "init_once", "seconds": 1.0}],
+            },
+        }
+
+    man_dir = tmp_path / "manifests"
+    results = run_sweep(
+        [SweepConfig(5, 1, 1).with_id()],
+        train_predict_fn=fake,
+        manifests_dir=man_dir,
+        repo_root=_ROOT,
+        write_manifests=False,
+    )
+    assert results[0].manifest_path is None
+    assert list(man_dir.glob("sweep_parent_*.json")) == []
+    assert list(man_dir.glob("train_sweep_*.json")) == []
+
+
+def test_run_sweep_parent_unknown_when_no_shared_timings(tmp_path: Path):
+    """缺共享 timings 时父 manifest 标 unknown，无假 0。"""
+
+    def fake(cfg: SweepConfig):
+        return {
+            "ic": 0.01,
+            "ir": 0.1,
+            "notes": "no-timings",
+            "data": {"arm_mode": "ARM_ONLY", "shared_handler_cache_key": "abc"},
+        }
+
+    man_dir = tmp_path / "manifests"
+    results = run_sweep(
+        [
+            SweepConfig(5, 1, 1).with_id(),
+            SweepConfig(10, 1, 1).with_id(),
+        ],
+        train_predict_fn=fake,
+        manifests_dir=man_dir,
+        repo_root=_ROOT,
+        write_manifests=True,
+    )
+    parents = list(man_dir.glob("sweep_parent_*.json"))
+    assert len(parents) == 1
+    parent = load_manifest(parents[0])
+    assert parent["timings"].get("unknown") is True
+    assert parent["timings"]["total_seconds"] is None
+    assert parent["timings"]["nodes"] == []
+    for r in results:
+        man = load_manifest(r.manifest_path)
+        assert man["data"]["parent_id"] == parent["data"]["parent_id"]
+        assert man["timings"].get("unknown") is True
+        assert man["timings"]["total_seconds"] is None

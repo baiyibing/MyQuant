@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 SCHEMA_ID = "myquant.run-manifest/1"
-ALLOWED_STAGES = frozenset({"train", "export", "refresh"})
+ALLOWED_STAGES = frozenset({"train", "export", "refresh", "sweep_parent"})
 class ManifestError(ValueError):
     """manifest 构建或校验失败。"""
 
@@ -408,4 +408,77 @@ def write_export_manifest(
         manifest,
         manifests_dir=manifests_dir,
         artifact_dirs=side_dirs,
+    )
+
+
+def unknown_timings() -> dict[str, Any]:
+    """Honest missing timings: never use total_seconds 0 as a stand-in for unknown."""
+    return {"total_seconds": None, "nodes": [], "unknown": True}
+
+
+def write_sweep_parent_manifest(
+    *,
+    manifests_dir: Path | str,
+    parent_id: str,
+    shared_handler_cache_key: str | None = None,
+    arm_ids: Sequence[Mapping[str, Any]] | None = None,
+    timings: Mapping[str, Any] | None = None,
+    segments: Mapping[str, Any] | None = None,
+    config: Mapping[str, Any] | None = None,
+    data: Mapping[str, Any] | None = None,
+    artifact_dirs: Iterable[Path | str] | None = None,
+    repo_root: Path | str | None = None,
+    git_commit_sha: str | None = None,
+    git_branch: str | None = None,
+    git_dirty: bool | None = None,
+    created_utc: str | None = None,
+) -> list[Path]:
+    """Write manifests/sweep_parent_<parent_id>.json (eng-perf P0-5).
+
+    Parent owns shared batch timings (init_once / predict_once / …). Arms only
+    record exclusive work and reference ``parent_id``. Missing timings must use
+    ``unknown_timings()`` — never ``total_seconds: 0`` as a stand-in for unknown.
+    """
+    if not parent_id or not str(parent_id).strip():
+        raise ManifestError("parent_id required")
+    pid = str(parent_id).strip()
+
+    cfg: dict[str, Any] = dict(config or {})
+    cfg.setdefault("stage_kind", "ranking_sweep_parent")
+    cfg["parent_id"] = pid
+    if segments is not None:
+        cfg["segments"] = dict(segments)
+
+    data_payload: dict[str, Any] = dict(data or {})
+    data_payload["parent_id"] = pid
+    if shared_handler_cache_key is not None:
+        data_payload["shared_handler_cache_key"] = shared_handler_cache_key
+    data_payload["arm_ids"] = [dict(a) for a in (arm_ids or [])]
+
+    if timings is None:
+        timing_payload: dict[str, Any] = unknown_timings()
+    else:
+        timing_payload = dict(timings)
+        if timing_payload.get("unknown") and timing_payload.get("total_seconds") == 0:
+            # harden: unknown must not look like a real zero-second run
+            timing_payload["total_seconds"] = None
+
+    manifest = build_manifest(
+        stage="sweep_parent",
+        config=cfg,
+        data=data_payload,
+        artifacts=[],
+        timings=timing_payload,
+        git_commit_sha=git_commit_sha,
+        git_branch=git_branch,
+        git_dirty=git_dirty,
+        created_utc=created_utc,
+        repo_root=repo_root,
+    )
+    filename = f"sweep_parent_{pid}.json"
+    return write_manifest(
+        manifest,
+        manifests_dir=manifests_dir,
+        artifact_dirs=artifact_dirs,
+        filename=filename,
     )

@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import argparse
 import sys
+import uuid
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional, Sequence
 
@@ -23,7 +24,25 @@ if str(_SCRIPT_DIR) not in sys.path:
 
 # 共享 mlflow 逃生口 / 静音（adapter 路径会触碰 qlib）
 import host_env  # noqa: E402,F401
-from run_manifest import write_train_manifest  # noqa: E402
+from run_manifest import (  # noqa: E402
+    unknown_timings,
+    write_sweep_parent_manifest,
+    write_train_manifest,
+)
+
+# Shared batch nodes belong on the sweep parent manifest (eng-perf P0-5), not
+# re-amortized onto every arm as "full train" wall time.
+_SHARED_TIMING_NODE_NAMES = frozenset(
+    {
+        "init_once",
+        "handler_init",
+        "predict_once",
+        "preflight",
+        "model_fit",
+        "fit",
+        "predict",
+    }
+)
 
 TrainPredictFn = Callable[["SweepConfig"], Mapping[str, Any]]
 
@@ -65,6 +84,9 @@ class SweepResult:
     manifest_path: Optional[str] = None
     notes: str = ""
     extra: dict[str, Any] = field(default_factory=dict)
+    parent_shared_nodes: list[dict[str, Any]] = field(default_factory=list)
+    # INIT_ONCE payload wall clock (not sum of alias node labels).
+    parent_shared_wall_seconds: float | None = None
 
 
 def parse_int_list(text: str) -> list[int]:
@@ -146,6 +168,65 @@ def _require_metrics(payload: Mapping[str, Any]) -> tuple[float, float]:
     return float(payload["ic"]), float(payload["ir"])
 
 
+
+def new_sweep_parent_id() -> str:
+    """UTC stamp + short uuid — stable for filenames and arm parent_id refs."""
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    return f"{stamp}_{uuid.uuid4().hex[:8]}"
+
+
+def split_shared_and_exclusive_timings(
+    timings: Mapping[str, Any] | None,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Split payload timings into parent-owned shared nodes vs arm-exclusive.
+
+    Unknown timings stay unknown on the arm (``total_seconds: null``); never
+    rewrite missing timing as a fake zero-second full train.
+    """
+    if timings is None:
+        return [], unknown_timings()
+    payload = dict(timings)
+    if payload.get("unknown"):
+        out = dict(payload)
+        out.setdefault("nodes", [])
+        if out.get("total_seconds") == 0:
+            out["total_seconds"] = None
+        return [], out
+
+    nodes = list(payload.get("nodes") or [])
+    shared: list[dict[str, Any]] = []
+    exclusive: list[dict[str, Any]] = []
+    for node in nodes:
+        if not isinstance(node, Mapping):
+            continue
+        entry = dict(node)
+        name = entry.get("name")
+        if name in _SHARED_TIMING_NODE_NAMES:
+            shared.append(entry)
+        else:
+            exclusive.append(entry)
+
+    if exclusive:
+        total = float(sum(float(n.get("seconds") or 0) for n in exclusive))
+        arm_timings: dict[str, Any] = {"total_seconds": total, "nodes": exclusive}
+    elif shared:
+        # Shared work lived on parent; arm exclusive is genuinely empty (not unknown).
+        arm_timings = {
+            "total_seconds": 0.0,
+            "nodes": [{"name": "arm_only", "seconds": 0.0}],
+        }
+    else:
+        # No named nodes — keep caller total if present, else unknown.
+        if "total_seconds" in payload and payload["total_seconds"] is not None:
+            arm_timings = {
+                "total_seconds": float(payload["total_seconds"]),
+                "nodes": [],
+            }
+        else:
+            arm_timings = unknown_timings()
+    return shared, arm_timings
+
+
 def run_one(
     config: SweepConfig,
     *,
@@ -153,11 +234,32 @@ def run_one(
     manifests_dir: Path | str | None = None,
     repo_root: Path | str | None = None,
     write_manifests: bool = True,
+    parent_id: str | None = None,
 ) -> SweepResult:
-    """Run one config via injectable train/predict; optionally write train manifest."""
+    """Run one config via injectable train/predict; optionally write train manifest.
+
+    When ``parent_id`` is set (batch sweep), shared timing nodes are peeled onto
+    the parent and the arm manifest only keeps exclusive work + a parent ref.
+    """
     cfg = config.with_id()
     payload = dict(train_predict_fn(cfg))
     ic, ir = _require_metrics(payload)
+
+    data: dict[str, Any] = (
+        dict(payload["data"]) if isinstance(payload.get("data"), Mapping) else {}
+    )
+    if parent_id:
+        data["parent_id"] = parent_id
+
+    raw_timings = payload.get("timings") if isinstance(payload.get("timings"), Mapping) else None
+    parent_shared_nodes: list[dict[str, Any]] = []
+    if parent_id:
+        parent_shared_nodes, timings = split_shared_and_exclusive_timings(raw_timings)
+    elif raw_timings is None:
+        # 缺 timings 时禁止默写 total_seconds:0（假零秒）；标 unknown 待 adapter 必给
+        timings = unknown_timings()
+    else:
+        timings = dict(raw_timings)
 
     manifest_path: Optional[str] = None
     if write_manifests and manifests_dir is not None:
@@ -171,11 +273,6 @@ def run_one(
             man_cfg.setdefault("hold_thresh", cfg.hold_thresh)
             man_cfg.setdefault("grid_id", cfg.grid_id)
 
-        data = payload.get("data") if isinstance(payload.get("data"), Mapping) else {}
-        timings = payload.get("timings") if isinstance(payload.get("timings"), Mapping) else None
-        # 缺 timings 时禁止默写 total_seconds:0（假零秒）；标 unknown 待 adapter 必给
-        if timings is None:
-            timings = {"total_seconds": None, "nodes": [], "unknown": True}
         pred_path = payload.get("pred_path")
         pred_rows = payload.get("pred_rows")
 
@@ -203,7 +300,40 @@ def run_one(
             manifest_path = str(primary)
 
     notes = str(payload.get("notes") or "")
-    extra = {k: v for k, v in payload.items() if k not in {"ic", "ir", "config", "data", "timings", "pred_path", "pred_rows", "git_commit", "git_branch", "git_dirty", "created_utc", "notes"}}
+    extra = {
+        k: v
+        for k, v in payload.items()
+        if k
+        not in {
+            "ic",
+            "ir",
+            "config",
+            "data",
+            "timings",
+            "pred_path",
+            "pred_rows",
+            "git_commit",
+            "git_branch",
+            "git_dirty",
+            "created_utc",
+            "notes",
+        }
+    }
+    # Stash segments / cache key for parent aggregation (not written into arm extra dump).
+    if isinstance(payload.get("config"), Mapping):
+        segs = payload["config"].get("segments")
+        if segs is not None:
+            extra["_segments"] = segs
+    if data.get("shared_handler_cache_key") is not None:
+        extra["_shared_handler_cache_key"] = data.get("shared_handler_cache_key")
+    if data.get("arm_mode") is not None:
+        extra["_arm_mode"] = data.get("arm_mode")
+    parent_wall: float | None = None
+    if parent_shared_nodes and raw_timings is not None:
+        raw_total = raw_timings.get("total_seconds")
+        if raw_total is not None:
+            parent_wall = float(raw_total)
+
     return SweepResult(
         config=cfg,
         ic=ic,
@@ -211,6 +341,8 @@ def run_one(
         manifest_path=manifest_path,
         notes=notes,
         extra=extra,
+        parent_shared_nodes=parent_shared_nodes,
+        parent_shared_wall_seconds=parent_wall,
     )
 
 
@@ -222,7 +354,13 @@ def run_sweep(
     repo_root: Path | str | None = None,
     write_manifests: bool = True,
 ) -> list[SweepResult]:
-    """Execute sweep over configs with injectable train/predict."""
+    """Execute sweep over configs; write parent shared-timings manifest (P0-5).
+
+    Generates one ``parent_id`` per batch. Arms reference it; shared init/predict
+    nodes land on ``manifests/sweep_parent_<id>.json``. Skipped when
+    ``write_manifests=False``.
+    """
+    parent_id = new_sweep_parent_id()
     results: list[SweepResult] = []
     for cfg in configs:
         results.append(
@@ -232,8 +370,67 @@ def run_sweep(
                 manifests_dir=manifests_dir,
                 repo_root=repo_root,
                 write_manifests=write_manifests,
+                parent_id=parent_id if write_manifests else None,
             )
         )
+
+    if write_manifests and manifests_dir is not None:
+        shared_nodes: list[dict[str, Any]] = []
+        seen_names: set[str] = set()
+        cache_key: str | None = None
+        segments: Any = None
+        arm_ids: list[dict[str, Any]] = []
+        parent_wall: float | None = None
+        git_commit = None
+        git_branch = None
+        git_dirty = None
+        for r in results:
+            for node in r.parent_shared_nodes:
+                name = node.get("name")
+                if name in seen_names:
+                    continue
+                seen_names.add(str(name))
+                shared_nodes.append(dict(node))
+            if parent_wall is None and r.parent_shared_wall_seconds is not None:
+                # First arm with shared work supplies the batch wall clock
+                # (INIT_ONCE payload total_seconds). Do not sum alias labels
+                # like handler_init + init_once — they name the same elapsed.
+                parent_wall = float(r.parent_shared_wall_seconds)
+            if cache_key is None and r.extra.get("_shared_handler_cache_key") is not None:
+                cache_key = r.extra.get("_shared_handler_cache_key")
+            if segments is None and r.extra.get("_segments") is not None:
+                segments = r.extra.get("_segments")
+            arm_ids.append(
+                {
+                    "grid_id": r.config.grid_id,
+                    "manifest_path": r.manifest_path or "",
+                    "arm_mode": r.extra.get("_arm_mode"),
+                }
+            )
+
+        if shared_nodes:
+            if parent_wall is not None:
+                total = float(parent_wall)
+            else:
+                # No payload total: take max, never sum (aliases share one clock).
+                total = float(max(float(n.get("seconds") or 0) for n in shared_nodes))
+            parent_timings: dict[str, Any] = {
+                "total_seconds": total,
+                "nodes": shared_nodes,
+            }
+        else:
+            parent_timings = unknown_timings()
+
+        write_sweep_parent_manifest(
+            manifests_dir=manifests_dir,
+            parent_id=parent_id,
+            shared_handler_cache_key=cache_key,
+            arm_ids=arm_ids,
+            timings=parent_timings,
+            segments=segments if isinstance(segments, Mapping) else None,
+            repo_root=repo_root,
+        )
+
     return results
 
 
