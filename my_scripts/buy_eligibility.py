@@ -29,7 +29,7 @@ import pandas as pd
 from qlib.data import D
 
 from custom_strategy import TopkDropoutStrategyWithFilter
-from harvest_st_from_wind import load_st_daily_index  # noqa: E402
+from st_status import load_st_daily_index  # noqa: E402
 
 # 通达信口径：ATAN((MA5/REF(MA5,1)-1)*100)*180/PI；「不低于 -30°」含等于。
 MA5_SLOPE_MIN_DEG = -30.0

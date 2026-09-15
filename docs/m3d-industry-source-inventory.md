@@ -13,6 +13,8 @@ M3D_STATUS=ready
 **行业分类源已就绪**（2026-09-13 通过 Kimi datasource 插件落地，见下「可用行业源」）。
 实现片（截面中性化 → TopN + 单测）另开，本片只回写源与语义。
 
+续采 / 复核脚本已迁到 OSkhQuant1.3：`python -m oskh_data.vendor_wind_sw_l1`（本仓只消费映射表）。
+
 ## 可用行业源（本次新增）
 
 | 项 | 值 |

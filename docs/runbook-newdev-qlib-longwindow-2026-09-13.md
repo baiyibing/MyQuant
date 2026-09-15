@@ -234,6 +234,19 @@ python rebacktest_cost_tiers.py \
 > （D.features 50 股单日 29s → kernels=1 时 0.09s）；资格过滤策略每日小查询，
 > 已把 rebacktest_cost_tiers **与** custom_train_backtest 的 kernels 默认改为 1（QLIB_KERNELS 可覆盖），
 > 过滤轮回测从 ~100s/bar 降到 ~3.6s/bar。训练 Loading 用 `--handler-cache` 复跑，勿默认开 expr/dataset 小文件缓存。
+>
+> **执行结果（2026-09-15，F 湖 PIT 四过滤）**：recorder 改回发起机 `4410e4a3…`；ST 读
+> `F:/stock_data/vendor_wind_st_status/st_daily.parquet`（日志 `PIT+fallback 280` 只，
+> 不再用 09-14 的 `E:/…` 旧路径）。四开关全开、qlib 默认档净年化：
+>
+> | 配置 | 关过滤 | 开过滤 09-14（E 盘旧 ST） | 开过滤 09-15（F 湖 PIT） |
+> |---|---|---|---|
+> | topk10/n3 | -46.5% | -24.0% | **−7.4%**（IR −0.17，回撤 −56.2%） |
+> | topk50/n5 | +0.6% | +9.1% | **+15.5%**（IR +0.43，回撤 −31.1%） |
+>
+> 判读不变：过滤仍救 topk10 且不拖累 topk50。NAV 变好是 ST 覆盖/日期换成 PIT 的预期，
+> 不是同一张 ST 表的复现。墙钟：preload + 三档约 **5.7 / 5.9 min**，回测环 **~0.15–0.17 s/bar**
+> （6 it/s）。summary：`T161924Z` topk10、`T162527Z` topk50。
 
 ## 6. 注意事项
 
