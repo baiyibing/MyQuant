@@ -147,6 +147,10 @@ def test_dry_run_mentions_wipe_and_csv_scan(tmp_path):
     assert "illegal-float" in text
     assert "日历末日不变也要 dump_all" in text
     assert "read_bin_field" in text
+    assert "overlay" in text
+    assert "last_valid" in text
+    assert "同日第二次自动 _2" in text
+    assert "st_daily" in text
 
 
 from refresh_mydata import (  # noqa: E402
@@ -155,6 +159,7 @@ from refresh_mydata import (  # noqa: E402
     dump_target_is_dirty,
     ensure_dump_target_clean,
     print_refresh_summary,
+    run_csv_profile_preflight,
     run_csv_scan_preflight,
     smoke_winratio_sample,
 )
@@ -245,11 +250,49 @@ def test_print_refresh_summary(tmp_path, capsys):
     assert sample["out_of_01"] == 0
 
 
+def test_csv_profile_preflight_flags_short_tail(tmp_path, capsys):
+    csv_dir = tmp_path / "csv"
+    csv_dir.mkdir()
+    rows = "\n".join(f"SH600000,2026-09-{d:02d},10.0" for d in range(2, 12))
+    (csv_dir / "SH600000.csv").write_text("code,date,close\n" + rows + "\n", encoding="utf-8")
+    cfg = _cfg(csv_dir=csv_dir, archive_dir=tmp_path / "missing_archive")
+    profile = run_csv_profile_preflight(cfg)
+    assert profile["short_tail"] is True
+    out = capsys.readouterr().out
+    assert "short_tail=True" in out
+    assert "overlay" in out
+
+
+def test_smoke_winratio_reports_last_valid(tmp_path, capsys):
+    import numpy as np
+
+    qlib = tmp_path / "new"
+    (qlib / "calendars").mkdir(parents=True)
+    (qlib / "calendars" / "day.txt").write_text("2026-09-14\n2026-09-15\n", encoding="utf-8")
+    feat = qlib / "features" / "sh600000"
+    feat.mkdir(parents=True)
+    arr = np.array([0.0, 0.56, np.nan], dtype="<f")
+    arr.tofile(feat / "winratio.day.bin")
+    (qlib / "instruments").mkdir(parents=True)
+    (qlib / "instruments" / "all.txt").write_text(
+        "SH600000\t2026-09-14\t2026-09-15\n", encoding="utf-8"
+    )
+    print_refresh_summary(qlib)
+    out = capsys.readouterr().out
+    assert "last_valid=2026-09-14=0.5600" in out
+    assert "末日 winratio 为空可接受" in out
+    sample = smoke_winratio_sample(qlib)
+    assert sample["last"] is None
+    assert sample["last_valid"] == "2026-09-14"
+    assert sample["last_valid_value"] == pytest.approx(0.56)
+
+
 # ----- M1-B：门禁 + 原子 swap -----
 
 from refresh_mydata import (  # noqa: E402
     INDEX_CODE_RE,
     atomic_swap,
+    backup_name,
     gate_calendar_vs_lake,
     gate_no_indices_in_all,
     gate_sample_values,
@@ -439,6 +482,19 @@ def test_atomic_swap_and_rollback(tmp_path):
     # 回滚后目标应恢复
     assert target2.exists()
     assert (target2 / "a").read_text(encoding="utf-8") == "a"
+
+
+def test_backup_name_increments_on_same_day(tmp_path):
+    qlib = tmp_path / "my_data"
+    qlib.mkdir()
+    first = backup_name(qlib, date(2026, 9, 15))
+    assert first.name == "my_data_backup_20260915_pre_refresh"
+    first.mkdir()
+    second = backup_name(qlib, date(2026, 9, 15))
+    assert second.name == "my_data_backup_20260915_pre_refresh_2"
+    second.mkdir()
+    third = backup_name(qlib, date(2026, 9, 15))
+    assert third.name == "my_data_backup_20260915_pre_refresh_3"
 
 
 def test_run_integrity_gates_aborts_before_swap_contract(tmp_path):
