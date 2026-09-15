@@ -64,6 +64,7 @@ v1.1 相对 v1：补三仓对照（含「不该再做」）、研究两层、Qli
 | Kimi 行业采集中断封存 | 已处理 | 现场 242 文件 / 2.3MB 入 git（PR #19）+ `m3d_industry_kimi_20260913.7z` 本地与 F: 备份；**续跑必须回 Kimi**（wind MCP 只在它那） |
 | M5 二轮 Qlib 臂 | **已交付（宿主实跑）** | 任务书 #18 → `predict_extended.py` #22（CI 绿）→ 本机实跑：`预测结果_ext.csv` **713,548 行 / 132 预测日（2026-03-02~09-08）**，导出 131 文件（= 132−1，pred_minus_one 分毫不差、LF 无 BOM）；三源长窗结论见 §0.1「M5 二轮」行——**长窗重叠仍为零，两套选股宇宙坐实；非模型晋升、不改 topk** |
 | CI 启用 | 进行中 | 仓转 public 后走 PR #20：windows-latest + py3.12 + qlib 钉 79633dd9 源码装 + 全量 pytest；首跑失败根因=`custom_utils` 顶层 matplotlib/seaborn 未进 requirements，已修重跑 |
+| PR #67 并版刀 1 + P1-2（同 pred `8a061ea4`，零重训） | **宿主真跑 2026-09-15** | `10/3+ST` 全窗 qlib **+20.7%**（S4 过，两段约 +22%）；50/5+ST 补段弱于全关 → `ST_GATE_SUBPERIOD_ONLY`，不进 shortlist；全关失资格仍持仓 20.7% → 续禁 n_drop 细表。**不改线上 10/3**。账：`runs/2026-09-15-10n3-st-age.md`、`runs/2026-09-15-pr67-p1-2-and-segments.md` |
 
 PortAna 第 4 轮用真沪深300 出过烟雾报告。按 §2.3 / §6：**不当产品、不当 M5 对照列。**
 

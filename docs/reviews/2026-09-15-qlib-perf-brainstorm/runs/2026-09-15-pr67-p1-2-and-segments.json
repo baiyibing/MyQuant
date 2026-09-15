@@ -1,0 +1,563 @@
+{
+  "recorder_id": "8a061ea428e04bb3a199a485ade49d0e",
+  "note": "P1-2 = daily_picks x ST PIT + age from all.txt; nav slice uses qlib_default books only. S3 realistic not in packs. S4 passed: 10/3+ST full-window qlib +20.7%. S1/S2 failed. Tag ST_GATE_SUBPERIOD_ONLY.",
+  "p1_2": {
+    "off_50n5": {
+      "pack": "off_50n5",
+      "folder": "D:\\PycharmProjects\\MyQuant\\exports\\analysis\\8a061ea428e04bb3a199a485ade49d0e",
+      "pick_rows": 15510,
+      "days": 169,
+      "held_name_days": 8838,
+      "held_st_name_days": 1720,
+      "held_young_name_days": 112,
+      "held_ineligible_name_days": 1832,
+      "held_ineligible_share": 0.2072867164516859,
+      "held_st_share": 0.1946141661009278,
+      "day_inel_share_p50": 0.19607843137254902,
+      "day_inel_share_mean": 0.20595666030388993,
+      "day_st_share_mean": 0.19348636169425895,
+      "days_inel_gt_20pct": 84,
+      "held_by_action": {
+        "held": {
+          "n": 1305,
+          "st": 268,
+          "ineligible": 291
+        },
+        "held_not_topk": {
+          "n": 7060,
+          "st": 1369,
+          "ineligible": 1452
+        },
+        "new_buy": {
+          "n": 473,
+          "st": 83,
+          "ineligible": 89
+        }
+      },
+      "action_counts": {
+        "held": 1305,
+        "held_not_topk": 7060,
+        "missed": 6672,
+        "new_buy": 473
+      },
+      "held_not_topk_rank": {
+        "n": 7060,
+        "rank_p50": 1207.0,
+        "rank_p90": 4332.400000000001,
+        "rank_p99": 5261.44,
+        "days": 168
+      },
+      "buys": 473,
+      "sells": 420,
+      "sell_class": {
+        "forced_ineligible": 87,
+        "rank_rotate": 333,
+        "other": 0
+      },
+      "sell_ineligible_share": 0.20714285714285716,
+      "new_buy": 473,
+      "passive_kept": 8365,
+      "missed": 6672
+    },
+    "filters_on_50n5": {
+      "pack": "filters_on_50n5",
+      "folder": "D:\\PycharmProjects\\MyQuant\\exports\\analysis\\8a061ea4_50n5_filters_on",
+      "pick_rows": 15081,
+      "days": 169,
+      "held_name_days": 8469,
+      "held_st_name_days": 10,
+      "held_young_name_days": 12,
+      "held_ineligible_name_days": 22,
+      "held_ineligible_share": 0.002597709292714606,
+      "held_st_share": 0.0011807769512339119,
+      "day_inel_share_p50": 0.0,
+      "day_inel_share_mean": 0.0025722418286025176,
+      "day_st_share_mean": 0.0011516494678530285,
+      "days_inel_gt_20pct": 0,
+      "held_by_action": {
+        "held": {
+          "n": 1103,
+          "st": 0,
+          "ineligible": 5
+        },
+        "held_not_topk": {
+          "n": 6631,
+          "st": 10,
+          "ineligible": 14
+        },
+        "new_buy": {
+          "n": 735,
+          "st": 0,
+          "ineligible": 3
+        }
+      },
+      "action_counts": {
+        "held": 1103,
+        "held_not_topk": 6631,
+        "missed": 6612,
+        "new_buy": 735
+      },
+      "held_not_topk_rank": {
+        "n": 6631,
+        "rank_p50": 544.0,
+        "rank_p90": 3265.6000000000004,
+        "rank_p99": 4880.8200000000015,
+        "days": 169
+      },
+      "buys": 792,
+      "sells": 745,
+      "sell_class": {
+        "forced_ineligible": 8,
+        "rank_rotate": 737,
+        "other": 0
+      },
+      "sell_ineligible_share": 0.010738255033557046,
+      "new_buy": 735,
+      "passive_kept": 7734,
+      "missed": 6612
+    },
+    "st_age_50n5": {
+      "pack": "st_age_50n5",
+      "folder": "D:\\PycharmProjects\\MyQuant\\exports\\analysis\\8a061ea4_50n5_st_age",
+      "pick_rows": 14722,
+      "days": 169,
+      "held_name_days": 8493,
+      "held_st_name_days": 1,
+      "held_young_name_days": 11,
+      "held_ineligible_name_days": 12,
+      "held_ineligible_share": 0.001412928293889085,
+      "held_st_share": 0.0001177440244907571,
+      "day_inel_share_p50": 0.0,
+      "day_inel_share_mean": 0.0014155721460181706,
+      "day_st_share_mean": 0.00011602274045712959,
+      "days_inel_gt_20pct": 0,
+      "held_by_action": {
+        "held": {
+          "n": 1455,
+          "st": 0,
+          "ineligible": 5
+        },
+        "held_not_topk": {
+          "n": 6272,
+          "st": 1,
+          "ineligible": 5
+        },
+        "new_buy": {
+          "n": 766,
+          "st": 0,
+          "ineligible": 2
+        }
+      },
+      "action_counts": {
+        "held": 1455,
+        "held_not_topk": 6272,
+        "missed": 6229,
+        "new_buy": 766
+      },
+      "held_not_topk_rank": {
+        "n": 6272,
+        "rank_p50": 612.0,
+        "rank_p90": 3613.6000000000004,
+        "rank_p99": 5061.0,
+        "days": 169
+      },
+      "buys": 782,
+      "sells": 733,
+      "sell_class": {
+        "forced_ineligible": 9,
+        "rank_rotate": 724,
+        "other": 0
+      },
+      "sell_ineligible_share": 0.01227830832196453,
+      "new_buy": 766,
+      "passive_kept": 7727,
+      "missed": 6229
+    },
+    "st_age_20n3": {
+      "pack": "st_age_20n3",
+      "folder": "D:\\PycharmProjects\\MyQuant\\exports\\analysis\\8a061ea4_20n3_st_age",
+      "pick_rows": 5813,
+      "days": 169,
+      "held_name_days": 3395,
+      "held_st_name_days": 1,
+      "held_young_name_days": 8,
+      "held_ineligible_name_days": 9,
+      "held_ineligible_share": 0.002650957290132548,
+      "held_st_share": 0.0002945508100147275,
+      "day_inel_share_p50": 0.0,
+      "day_inel_share_mean": 0.0026546103469180394,
+      "day_st_share_mean": 0.0002817695125387433,
+      "days_inel_gt_20pct": 0,
+      "held_by_action": {
+        "held": {
+          "n": 505,
+          "st": 0,
+          "ineligible": 3
+        },
+        "held_not_topk": {
+          "n": 2433,
+          "st": 1,
+          "ineligible": 5
+        },
+        "new_buy": {
+          "n": 457,
+          "st": 0,
+          "ineligible": 1
+        }
+      },
+      "action_counts": {
+        "held": 505,
+        "held_not_topk": 2433,
+        "missed": 2418,
+        "new_buy": 457
+      },
+      "held_not_topk_rank": {
+        "n": 2433,
+        "rank_p50": 210.5,
+        "rank_p90": 2661.500000000001,
+        "rank_p99": 4923.369999999999,
+        "days": 169
+      },
+      "buys": 472,
+      "sells": 452,
+      "sell_class": {
+        "forced_ineligible": 5,
+        "rank_rotate": 447,
+        "other": 0
+      },
+      "sell_ineligible_share": 0.011061946902654867,
+      "new_buy": 457,
+      "passive_kept": 2938,
+      "missed": 2418
+    }
+  },
+  "n_drop_gate": {
+    "off_50n5": {
+      "held_ineligible_share": 0.2072867164516859,
+      "block_n_drop_grid": true
+    },
+    "filters_on_50n5": {
+      "held_ineligible_share": 0.002597709292714606,
+      "block_n_drop_grid": false
+    },
+    "st_age_50n5": {
+      "held_ineligible_share": 0.001412928293889085,
+      "block_n_drop_grid": false
+    },
+    "st_age_20n3": {
+      "held_ineligible_share": 0.002650957290132548,
+      "block_n_drop_grid": false
+    }
+  },
+  "any_block_n_drop": true,
+  "nav_slice_qlib_default": {
+    "off_50n5": {
+      "full": {
+        "n": 170,
+        "abs_net": {
+          "n": 170,
+          "mean": 0.0003735036851990002,
+          "annualized_return": 0.09412292867014806,
+          "max_drawdown": -0.25827239029921834,
+          "window_compound": 0.03363940545485766,
+          "turnover_sum": null
+        },
+        "excess_vs_300": {
+          "n": 170,
+          "mean": 0.0004949278163342944,
+          "annualized_return": 0.12472180971624218,
+          "max_drawdown": -0.21162681572917064,
+          "window_compound": 0.06473678924609483,
+          "turnover_sum": null
+        },
+        "turnover_sum": 18.049077831787628,
+        "cost_sum": 0.017558103182867057,
+        "annualized_cost_drag": 0.02602730589460293
+      },
+      "strong": {
+        "n": 104,
+        "abs_net": {
+          "n": 104,
+          "mean": 0.0008245556469175485,
+          "annualized_return": 0.20778802302322222,
+          "max_drawdown": -0.25827239029921867,
+          "window_compound": 0.06589085885027868,
+          "turnover_sum": null
+        },
+        "excess_vs_300": {
+          "n": 104,
+          "mean": 0.000362785292619472,
+          "annualized_return": 0.09142189374010695,
+          "max_drawdown": -0.20362386619557316,
+          "window_compound": 0.02249525038213962,
+          "turnover_sum": null
+        },
+        "turnover_sum": 7.6785153565541355,
+        "cost_sum": 0.00768083767991274,
+        "annualized_cost_drag": 0.018611260532096257
+      },
+      "complement": {
+        "n": 66,
+        "abs_net": {
+          "n": 66,
+          "mean": -0.00033724486053931857,
+          "annualized_return": -0.08498570485590828,
+          "max_drawdown": -0.14237794164866346,
+          "window_compound": -0.030257744615813875,
+          "turnover_sum": null
+        },
+        "excess_vs_300": {
+          "n": 66,
+          "mean": 0.0007031523991576512,
+          "annualized_return": 0.17719440458772812,
+          "max_drawdown": -0.08158987998641387,
+          "window_compound": 0.04131221034833077,
+          "turnover_sum": null
+        },
+        "turnover_sum": 10.370562475233491,
+        "cost_sum": 0.009877265502954317,
+        "annualized_cost_drag": 0.03771319555673466
+      }
+    },
+    "filters_on_50n5": {
+      "full": {
+        "n": 170,
+        "abs_net": {
+          "n": 170,
+          "mean": 0.00027454587746140243,
+          "annualized_return": 0.06918556112027341,
+          "max_drawdown": -0.3281110818552775,
+          "window_compound": -0.0025035044806861473,
+          "turnover_sum": null
+        },
+        "excess_vs_300": {
+          "n": 170,
+          "mean": 0.0003959700085966965,
+          "annualized_return": 0.09978444216636752,
+          "max_drawdown": -0.28426793380873483,
+          "window_compound": 0.03679580475967792,
+          "turnover_sum": null
+        },
+        "turnover_sum": 31.535384118422996,
+        "cost_sum": 0.031080479619418004,
+        "annualized_cost_drag": 0.04607224037701963
+      },
+      "strong": {
+        "n": 104,
+        "abs_net": {
+          "n": 104,
+          "mean": 0.0006088394210025153,
+          "annualized_return": 0.15342753409263385,
+          "max_drawdown": -0.32811108185527715,
+          "window_compound": 0.025916041611696583,
+          "turnover_sum": null
+        },
+        "excess_vs_300": {
+          "n": 104,
+          "mean": 0.00014706906670443838,
+          "annualized_return": 0.03706140480951847,
+          "max_drawdown": -0.2842679338087346,
+          "window_compound": -0.008327390581203797,
+          "turnover_sum": null
+        },
+        "turnover_sum": 18.597111016536495,
+        "cost_sum": 0.018586583438616296,
+        "annualized_cost_drag": 0.04503672140895487
+      },
+      "complement": {
+        "n": 66,
+        "abs_net": {
+          "n": 66,
+          "mean": -0.00025221970630035125,
+          "annualized_return": -0.06355936598768852,
+          "max_drawdown": -0.1519102434472387,
+          "window_compound": -0.027701629509307102,
+          "turnover_sum": null
+        },
+        "excess_vs_300": {
+          "n": 66,
+          "mean": 0.0007881775533966186,
+          "annualized_return": 0.19862074345594788,
+          "max_drawdown": -0.08703578528830669,
+          "window_compound": 0.04550210917626085,
+          "turnover_sum": null
+        },
+        "turnover_sum": 12.938273101886502,
+        "cost_sum": 0.0124938961808017,
+        "annualized_cost_drag": 0.04770396723578831
+      }
+    },
+    "st_age_50n5": {
+      "full": {
+        "n": 170,
+        "abs_net": {
+          "n": 170,
+          "mean": 0.0008546276969379233,
+          "annualized_return": 0.2153661796283567,
+          "max_drawdown": -0.2941449944753667,
+          "window_compound": 0.09933535352367917,
+          "turnover_sum": null
+        },
+        "excess_vs_300": {
+          "n": 170,
+          "mean": 0.0009760518280732175,
+          "annualized_return": 0.24596506067445081,
+          "max_drawdown": -0.23934542607422882,
+          "window_compound": 0.14335229275618944,
+          "turnover_sum": null
+        },
+        "turnover_sum": 32.40215739291312,
+        "cost_sum": 0.031928242356288605,
+        "annualized_cost_drag": 0.04732892396343958
+      },
+      "strong": {
+        "n": 104,
+        "abs_net": {
+          "n": 104,
+          "mean": 0.0017104592032522769,
+          "annualized_return": 0.4310357192195738,
+          "max_drawdown": -0.2941449944753668,
+          "window_compound": 0.1497079733055522,
+          "turnover_sum": null
+        },
+        "excess_vs_300": {
+          "n": 104,
+          "mean": 0.0012486888489541999,
+          "annualized_return": 0.3146695899364584,
+          "max_drawdown": -0.23934542607422904,
+          "window_compound": 0.111929089323479,
+          "turnover_sum": null
+        },
+        "turnover_sum": 19.046038527358725,
+        "cost_sum": 0.019055374627471706,
+        "annualized_cost_drag": 0.046172638520412215
+      },
+      "complement": {
+        "n": 66,
+        "abs_net": {
+          "n": 66,
+          "mean": -0.0004939552827089363,
+          "annualized_return": -0.12447673124265193,
+          "max_drawdown": -0.18512008593997142,
+          "window_compound": -0.043813403882940305,
+          "turnover_sum": null
+        },
+        "excess_vs_300": {
+          "n": 66,
+          "mean": 0.000546441976988033,
+          "annualized_return": 0.1377033782009843,
+          "max_drawdown": -0.12137754144059876,
+          "window_compound": 0.028260078573740577,
+          "turnover_sum": null
+        },
+        "turnover_sum": 13.356118865554391,
+        "cost_sum": 0.0128728677288169,
+        "annualized_cost_drag": 0.049150949510028165
+      }
+    },
+    "st_age_20n3": {
+      "full": {
+        "n": 170,
+        "abs_net": {
+          "n": 170,
+          "mean": -0.0002792396176742636,
+          "annualized_return": -0.07036838365391443,
+          "max_drawdown": -0.43291712090794254,
+          "window_compound": -0.10783012082322552,
+          "turnover_sum": null
+        },
+        "excess_vs_300": {
+          "n": 170,
+          "mean": -0.00015781548653896944,
+          "annualized_return": -0.0397695026078203,
+          "max_drawdown": -0.4037642767811801,
+          "window_compound": -0.07049946884388081,
+          "turnover_sum": null
+        },
+        "turnover_sum": 47.91280231730241,
+        "cost_sum": 0.047441562478294994,
+        "annualized_cost_drag": 0.07032513967370786
+      },
+      "strong": {
+        "n": 104,
+        "abs_net": {
+          "n": 104,
+          "mean": -0.0005585931576611595,
+          "annualized_return": -0.1407654757306122,
+          "max_drawdown": -0.432917120907943,
+          "window_compound": -0.10290688879466459,
+          "turnover_sum": null
+        },
+        "excess_vs_300": {
+          "n": 104,
+          "mean": -0.0010203635119592363,
+          "annualized_return": -0.25713160501372756,
+          "max_drawdown": -0.40299184341721206,
+          "window_compound": -0.13127214451520997,
+          "turnover_sum": null
+        },
+        "turnover_sum": 28.10357832481053,
+        "cost_sum": 0.02811756750842839,
+        "annualized_cost_drag": 0.06813102896273032
+      },
+      "complement": {
+        "n": 66,
+        "abs_net": {
+          "n": 66,
+          "mean": 0.00016095383927478433,
+          "annualized_return": 0.040560367497245654,
+          "max_drawdown": -0.19092137711251034,
+          "window_compound": -0.005487983317524314,
+          "turnover_sum": null
+        },
+        "excess_vs_300": {
+          "n": 66,
+          "mean": 0.0012013510989717533,
+          "annualized_return": 0.30274047694088185,
+          "max_drawdown": -0.1273798844321249,
+          "window_compound": 0.06995594222935986,
+          "turnover_sum": null
+        },
+        "turnover_sum": 19.809223992491873,
+        "cost_sum": 0.019323994969866597,
+        "annualized_cost_drag": 0.07378252624858156
+      }
+    }
+  },
+  "S1": {
+    "strong_st_pos": true,
+    "comp_st_pos": true,
+    "strong_st_ge_off": true,
+    "comp_st_ge_off": false,
+    "pass": false
+  },
+  "S2": {
+    "delta_strong": 0.22324769619635143,
+    "delta_complement": -0.039491026386743816,
+    "strong_ge_3pp": true,
+    "comp_ge_3pp": false,
+    "pass": false
+  },
+  "excess_vs_300_pct": {
+    "off_50n5": {
+      "full": 12.47,
+      "strong": 9.14,
+      "complement": 17.72
+    },
+    "filters_on_50n5": {
+      "full": 9.98,
+      "strong": 3.71,
+      "complement": 19.86
+    },
+    "st_age_50n5": {
+      "full": 24.6,
+      "strong": 31.47,
+      "complement": 13.77
+    },
+    "st_age_20n3": {
+      "full": -3.98,
+      "strong": -25.71,
+      "complement": 30.27
+    }
+  }
+}
