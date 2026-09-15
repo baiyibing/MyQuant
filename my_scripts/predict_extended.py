@@ -175,20 +175,28 @@ def live_predict(
     from custom_handler import Alpha158CostKDJ
     from train_wiring import build_filtered_instruments
 
+    from custom_utils import TimerRecorder, install_features_probe, set_global_timer_recorder
+
     segs = validate_segments(segments)
     # handler 覆盖三段 min start / max end。label 用 Ref($close,-2)，
     # 末尾 1-2 天 label 为 NaN 会被 dropna——与三月窗 / sweep_live_adapter 现行为一致。
     start_time, end_time = handler_span(segs)
     fit_start, fit_end = segs["train"]
+    t_rec = TimerRecorder()
+    set_global_timer_recorder(t_rec)
 
     _kernels = resolve_qlib_kernels()
     print(f"[qlib] kernels={_kernels} (QLIB_KERNELS, default 1)", flush=True)
-    qlib.init(provider_uri=provider_uri, region="cn", kernels=_kernels)
+    with t_rec.timer("qlib.init"):
+        qlib.init(provider_uri=provider_uri, region="cn", kernels=_kernels)
+    uninstall_probe = install_features_probe(t_rec)
 
-    instruments = build_filtered_instruments(
-        start_time=start_time, end_time=end_time, exclude_stocks=["SZ000004", "SH600107"]
-    )
-    handler = Alpha158CostKDJ(
+    with t_rec.timer("instruments"):
+        instruments = build_filtered_instruments(
+            start_time=start_time, end_time=end_time, exclude_stocks=["SZ000004", "SH600107"]
+        )
+    with t_rec.timer("handler_init"):
+        handler = Alpha158CostKDJ(
         instruments=instruments,
         start_time=start_time,
         end_time=end_time,
@@ -212,21 +220,31 @@ def live_predict(
         include_cost_kdj=True,
         include_lz=True,
     )
-    dataset = DatasetH(handler=handler, segments=dict(segs))
+    with t_rec.timer("dataset_init"):
+        dataset = DatasetH(handler=handler, segments=dict(segs))
     model = LGBModel(loss="mse", num_boost_round=200, learning_rate=0.05, max_depth=6)
-    model.fit(dataset)
+    with t_rec.timer("model_fit"):
+        model.fit(dataset)
 
-    pred = model.predict(dataset, "test")
+    with t_rec.timer("model_predict"):
+        pred = model.predict(dataset, "test")
     if isinstance(pred, pd.DataFrame):
         pred = pred.iloc[:, 0]
     pred = pred.dropna()
     frame = pred_series_to_frame(pred)
+    try:
+        uninstall_probe()
+        t_rec.print_summary()
+    except Exception:
+        pass
+    set_global_timer_recorder(None)
     return {
         "pred_frame": frame,
         "pred_rows": int(len(frame)),
         "handler_start": start_time,
         "handler_end": end_time,
         "notes": "predict_extended: pred only (no PortAna / no alignment)",
+        "timings": t_rec.as_timings(),
     }
 
 

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import json
 import os
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from collections import defaultdict
 from timeit import default_timer as timer
 from typing import Optional, Dict
@@ -15,37 +15,109 @@ from qlib.backtest.position import Position
 
 
 class TimerRecorder:
-    """Lightweight timing recorder.
+    """End-to-end wall-clock recorder.
 
-    Designed for end-to-end scripts: record named wall-clock durations and dump to JSON.
+    ``nodes`` keeps every span (strategy sample steps included). ``rollup()``
+    collapses them by name so a 166-bar 回测不会变成「只有一长串看不懂的秒数」。
+    ``counters`` 给 D.features 这类高频调用：只累计次数/总秒/最大，不逐条进 nodes
+    （慢调用单独记 ``D.features.slow``）。
     """
 
     def __init__(self):
         self._t0 = timer()
-        self.nodes = []  # List[{"name": str, "seconds": float}]
+        self.nodes = []  # List[{"name": str, "seconds": float, ...}]
+        self.counters: Dict[str, Dict] = {}
+
+    def increment(self, name: str, n: int = 1, seconds: float = 0.0, **fields) -> None:
+        slot = self.counters.setdefault(
+            name, {"count": 0, "seconds": 0.0, "max_seconds": 0.0}
+        )
+        slot["count"] += int(n)
+        sec = float(seconds or 0.0)
+        slot["seconds"] += sec
+        if sec > float(slot.get("max_seconds") or 0.0):
+            slot["max_seconds"] = sec
+        for key, value in fields.items():
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                slot[key] = slot.get(key, 0) + value
 
     @contextmanager
-    def timer_context(self, name: str):
+    def timer_context(self, name: str, **meta):
         start = timer()
         try:
             yield
         finally:
             elapsed = timer() - start
-            self.nodes.append({"name": name, "seconds": elapsed})
+            node = {"name": name, "seconds": elapsed}
+            if meta:
+                node.update(meta)
+            self.nodes.append(node)
 
-    def timer(self, name: str):
+    def timer(self, name: str, **meta):
         """Alias for backward/plan compatibility."""
-        return self.timer_context(name)
+        return self.timer_context(name, **meta)
+
+    def rollup(self) -> list:
+        acc: Dict[str, Dict] = {}
+        for node in self.nodes:
+            name = str(node.get("name") or "?")
+            sec = float(node.get("seconds") or 0.0)
+            slot = acc.setdefault(
+                name, {"name": name, "count": 0, "seconds": 0.0, "max": 0.0, "min": None}
+            )
+            slot["count"] += 1
+            slot["seconds"] += sec
+            slot["max"] = max(float(slot["max"]), sec)
+            slot["min"] = sec if slot["min"] is None else min(float(slot["min"]), sec)
+        rows = []
+        for slot in acc.values():
+            count = int(slot["count"])
+            slot["mean"] = (float(slot["seconds"]) / count) if count else 0.0
+            if slot["min"] is None:
+                slot["min"] = 0.0
+            rows.append(slot)
+        rows.sort(key=lambda row: row["seconds"], reverse=True)
+        return rows
+
+    def as_timings(self) -> Dict:
+        return {
+            "total_seconds": timer() - self._t0,
+            "nodes": self.nodes,
+            "rollup": self.rollup(),
+            "counters": self.counters,
+        }
+
+    def print_summary(self, top: int = 15) -> None:
+        rows = self.rollup()[: max(int(top), 0)]
+        print("=== Timing rollup (by total seconds) ===", flush=True)
+        for row in rows:
+            print(
+                f"  {row['name']:<42} {row['seconds']:8.2f}s  n={row['count']:<4} "
+                f"mean={row['mean']:.2f} max={row['max']:.2f}",
+                flush=True,
+            )
+        for name, slot in sorted(
+            self.counters.items(), key=lambda kv: float(kv[1].get("seconds") or 0), reverse=True
+        ):
+            extra = ""
+            if "instruments" in slot:
+                extra += f" inst={int(slot['instruments'])}"
+            if "fields" in slot:
+                extra += f" fields={int(slot['fields'])}"
+            print(
+                f"  {name:<42} {float(slot.get('seconds') or 0):8.2f}s  "
+                f"n={int(slot.get('count') or 0):<4} max={float(slot.get('max_seconds') or 0):.2f}"
+                f"{extra}",
+                flush=True,
+            )
+        print(f"  {'total':<42} {timer() - self._t0:8.2f}s", flush=True)
 
     def dump_json(self, path: str, extra: Optional[Dict] = None):
         base_dir = os.path.dirname(path)
         if base_dir:
             os.makedirs(base_dir, exist_ok=True)
 
-        payload = {
-            "total_seconds": timer() - self._t0,
-            "nodes": self.nodes,
-        }
+        payload = self.as_timings()
         if extra:
             payload.update(extra)
 
@@ -67,6 +139,79 @@ def set_global_timer_recorder(rec: "TimerRecorder") -> None:
 def get_global_timer_recorder() -> Optional["TimerRecorder"]:
     """Get the global recorder; returns None if not set."""
     return _GLOBAL_TIMER_RECORDER
+
+
+def maybe_timer(name: str, recorder: Optional["TimerRecorder"] = None):
+    """Use ``recorder`` or the process-global one; no-op if neither is set."""
+    rec = recorder if recorder is not None else _GLOBAL_TIMER_RECORDER
+    if rec is None:
+        return nullcontext()
+    return rec.timer(name)
+
+
+def _probe_len(value) -> int:
+    if value is None or isinstance(value, (str, bytes)):
+        return 1
+    try:
+        return int(len(value))
+    except TypeError:
+        return 1
+
+
+def install_features_probe(
+    recorder: Optional["TimerRecorder"] = None,
+    *,
+    target=None,
+    attr: str = "features",
+    slow_seconds: float = 1.0,
+):
+    """Wrap ``D.features`` (or ``target.attr``) to count / time calls.
+
+    Fast calls only hit ``counters['D.features']``. Calls ≥ ``slow_seconds``
+    also append ``D.features.slow`` to ``nodes`` (the P1 kernels 29s 那种)。
+    Returns an uninstall callable.
+    """
+    rec = recorder if recorder is not None else _GLOBAL_TIMER_RECORDER
+    if target is None:
+        from qlib.data import D
+
+        target = D
+    original = getattr(target, attr)
+
+    def wrapped(instruments, fields, *args, **kwargs):
+        n_inst = _probe_len(instruments)
+        n_fields = _probe_len(fields)
+        start = timer()
+        try:
+            return original(instruments, fields, *args, **kwargs)
+        finally:
+            elapsed = timer() - start
+            if rec is not None:
+                rec.increment(
+                    "D.features",
+                    n=1,
+                    seconds=elapsed,
+                    instruments=n_inst,
+                    fields=n_fields,
+                )
+                if elapsed >= float(slow_seconds):
+                    rec.nodes.append(
+                        {
+                            "name": "D.features.slow",
+                            "seconds": elapsed,
+                            "instruments": n_inst,
+                            "fields": n_fields,
+                        }
+                    )
+
+    setattr(target, attr, wrapped)
+
+    def uninstall():
+        current = getattr(target, attr, None)
+        if current is wrapped:
+            setattr(target, attr, original)
+
+    return uninstall
 
 
 def analyze_and_visualize_positions(report: pd.DataFrame, positions: dict, figsize=(14, 10)):

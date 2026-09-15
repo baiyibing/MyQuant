@@ -34,6 +34,11 @@ from analysis_export import (
     print_bundle_summary,
     write_analysis_bundle,
 )
+from custom_utils import (
+    TimerRecorder,
+    install_features_probe,
+    set_global_timer_recorder,
+)
 from custom_ops import SMA
 from rebacktest_cost_tiers import (
     COST_TIERS,
@@ -159,8 +164,14 @@ def main():
             flush=True,
         )
 
-    _qlib_init()
-    recorder, pred = load_pred(args.exp_name, args.recorder_id)
+    t_rec = TimerRecorder()
+    set_global_timer_recorder(t_rec)
+    uninstall_probe = None
+    with t_rec.timer("qlib.init"):
+        _qlib_init()
+    uninstall_probe = install_features_probe(t_rec)
+    with t_rec.timer("load_pred"):
+        recorder, pred = load_pred(args.exp_name, args.recorder_id)
     pred_score = pred["score"] if isinstance(pred, pd.DataFrame) else pred
     report = None
 
@@ -168,7 +179,8 @@ def main():
         args.pred_score = pred_score
         strategy_config = build_strategy_config(args)
         print(f"[export] replay backtest (tier={args.cost_tier}) ...", flush=True)
-        report, positions = backtest_daily(
+        with t_rec.timer("replay.backtest"):
+            report, positions = backtest_daily(
             start_time=args.test_window[0],
             end_time=args.test_window[1],
             strategy=strategy_config,
@@ -182,14 +194,15 @@ def main():
         source = "replay"
     else:
         print("[export] extract positions from recorder (no replay)", flush=True)
-        positions = _load_positions(recorder)
-        report = _load_report(recorder)
-        if args.test_window:
-            positions = filter_positions_by_window(positions, args.test_window[0], args.test_window[1])
-            if report is not None and len(report):
-                idx = pd.to_datetime(report.index)
-                mask = (idx >= args.test_window[0]) & (idx <= args.test_window[1])
-                report = report.loc[mask]
+        with t_rec.timer("extract.positions"):
+            positions = _load_positions(recorder)
+            report = _load_report(recorder)
+            if args.test_window:
+                positions = filter_positions_by_window(positions, args.test_window[0], args.test_window[1])
+                if report is not None and len(report):
+                    idx = pd.to_datetime(report.index)
+                    mask = (idx >= args.test_window[0]) & (idx <= args.test_window[1])
+                    report = report.loc[mask]
         source = "recorder"
 
     rid = recorder.id
@@ -200,7 +213,8 @@ def main():
     os.makedirs(out_dir, exist_ok=True)
 
     tier = COST_TIERS[args.cost_tier]
-    bundle = write_analysis_bundle(
+    with t_rec.timer("export_analysis"):
+        bundle = write_analysis_bundle(
         positions=positions,
         out_dir=out_dir,
         open_rate=tier["open_cost"],
@@ -241,11 +255,21 @@ def main():
             },
             out_dir=out_dir,
             output_file_count=len(bundle["paths"]),
+            timings=t_rec.as_timings(),
             repo_root=_REPO_ROOT,
             git_commit_sha=capture_git_provenance(_REPO_ROOT).get("git_commit"),
         )
     except Exception as exc:
         print(f"[export] manifest skipped: {exc}")
+    try:
+        if uninstall_probe is not None:
+            uninstall_probe()
+        t_rec.print_summary()
+        t_rec.dump_json(os.path.join(out_dir, "timing.json"), extra={"source": source, "recorder_id": rid})
+        print(f"=== Timing saved: {os.path.join(out_dir, 'timing.json')} ===")
+    except Exception as exc:
+        print(f"[export] timing dump skipped: {exc}")
+    set_global_timer_recorder(None)
 
 
 if __name__ == "__main__":

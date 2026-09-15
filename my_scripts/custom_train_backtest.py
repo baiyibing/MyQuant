@@ -56,7 +56,7 @@ import plotly.graph_objects as go
 
 from pprint import pprint
 from custom_utils import pprint_position_report, analyze_position_by_date, generate_position_report, \
-    pprint_risk_analysis, TimerRecorder, set_global_timer_recorder
+    pprint_risk_analysis, TimerRecorder, set_global_timer_recorder, install_features_probe
 from run_manifest import capture_git_provenance, write_train_manifest
 
 
@@ -77,6 +77,8 @@ if __name__ == '__main__':
     _git_prov = capture_git_provenance(base_dir)
     exp_name = None
     timing_path = None
+    _analysis_dir = None
+    _uninstall_features_probe = None
 
     logger.remove(0)
 
@@ -143,7 +145,8 @@ if __name__ == '__main__':
     _redis_port = 6379
     _redis_password = "123456"
     _redis_db = 1
-    qlib.init(
+    with t_rec.timer("qlib.init"):
+        qlib.init(
         # 数据存储路径
         provider_uri = "~/.qlib/qlib_data/my_data",  # target_dir
         # 中国市场
@@ -169,6 +172,7 @@ if __name__ == '__main__':
         logging_level=logging.INFO,
         **_init_extra,
     )
+    _uninstall_features_probe = install_features_probe(t_rec)
     # eng-perf P1-2：显式探针 — 区分 Redis ok vs 静默降级（与 handler-cache pickle 正交）
     log_qlib_redis_probe(
         _redis_host,
@@ -223,14 +227,15 @@ if __name__ == '__main__':
 
     exclude_filter = build_exclude_name_filter(exclude_stocks)
     limit_up_filter = build_limit_up_filter()
-    instruments = build_filtered_instruments(
-        start_time=start_time,
-        end_time=end_time,
-        exclude_stocks=exclude_stocks,
-        use_exclude=exclude_filter_on,
-        limit_up=limit_up_filter_on,
-        market="all_tradable" if cli_args.tradable_universe else "all",
-    )
+    with t_rec.timer("instruments"):
+        instruments = build_filtered_instruments(
+            start_time=start_time,
+            end_time=end_time,
+            exclude_stocks=exclude_stocks,
+            use_exclude=exclude_filter_on,
+            limit_up=limit_up_filter_on,
+            market="all_tradable" if cli_args.tradable_universe else "all",
+        )
 
     # 定义策略相关的市场和分析基准
     # market = "all"
@@ -245,9 +250,19 @@ if __name__ == '__main__':
     def _dump_timing_on_exit():
         # Ensure we always persist timing nodes, even if the run crashes mid-way.
         try:
+            if _uninstall_features_probe is not None:
+                _uninstall_features_probe()
+        except Exception:
+            pass
+        try:
+            t_rec.print_summary()
             _path = timing_path or os.path.join(base_dir, "timing_custom_train_backtest_unknown.json")
             t_rec.dump_json(_path, extra={"exp_name": exp_name})
             print(f"=== Timing saved: {_path} ===")
+            if _analysis_dir:
+                side = os.path.join(_analysis_dir, "timing.json")
+                t_rec.dump_json(side, extra={"exp_name": exp_name})
+                print(f"=== Timing saved: {side} ===")
         except Exception as e:
             print(f"Failed to dump timing json: {e}")
 
@@ -417,22 +432,25 @@ if __name__ == '__main__':
 
     _buy_state_strategy_kwargs = {}
     if cli_args.buy_state_filter:
-        _elig = BuyEligibilityFilter(
-            st_codes=None,
-            age_map=None,
-            check_buy_state=True,
-            calendar=list(D.calendar(future=True)),
-        )
-        _bt_codes = D.list_instruments(
-            D.instruments(market="all"),
-            start_time=test_start_time,
-            end_time=test_end_time,
-            as_list=True,
-        )
-        _elig.preload(_bt_codes, test_start_time, test_end_time)
+        with t_rec.timer("elig.preload"):
+            _elig = BuyEligibilityFilter(
+                st_codes=None,
+                age_map=None,
+                check_buy_state=True,
+                calendar=list(D.calendar(future=True)),
+            )
+            _bt_codes = D.list_instruments(
+                D.instruments(market="all"),
+                start_time=test_start_time,
+                end_time=test_end_time,
+                as_list=True,
+            )
+            _elig.preload(_bt_codes, test_start_time, test_end_time)
+        with t_rec.timer("close_cache"):
+            _close_cache = build_close_cache(_bt_codes, test_start_time, test_end_time)
         _buy_state_strategy_kwargs = {
             "eligibility": _elig,
-            "close_cache": build_close_cache(_bt_codes, test_start_time, test_end_time),
+            "close_cache": _close_cache,
             # Default 10; short-window diagnosis: --timing-interval-steps 1 (eng-perf P1-6).
             "timing_interval_steps": int(getattr(cli_args, "timing_interval_steps", 10) or 10),
         }
@@ -784,7 +802,9 @@ if __name__ == '__main__':
 
                 _ex = port_analysis_config["backtest"]["exchange_kwargs"]
                 _bundle_dir = os.path.join(base_dir, "exports", "analysis", str(rid))
-                _bundle = write_analysis_bundle(
+                _analysis_dir = _bundle_dir
+                with t_rec.timer("export_analysis"):
+                    _bundle = write_analysis_bundle(
                     positions=positions,
                     out_dir=_bundle_dir,
                     open_rate=float(_ex.get("open_cost", 0.0005)),
