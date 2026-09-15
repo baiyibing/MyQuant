@@ -1,0 +1,55 @@
+{
+  "storm": "r2-live",
+  "topic": "qlib-eng-perf-brainstorm",
+  "scope": "wall-clock/cache/kernels — NOT returns",
+  "workdir": "/workspace/MyQuant",
+  "outdir": "/workspace/MyQuant/docs/reviews/2026-09-15-qlib-eng-perf-brainstorm/r2-live",
+  "started_at_utc": "2026-09-15T01:34:50Z",
+  "ended_at_utc": "2026-09-15T01:40:59Z",
+  "started_at_cst": "2026-09-15T09:34:50+08:00",
+  "ended_at_cst": "2026-09-15T09:40:59+08:00",
+  "elapsed_s": 369,
+  "parallel": true,
+  "seats": {
+    "grok": {
+      "status": "OK",
+      "exit_code": 0,
+      "bytes": 18135,
+      "path": "/workspace/MyQuant/docs/reviews/2026-09-15-qlib-eng-perf-brainstorm/r2-live/grok.md",
+      "via": "grok",
+      "model": "grok-cli-default",
+      "recipe": "grok -p $(cat _prompt_grok.txt) --permission-mode bypassPermissions --always-approve",
+      "timeout_s": 600
+    },
+    "kimi": {
+      "status": "OK",
+      "exit_code": 0,
+      "bytes": 15805,
+      "path": "/workspace/MyQuant/docs/reviews/2026-09-15-qlib-eng-perf-brainstorm/r2-live/kimi.md",
+      "via": "cursor-agent",
+      "model": "kimi-k2.7-code",
+      "recipe": "cursor-agent -p --output-format text --trust -f --mode ask --model kimi-k2.7-code --workspace /workspace/MyQuant $(cat _prompt_kimi.txt)",
+      "timeout_s": 600
+    },
+    "codex": {
+      "status": "OK",
+      "exit_code": 0,
+      "bytes": 8799,
+      "path": "/workspace/MyQuant/docs/reviews/2026-09-15-qlib-eng-perf-brainstorm/r2-live/codex.md",
+      "via": "codex",
+      "model": "codex-exec-default",
+      "recipe": "codex exec --ephemeral $(cat _prompt_codex.txt)",
+      "timeout_s": 600
+    },
+    "cursor": {
+      "status": "OK",
+      "exit_code": 0,
+      "bytes": 16188,
+      "path": "/workspace/MyQuant/docs/reviews/2026-09-15-qlib-eng-perf-brainstorm/r2-live/cursor.md",
+      "via": "cursor-agent",
+      "model": "claude-sonnet-5-thinking-high",
+      "recipe": "cursor-agent -p --output-format text --trust -f --mode ask --model claude-sonnet-5-thinking-high --workspace /workspace/MyQuant $(cat _prompt_cursor.txt)",
+      "timeout_s": 600
+    }
+  }
+}

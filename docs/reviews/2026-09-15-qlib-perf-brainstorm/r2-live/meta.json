@@ -1,0 +1,83 @@
+{
+  "storm": "R2-live",
+  "topic": "annualized_returns_list_realization",
+  "workdir": "/workspace/MyQuant",
+  "outdir": "/workspace/MyQuant/docs/reviews/2026-09-15-qlib-perf-brainstorm/r2-live",
+  "started_at_utc": "2026-09-15T01:35:18Z",
+  "seats": {
+    "grok": {
+      "seat": "grok",
+      "cli": "grok",
+      "model": "grok-4.6",
+      "rc": 0,
+      "elapsed_s": 404,
+      "status": "OK",
+      "bytes": 21395
+    },
+    "kimi": {
+      "seat": "kimi",
+      "cli": "cursor-agent",
+      "model": "kimi-k2.7-code",
+      "rc": 0,
+      "elapsed_s": 102,
+      "status": "OK",
+      "bytes": 11886
+    },
+    "codex": {
+      "seat": "codex",
+      "cli": "codex",
+      "model": "gpt-6-astra",
+      "rc": 0,
+      "elapsed_s": 121,
+      "status": "OK",
+      "bytes": 10159
+    },
+    "cursor": {
+      "seat": "cursor",
+      "cli": "cursor-agent",
+      "model": "claude-sonnet-5-thinking-high",
+      "rc": 0,
+      "elapsed_s": 468,
+      "status": "OK",
+      "bytes": 17452
+    }
+  },
+  "summary": [
+    {
+      "seat": "grok",
+      "status": "OK",
+      "bytes": 21395,
+      "elapsed_s": 404,
+      "cli": "grok",
+      "model": "grok-4.6",
+      "rc": 0
+    },
+    {
+      "seat": "kimi",
+      "status": "OK",
+      "bytes": 11886,
+      "elapsed_s": 102,
+      "cli": "cursor-agent",
+      "model": "kimi-k2.7-code",
+      "rc": 0
+    },
+    {
+      "seat": "codex",
+      "status": "OK",
+      "bytes": 10159,
+      "elapsed_s": 121,
+      "cli": "codex",
+      "model": "gpt-6-astra",
+      "rc": 0
+    },
+    {
+      "seat": "cursor",
+      "status": "OK",
+      "bytes": 17452,
+      "elapsed_s": 468,
+      "cli": "cursor-agent",
+      "model": "claude-sonnet-5-thinking-high",
+      "rc": 0
+    }
+  ]
+}
