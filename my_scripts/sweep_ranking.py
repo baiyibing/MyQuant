@@ -173,6 +173,9 @@ def run_one(
 
         data = payload.get("data") if isinstance(payload.get("data"), Mapping) else {}
         timings = payload.get("timings") if isinstance(payload.get("timings"), Mapping) else None
+        # 缺 timings 时禁止默写 total_seconds:0（假零秒）；标 unknown 待 adapter 必给
+        if timings is None:
+            timings = {"total_seconds": None, "nodes": [], "unknown": True}
         pred_path = payload.get("pred_path")
         pred_rows = payload.get("pred_rows")
 
@@ -180,7 +183,7 @@ def run_one(
             manifests_dir=manifests_dir,
             config=man_cfg,
             pred_path=pred_path if pred_path else None,
-            timings=timings or {"total_seconds": 0, "nodes": []},
+            timings=timings,
             data=data or {},
             repo_root=repo_root,
             git_commit_sha=payload.get("git_commit"),

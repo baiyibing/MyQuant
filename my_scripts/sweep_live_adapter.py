@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import math
 import sys
+import time
 from datetime import date
 from pathlib import Path
 from typing import Any, Mapping
@@ -39,7 +40,7 @@ if str(_SCRIPT_DIR) not in sys.path:
 
 # 共享 mlflow 逃生口 / 静音（须在任何 qlib import 之前）
 import host_env  # noqa: E402,F401
-from run_manifest import capture_git_provenance  # noqa: E402
+from run_manifest import capture_git_provenance, config_hash  # noqa: E402
 from handler_frame_cache import resolve_qlib_kernels  # noqa: E402
 
 _STATE: dict[str, Any] = {}
@@ -101,8 +102,12 @@ def set_segments(segments: Mapping[str, Any]) -> None:
         raise ValueError("require train.start <= valid.start <= test.start")
     _ACTIVE_SEGMENTS.clear()
     _ACTIVE_SEGMENTS.update(parsed)
+    # 跨窗禁止硬共享：清 pred/label 与 shared cache 标记
     _STATE.pop("pred", None)
     _STATE.pop("label", None)
+    _STATE.pop("shared_handler_cache_key", None)
+    _STATE.pop("arm_mode", None)
+    _STATE.pop("last_timings", None)
 
 
 def _handler_span(segments: Mapping[str, tuple[str, str]]) -> tuple[str, str]:
@@ -112,18 +117,45 @@ def _handler_span(segments: Mapping[str, tuple[str, str]]) -> tuple[str, str]:
     return start_time, end_time
 
 
-def _predict_once() -> tuple[pd.Series, pd.Series]:
-    """构建 handler/dataset/model 一次，产出 (pred, label)（MultiIndex 对齐）。"""
-    if "pred" in _STATE:
-        return _STATE["pred"], _STATE["label"]
+# 与 _build_pred_label 内 handler 旋钮对齐的稳定键材料（不做磁盘 handler-cache）
+_HANDLER_KEY_KNOBS: dict[str, Any] = {
+    "handler_class": "Alpha158CostKDJ",
+    "include_alpha158": True,
+    "include_cost_kdj": True,
+    "include_lz": True,
+    "exclude_stocks": ["SZ000004", "SH600107"],
+    "model": "LGBModel",
+    "loss": "mse",
+    "num_boost_round": 200,
+}
 
+
+def make_shared_handler_cache_key(segments: Mapping[str, tuple[str, str]] | None = None) -> str:
+    """Stable short digest over segments span + key handler knobs (eng-perf P0-2)."""
+    segs = dict(segments) if segments is not None else get_segments()
+    start_time, end_time = _handler_span(segs)
+    fit_start, fit_end = segs["train"]
+    material = {
+        **_HANDLER_KEY_KNOBS,
+        "start_time": start_time,
+        "end_time": end_time,
+        "fit_start_time": fit_start,
+        "fit_end_time": fit_end,
+        "segments": {
+            k: [segs[k][0], segs[k][1]] for k in ("train", "valid", "test")
+        },
+    }
+    return config_hash(material)
+
+
+def _build_pred_label() -> tuple[pd.Series, pd.Series]:
+    """Heavy path: qlib init + handler + fit + predict. Separated so tests can mock."""
     # handler_init 之前一次性取 git 溯源（整次 sweep 共用）
     if "git_prov" not in _STATE:
         repo_root = _SCRIPT_DIR.parent
         _STATE["git_prov"] = capture_git_provenance(repo_root)
 
     import qlib
-    from qlib.data import D
     from qlib.data.dataset import DatasetH
     from qlib.contrib.model import LGBModel
 
@@ -145,7 +177,9 @@ def _predict_once() -> tuple[pd.Series, pd.Series]:
     fit_start, fit_end = segs["train"]
 
     instruments = build_filtered_instruments(
-        start_time=start_time, end_time=end_time, exclude_stocks=["SZ000004", "SH600107"]
+        start_time=start_time,
+        end_time=end_time,
+        exclude_stocks=list(_HANDLER_KEY_KNOBS["exclude_stocks"]),
     )
     handler = Alpha158CostKDJ(
         instruments=instruments,
@@ -167,12 +201,17 @@ def _predict_once() -> tuple[pd.Series, pd.Series]:
             {"class": "DropnaLabel"},
             {"class": "CSZScoreNorm", "kwargs": {"fields_group": "label"}},
         ],
-        include_alpha158=True,
-        include_cost_kdj=True,
-        include_lz=True,
+        include_alpha158=bool(_HANDLER_KEY_KNOBS["include_alpha158"]),
+        include_cost_kdj=bool(_HANDLER_KEY_KNOBS["include_cost_kdj"]),
+        include_lz=bool(_HANDLER_KEY_KNOBS["include_lz"]),
     )
     dataset = DatasetH(handler=handler, segments=dict(segs))
-    model = LGBModel(loss="mse", num_boost_round=200, learning_rate=0.05, max_depth=6)
+    model = LGBModel(
+        loss=str(_HANDLER_KEY_KNOBS["loss"]),
+        num_boost_round=int(_HANDLER_KEY_KNOBS["num_boost_round"]),
+        learning_rate=0.05,
+        max_depth=6,
+    )
     model.fit(dataset)
 
     pred = model.predict(dataset, "test")
@@ -181,9 +220,47 @@ def _predict_once() -> tuple[pd.Series, pd.Series]:
     label = dataset.prepare("test", col_set="label")
     if isinstance(label, pd.DataFrame):
         label = label.iloc[:, 0]
-    _STATE["pred"], _STATE["label"] = pred.dropna(), label.dropna()
-    print(f"[adapter] pred={len(_STATE['pred'])} label={len(_STATE['label'])} "
-          f"days={_STATE['pred'].index.get_level_values(0).nunique()}", flush=True)
+    pred = pred.dropna()
+    label = label.dropna()
+    print(
+        f"[adapter] pred={len(pred)} label={len(label)} "
+        f"days={pred.index.get_level_values(0).nunique()}",
+        flush=True,
+    )
+    return pred, label
+
+
+def _predict_once() -> tuple[pd.Series, pd.Series]:
+    """构建 handler/dataset/model 一次，产出 (pred, label)（MultiIndex 对齐）。
+
+    进程内缓存：首次 INIT_ONCE，后续同窗 ARM_ONLY。set_segments 清缓存防跨窗硬共享。
+    """
+    if "pred" in _STATE:
+        key = _STATE.get("shared_handler_cache_key") or make_shared_handler_cache_key()
+        _STATE["shared_handler_cache_key"] = key
+        _STATE["arm_mode"] = "ARM_ONLY"
+        _STATE["last_timings"] = {
+            "total_seconds": 0.0,
+            "nodes": [{"name": "arm_only", "seconds": 0.0}],
+        }
+        print(f"[adapter] ARM_ONLY key={key}", flush=True)
+        return _STATE["pred"], _STATE["label"]
+
+    key = make_shared_handler_cache_key()
+    t0 = time.perf_counter()
+    pred, label = _build_pred_label()
+    elapsed = time.perf_counter() - t0
+    _STATE["pred"], _STATE["label"] = pred, label
+    _STATE["shared_handler_cache_key"] = key
+    _STATE["arm_mode"] = "INIT_ONCE"
+    _STATE["last_timings"] = {
+        "total_seconds": float(elapsed),
+        "nodes": [
+            {"name": "handler_init", "seconds": float(elapsed)},
+            {"name": "init_once", "seconds": float(elapsed)},
+        ],
+    }
+    print(f"[adapter] INIT_ONCE key={key}", flush=True)
     return _STATE["pred"], _STATE["label"]
 
 
@@ -226,6 +303,13 @@ def train_predict_fn(config) -> Mapping[str, Any]:
     ir = float(series.mean() / (series.std() + 1e-12) * math.sqrt(252))
     git_prov = _STATE.get("git_prov") or {}
     segs = get_segments()
+    arm_mode = _STATE.get("arm_mode") or "ARM_ONLY"
+    cache_key = _STATE.get("shared_handler_cache_key") or make_shared_handler_cache_key(segs)
+    timings = _STATE.get("last_timings") or {
+        "total_seconds": None,
+        "nodes": [],
+        "unknown": True,
+    }
     return {
         "ic": ic,
         "ir": ir,
@@ -242,4 +326,9 @@ def train_predict_fn(config) -> Mapping[str, Any]:
                 "test": [segs["test"][0], segs["test"][1]],
             }
         },
+        "data": {
+            "arm_mode": arm_mode,
+            "shared_handler_cache_key": cache_key,
+        },
+        "timings": timings,
     }
