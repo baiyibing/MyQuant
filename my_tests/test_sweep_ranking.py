@@ -367,3 +367,30 @@ def test_dry_run_fake_with_windows_does_not_need_adapter(tmp_path: Path, monkeyp
     assert "valid" not in data["config"]
     assert "test" not in data["config"]
     assert "segments" not in data["config"]
+
+
+def test_run_one_missing_timings_marks_unknown(tmp_path: Path):
+    """缺 timings 时不写假零秒，标 unknown（adapter 应必给 timings）。"""
+
+    def fake(cfg: SweepConfig):
+        return {
+            "ic": 0.01,
+            "ir": 0.1,
+            "notes": "no-timings",
+            "data": {"arm_mode": "ARM_ONLY", "shared_handler_cache_key": "abc"},
+        }
+
+    result = run_sweep(
+        [SweepConfig(5, 1, 1).with_id()],
+        train_predict_fn=fake,
+        manifests_dir=tmp_path / "manifests",
+        repo_root=_ROOT,
+        write_manifests=True,
+    )[0]
+    man = load_manifest(result.manifest_path)
+    assert man["data"]["arm_mode"] == "ARM_ONLY"
+    assert man["data"]["shared_handler_cache_key"] == "abc"
+    assert man["timings"].get("unknown") is True
+    assert man["timings"]["nodes"] == []
+    assert man["timings"]["total_seconds"] is None
+

@@ -125,7 +125,7 @@ def _toy_pred_label():
 
 def test_payload_config_contains_effective_segments(monkeypatch: pytest.MonkeyPatch):
     pred, label = _toy_pred_label()
-    monkeypatch.setattr(sla, "_predict_once", lambda: (pred, label))
+    monkeypatch.setattr(sla, "_build_pred_label", lambda: (pred, label))
     sla.set_segments(OOS)
     payload = sla.train_predict_fn(SweepConfig(10, 3, 1))
     assert "ic" in payload and "ir" in payload
@@ -139,7 +139,7 @@ def test_payload_config_contains_effective_segments(monkeypatch: pytest.MonkeyPa
 def test_payload_config_default_segments_without_set(monkeypatch: pytest.MonkeyPatch):
     """未调 set_segments 时 payload 仍带默认三月窗，manifest 可区分。"""
     pred, label = _toy_pred_label()
-    monkeypatch.setattr(sla, "_predict_once", lambda: (pred, label))
+    monkeypatch.setattr(sla, "_build_pred_label", lambda: (pred, label))
     payload = sla.train_predict_fn(SweepConfig(5, 2, 1))
     segs = payload["config"]["segments"]
     assert segs["train"] == ["2026-01-01", "2026-01-31"]
@@ -149,7 +149,7 @@ def test_payload_config_default_segments_without_set(monkeypatch: pytest.MonkeyP
 
 def test_manifest_receives_payload_segments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     pred, label = _toy_pred_label()
-    monkeypatch.setattr(sla, "_predict_once", lambda: (pred, label))
+    monkeypatch.setattr(sla, "_build_pred_label", lambda: (pred, label))
     sla.set_segments(OOS)
     result = run_one(
         SweepConfig(10, 3, 1),
@@ -163,3 +163,105 @@ def test_manifest_receives_payload_segments(tmp_path: Path, monkeypatch: pytest.
     assert segs["test"] == ["2026-04-01", "2026-08-31"]
     assert man["config"]["topk"] == 10
     assert man["config"]["stage_kind"] == "ranking_sweep"
+
+
+def test_make_shared_handler_cache_key_stable_and_segment_sensitive():
+    k1 = sla.make_shared_handler_cache_key(MARCH)
+    k2 = sla.make_shared_handler_cache_key(MARCH)
+    assert k1 == k2
+    assert isinstance(k1, str) and len(k1) == 64
+    k_oos = sla.make_shared_handler_cache_key(OOS)
+    assert k_oos != k1
+
+
+def test_init_once_three_arms_same_key(monkeypatch: pytest.MonkeyPatch):
+    """同一 segments 下 3 臂只构建 1 次；首臂 INIT_ONCE，后两臂 ARM_ONLY。"""
+    pred, label = _toy_pred_label()
+    builds = {"n": 0}
+
+    def fake_build():
+        builds["n"] += 1
+        return pred, label
+
+    monkeypatch.setattr(sla, "_build_pred_label", fake_build)
+
+    payloads = []
+    for topk in (5, 10, 20):
+        payloads.append(sla.train_predict_fn(SweepConfig(topk, 2, 1)))
+
+    assert builds["n"] == 1
+    keys = [p["data"]["shared_handler_cache_key"] for p in payloads]
+    assert keys[0] == keys[1] == keys[2]
+    assert keys[0] == sla.make_shared_handler_cache_key(MARCH)
+    assert payloads[0]["data"]["arm_mode"] == "INIT_ONCE"
+    assert payloads[1]["data"]["arm_mode"] == "ARM_ONLY"
+    assert payloads[2]["data"]["arm_mode"] == "ARM_ONLY"
+
+    init_names = [n["name"] for n in payloads[0]["timings"]["nodes"]]
+    assert "init_once" in init_names or "handler_init" in init_names
+    arm_names = [n["name"] for n in payloads[1]["timings"]["nodes"]]
+    assert "arm_only" in arm_names
+    assert payloads[1]["timings"].get("unknown") is not True
+
+
+def test_set_segments_forces_rebuild_and_new_key(monkeypatch: pytest.MonkeyPatch):
+    """换窗后必须重新构建且 shared_handler_cache_key 变化。"""
+    pred, label = _toy_pred_label()
+    builds = {"n": 0}
+
+    def fake_build():
+        builds["n"] += 1
+        return pred, label
+
+    monkeypatch.setattr(sla, "_build_pred_label", fake_build)
+
+    p1 = sla.train_predict_fn(SweepConfig(5, 2, 1))
+    assert builds["n"] == 1
+    assert p1["data"]["arm_mode"] == "INIT_ONCE"
+    key1 = p1["data"]["shared_handler_cache_key"]
+
+    # same window arm
+    p2 = sla.train_predict_fn(SweepConfig(10, 3, 1))
+    assert builds["n"] == 1
+    assert p2["data"]["arm_mode"] == "ARM_ONLY"
+    assert p2["data"]["shared_handler_cache_key"] == key1
+
+    sla.set_segments(OOS)
+    assert "pred" not in sla._STATE
+    assert "shared_handler_cache_key" not in sla._STATE
+
+    p3 = sla.train_predict_fn(SweepConfig(5, 2, 1))
+    assert builds["n"] == 2
+    assert p3["data"]["arm_mode"] == "INIT_ONCE"
+    key2 = p3["data"]["shared_handler_cache_key"]
+    assert key2 != key1
+    assert key2 == sla.make_shared_handler_cache_key(OOS)
+
+
+def test_manifest_receives_arm_mode_and_cache_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    pred, label = _toy_pred_label()
+    monkeypatch.setattr(sla, "_build_pred_label", lambda: (pred, label))
+    man_dir = tmp_path / "manifests"
+    r1 = run_one(
+        SweepConfig(5, 2, 1),
+        train_predict_fn=sla.train_predict_fn,
+        manifests_dir=man_dir,
+        repo_root=_ROOT,
+        write_manifests=True,
+    )
+    r2 = run_one(
+        SweepConfig(10, 3, 1),
+        train_predict_fn=sla.train_predict_fn,
+        manifests_dir=man_dir,
+        repo_root=_ROOT,
+        write_manifests=True,
+    )
+    m1 = load_manifest(r1.manifest_path)
+    m2 = load_manifest(r2.manifest_path)
+    assert m1["data"]["arm_mode"] == "INIT_ONCE"
+    assert m2["data"]["arm_mode"] == "ARM_ONLY"
+    assert m1["data"]["shared_handler_cache_key"] == m2["data"]["shared_handler_cache_key"]
+    assert m1["timings"]["nodes"]
+    assert any(n["name"] in {"init_once", "handler_init"} for n in m1["timings"]["nodes"])
+    assert any(n["name"] == "arm_only" for n in m2["timings"]["nodes"])
+
