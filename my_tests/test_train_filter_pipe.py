@@ -119,6 +119,7 @@ def test_guard_and_cache_cli_flags_default_off():
     assert args.dataset_cache is False
     assert args.expr_cache is False
     assert args.handler_cache is False
+    assert args.no_export_analysis is False
     args_on = parse_train_cli(["--exclude-filter"])
     assert args_on.exclude_filter is True
     args_off = parse_train_cli(
@@ -129,6 +130,7 @@ def test_guard_and_cache_cli_flags_default_off():
             "--dataset-cache",
             "--expr-cache",
             "--handler-cache",
+            "--no-export-analysis",
         ]
     )
     assert args_off.no_exclude_filter is True
@@ -137,6 +139,7 @@ def test_guard_and_cache_cli_flags_default_off():
     assert args_off.dataset_cache is True
     assert args_off.expr_cache is True
     assert args_off.handler_cache is True
+    assert args_off.no_export_analysis is True
 
 
 def test_verify_missing_zhangting_error_mentions_field():
