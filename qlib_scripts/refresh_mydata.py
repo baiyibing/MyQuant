@@ -7,11 +7,12 @@ my_docs/提示词-qlib-bin刷新.md（2026-09-14 / **2026-09-15** 实踩）：
 
 - dump_all 必须 --max_workers 8（禁止 16）
 - 禁止 dump_update；日历末日不变（纠错/赢筹浮点）也必须 dump_all
+- 短尾巴 CSV 走 overlay，禁止按 CSV 首日截断再 concat；缺/空 winratio 忽略，不删 bin
 - 指数不得留在 instruments/all.txt（由 patch_index_data 第 4 步挪走）
-- ~/.qlib 数据只准经本编排器改动；换目录前自动备份 my_data_backup_YYYYMMDD_pre_*
+- ~/.qlib 数据只准经本编排器改动；换目录前自动备份 my_data_backup_YYYYMMDD_pre_*（同日第二次 _2）
 - 半成品 dump 目录必须先删再重灌（--wipe-new-qlib-dir）
 - CSV 里 Windows NaN（-1.#J / -1.#IND）在 merge/dump 收成 NaN；OHLC 出现则中止
-- 扫描报告按列汇总（赢筹干净 vs 只剩 vwap）；swap 后抽样 $winratio ∈ [0,1]
+- 扫描报告按列汇总（赢筹干净 vs 只剩 vwap）；swap 后抽样 $winratio ∈ [0,1]（末日 NaN 可接受）
 
 用法::
 
@@ -199,7 +200,12 @@ def build_merge_cmd(cfg: RefreshConfig) -> StepPlan:
         "--out-dir",
         str(cfg.staging_dir),
     ]
-    return StepPlan("merge_archive_and_csv", argv, str(REPO_ROOT), "拼接 archive+CSV → staging parquet")
+    return StepPlan(
+        "merge_archive_and_csv",
+        argv,
+        str(REPO_ROOT),
+        "overlay 拼接 archive+CSV（缺/空列保留旧档）→ staging parquet",
+    )
 
 
 def build_dump_cmd(cfg: RefreshConfig) -> StepPlan:
@@ -264,6 +270,9 @@ def build_plan(cfg: RefreshConfig) -> list[StepPlan]:
 def format_dry_run(cfg: RefreshConfig, steps: Sequence[StepPlan]) -> str:
     cfg.resolve_paths()
     uni = estimate_universe(cfg.csv_dir, cfg.qlib_dir)
+    from merge_archive_and_csv import format_csv_profile, list_archive_fields, profile_csv_batch
+
+    profile = profile_csv_batch(cfg.csv_dir, list_archive_fields(cfg.archive_dir))
     lines = [
         "=== refresh_mydata dry-run ===",
         f"today: {cfg.today.isoformat()}",
@@ -280,6 +289,7 @@ def format_dry_run(cfg: RefreshConfig, steps: Sequence[StepPlan]) -> str:
         f"offsite: {cfg.offsite} dirs={[str(p) for p in cfg.offsite_dirs]}",
         f"universe_estimate: csv={uni['csv_symbols']} old_all={uni['old_universe']} "
         f"approx_delta={uni['approx_delta']} ({uni['note'] or 'ok'})",
+        format_csv_profile(profile),
         "--- steps ---",
     ]
     for i, step in enumerate(steps, 1):
@@ -296,11 +306,19 @@ def format_dry_run(cfg: RefreshConfig, steps: Sequence[StepPlan]) -> str:
         "unless --wipe-new-qlib-dir; disk free on staging/dump drives"
     )
     lines.append("integrity gates: calendar / sample values / no-index-in-all / universe diff (fail → no swap)")
-    lines.append("atomic swap: backup my_data_backup_YYYYMMDD_pre_* then mv; rollback on error")
+    lines.append(
+        "atomic swap: backup my_data_backup_YYYYMMDD_pre_* then mv; "
+        "同日第二次自动 _2/_3；rollback on error"
+    )
     lines.append("note: 日历末日不变也要 dump_all（纠错/赢筹浮点）；禁止 dump_update")
     lines.append(
+        "note: 短尾巴/缺或空 winratio 走 overlay，禁止截断再 concat；不删 $winratio bin；"
+        "ST/st_daily 不走本编排器"
+    )
+    lines.append(
         "post-swap smoke: calendar last / index.txt / winratio bins + [0,1] sample "
-        "via read_bin_field（首元素是起始下标；PowerShell 双引号勿写 $close）"
+        "via read_bin_field（末日 NaN 可接受，看 last_valid；"
+        "首元素是起始下标；PowerShell 双引号勿写 $close）"
     )
     if cfg.archive:
         lines.append(f"archive (M1-C): my_data_{cfg.today.strftime('%Y%m%d')}_full.7z")
@@ -393,8 +411,25 @@ def run_csv_scan_preflight(cfg: RefreshConfig) -> dict | None:
     return report
 
 
+def run_csv_profile_preflight(cfg: RefreshConfig) -> dict | None:
+    """短尾巴 / 缺列必须在 merge 前打出来，避免又按 CSV 首日截断把赢筹盖空。"""
+    if cfg.skip_merge:
+        return None
+    from merge_archive_and_csv import format_csv_profile, list_archive_fields, profile_csv_batch
+
+    profile = profile_csv_batch(cfg.csv_dir, list_archive_fields(cfg.archive_dir))
+    print(format_csv_profile(profile))
+    if profile.get("short_tail") or profile.get("missing_vs_archive") or profile.get("empty_ignored"):
+        print(
+            "[csv-profile] overlay：CSV 缺/空列（含 winratio）保留旧档；"
+            "不要 --skip-merge 复用已打洞的 staging"
+        )
+    return profile
+
+
 def run_preflight(cfg: RefreshConfig, *, usage_fn=shutil.disk_usage, remover=shutil.rmtree) -> None:
     run_csv_scan_preflight(cfg)
+    run_csv_profile_preflight(cfg)
     assert_disk_space(cfg, usage_fn=usage_fn)
     ensure_dump_target_clean(cfg, remover=remover)
 
@@ -432,12 +467,15 @@ def smoke_winratio_sample(
     valid = series.replace([np.inf, -np.inf], np.nan).dropna()
     out_of = int(((valid < 0) | (valid > 1)).sum()) if len(valid) else 0
     last = series.iloc[-1] if len(series) else None
+    last_valid = valid.index[-1] if len(valid) else None
     return {
         "symbol": symbol,
         "n": int(len(series)),
         "valid": int(len(valid)),
         "nan": int(series.isna().sum()),
         "last": None if last is None or pd.isna(last) else float(last),
+        "last_valid": None if last_valid is None else str(pd.Timestamp(last_valid).date()),
+        "last_valid_value": float(valid.iloc[-1]) if len(valid) else None,
         "vmin": float(valid.min()) if len(valid) else None,
         "vmax": float(valid.max()) if len(valid) else None,
         "out_of_01": out_of,
@@ -477,10 +515,17 @@ def print_refresh_summary(qlib_dir: Path) -> None:
         return
     print(
         f"[smoke] winratio {sample['symbol']} last={_fmt_opt_float(sample['last'])} "
+        f"last_valid={sample.get('last_valid') or 'none'}"
+        f"={_fmt_opt_float(sample.get('last_valid_value'))} "
         f"valid={sample['valid']} nan={sample['nan']} "
         f"range=[{_fmt_opt_float(sample['vmin'])},{_fmt_opt_float(sample['vmax'])}] "
         f"out_of_[0,1]={sample['out_of_01']}"
     )
+    if sample["last"] is None and sample.get("last_valid"):
+        print(
+            "[smoke] note: 末日 winratio 为空可接受"
+            f"（短尾巴缺/空该列时旧档保留到 {sample['last_valid']}）"
+        )
     if sample["out_of_01"]:
         print("[smoke] WARN winratio 存在超出 [0,1] 的值（源纠错批不应再出现）")
 
@@ -808,7 +853,18 @@ def run_integrity_gates(
 
 
 def backup_name(qlib_dir: Path, today: date, tag: str = "refresh") -> Path:
-    return qlib_dir.parent / f"my_data_backup_{today.strftime('%Y%m%d')}_pre_{tag}"
+    """同日第二次 swap 自动加 _2/_3，避免挡住质量修复后再前推日历。"""
+    parent = Path(qlib_dir).parent
+    stamp = today.strftime("%Y%m%d")
+    base = parent / f"my_data_backup_{stamp}_pre_{tag}"
+    if not base.exists():
+        return base
+    n = 2
+    while True:
+        cand = parent / f"my_data_backup_{stamp}_pre_{tag}_{n}"
+        if not cand.exists():
+            return cand
+        n += 1
 
 
 def atomic_swap(
@@ -826,7 +882,7 @@ def atomic_swap(
         raise RefreshError(f"new_qlib_dir 不存在，拒绝 swap: {new_qlib_dir}")
     backup = backup_name(qlib_dir, today)
     if backup.exists():
-        raise RefreshError(f"备份目录已存在，拒绝覆盖: {backup}")
+        raise RefreshError(f"备份目录已存在，拒绝覆盖: {backup}")  # next free name 仍撞上则失败
     do_rename = renamer or (lambda a, b: a.rename(b))
     moved_old = False
     try:

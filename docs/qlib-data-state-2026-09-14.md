@@ -1,7 +1,7 @@
 # qlib 数据状态（2026-09-14 刷新后）
 
-> **已被 2026-09-15 质量修复刷新覆盖。** 当前线上见 `docs/qlib-data-state-2026-09-15.md`。
-> 日历末日仍是 2026-09-14；本快照保留 `$winratio` 首次入库与源侧 `-1.#J` 事故记录。
+> **已被 2026-09-15 刷新覆盖。** 当前线上见 `docs/qlib-data-state-2026-09-15.md`（日历至 2026-09-15）。
+> 本快照保留 `$winratio` 首次入库与源侧 `-1.#J` 事故记录。
 
 - 日期：2026-09-14 晚（CSV 批 `F:\qlibdata20260914\qlibdata` → 线上 `my_data`）
 - 数据目录：`C:\Users\Thinkpad\.qlib\qlib_data\my_data`
