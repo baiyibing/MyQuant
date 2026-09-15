@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   pytest:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +52,6 @@ jobs:
           pip install -r requirements.txt pytest
 
       - name: Run tests
-        shell: pwsh
+        shell: bash
         run: |
           python -m pytest my_tests my_scripts/test_zhangting_filter.py -q
