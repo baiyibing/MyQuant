@@ -1,5 +1,7 @@
 """Export prediction TopN lists using the daily pool CSV contract.
 
+Stage machine (eng-perf P1-5): ``predict_extended|train → pred artifact → export / sweep --pred-from``. This entry reads ``--pred`` only — never handler_init.
+
 ``--asof pred_minus_one`` writes ``pred[D]`` to the next prediction date's
 file; ``--asof identity`` writes it to D's file.  The default is
 ``pred_minus_one`` (locked 2026-09-12).
@@ -38,7 +40,7 @@ from float_cap_gate import (  # noqa: E402
     verify_float_cap,
 )
 from ranking_neutralize import METHODS, load_industry_map, neutralize  # noqa: E402
-from run_manifest import write_export_manifest  # noqa: E402
+from run_manifest import md5_file, write_export_manifest  # noqa: E402
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -278,6 +280,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "asof": args.asof,
                 "topk": args.topk,
                 "pred": str(pred_path),
+                "pred_md5": md5_file(pred_path),
                 "out_dir": str(Path(args.out_dir).expanduser()),
                 "output_file_count": len(written),
                 **neutralize_config,

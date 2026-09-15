@@ -306,3 +306,29 @@ def test_refuses_stock_pool_output(tmp_path):
     with pytest.raises(ValueError, match="stock_pool"):
         export_daily_pool(predictions, forbidden, asof="identity")
     assert not forbidden.exists()
+
+
+
+def test_export_manifest_includes_pred_md5(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    from export_daily_pool import main
+    from run_manifest import load_manifest, md5_file
+
+    pred = tmp_path / "pred.csv"
+    pred.write_text(
+        "datetime,instrument,score\n"
+        "2026-03-02,SH600000,0.3\n"
+        "2026-03-02,SH600001,0.2\n"
+        "2026-03-03,SH600000,0.25\n"
+        "2026-03-03,SH600001,0.15\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "pool"
+    man_dir = tmp_path / "manifests"
+    monkeypatch.setattr("export_daily_pool.REPO_ROOT", tmp_path)
+    # write_export_manifest uses REPO_ROOT / manifests
+    rc = main(["--pred", str(pred), "--out-dir", str(out), "--topk", "1"])
+    assert rc == 0
+    manifests = list((tmp_path / "manifests").glob("*.json"))
+    assert manifests, "expected export manifest"
+    man = load_manifest(manifests[0])
+    assert man["config"]["pred_md5"] == md5_file(pred)

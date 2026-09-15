@@ -4,6 +4,10 @@
 VM-safe: unit/smoke tests inject ``train_predict_fn`` returning IC/IR.
 ``--limit N`` truncates the grid so orchestration can be exercised without
 handler_init (~18min). Real multi-config trains belong on the host.
+
+阶段机（eng-perf P1-5）：``predict_extended|train → pred 产物 → export /
+sweep --pred-from``。``--pred-from`` / ``--label-from`` 离线续跑；
+``--pred-out`` 在 adapter INIT_ONCE 落盘。
 """
 
 from __future__ import annotations
@@ -41,6 +45,7 @@ _SHARED_TIMING_NODE_NAMES = frozenset(
         "model_fit",
         "fit",
         "predict",
+        "pred_from",
     }
 )
 
@@ -311,6 +316,7 @@ def run_one(
             "data",
             "timings",
             "pred_path",
+            "pred_md5",
             "pred_rows",
             "git_commit",
             "git_branch",
@@ -568,6 +574,34 @@ def build_arg_parser() -> argparse.ArgumentParser:
         metavar="START:END",
         help="Test window YYYY-MM-DD:YYYY-MM-DD (default: adapter March window)",
     )
+    p.add_argument(
+        "--pred-from",
+        default=None,
+        dest="pred_from",
+        metavar="PATH",
+        help=(
+            "Offline continuation: load pred CSV/pkl (export_daily_pool contract) "
+            "and skip adapter handler_init/fit/predict (eng-perf P1-5). "
+            "Requires --label-from (or pred.label.csv sidecar) for IC/IR."
+        ),
+    )
+    p.add_argument(
+        "--label-from",
+        default=None,
+        dest="label_from",
+        metavar="PATH",
+        help="Label CSV/pkl aligned to --pred-from (required for offline IC/IR).",
+    )
+    p.add_argument(
+        "--pred-out",
+        default=None,
+        dest="pred_out",
+        metavar="PATH",
+        help=(
+            "On adapter INIT_ONCE, atomically write pred (+label sidecar + meta) "
+            "for later --pred-from handoff (opt-in; default live path unchanged)."
+        ),
+    )
     return p
 
 
@@ -600,6 +634,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     user_segs = maybe_segments_from_args(args)
 
+    if args.pred_from and not args.adapter:
+        # Offline pred handoff needs adapter simulate_list + configure_pred_handoff.
+        args.adapter = "sweep_live_adapter"
+
     if args.adapter:
         import importlib
 
@@ -617,6 +655,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     val = defaults[key]
                     full[key] = (str(val[0]), str(val[1]))
             getattr(module, "set_segments")(full)
+        if args.pred_from or args.label_from or args.pred_out:
+            configure = getattr(module, "configure_pred_handoff", None)
+            if configure is None:
+                raise SystemExit(
+                    f"adapter {args.adapter!r} lacks configure_pred_handoff "
+                    "(needed for --pred-from / --label-from / --pred-out)"
+                )
+            configure(
+                pred_from=args.pred_from,
+                label_from=args.label_from,
+                pred_out=args.pred_out,
+            )
     elif args.dry_run_fake or args.limit is not None:
         # --limit alone still needs a callable on VM: default to fake when limit set.
         # fake 不走 adapter，即使传了 --train/--valid/--test 也不调 set_segments。

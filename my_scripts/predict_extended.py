@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """M5 二轮：扩展窗预测（只出 pred，不跑 PortAna / 不对齐自检）。
 
+阶段机（eng-perf P1-5）：``predict_extended|train → pred 产物 → export /
+sweep --pred-from``。本脚本是上游 pred 写出端；下游只用产物续跑。
+
 复用 ``sweep_live_adapter`` 的构建模式：一次 handler_init 覆盖
 train/valid/test 三段 min start ~ max end；模型与 processors 同 M3-A
 （含 ``DropLimitUpLearn`` 的 ``module_path`` 接线）。

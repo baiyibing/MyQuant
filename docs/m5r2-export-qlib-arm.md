@@ -1,5 +1,7 @@
 # M5 二轮任务 2：导出 Qlib 臂（名单源 A）
 
+**阶段机（eng-perf P1-5）**：`predict_extended|train → pred 产物 → export_daily_pool / sweep_ranking --pred-from`。后两段只读 pred，禁止再付 handler_init。
+
 前置：宿主跑通 `my_scripts/predict_extended.py`，得到 `预测结果_ext.csv`
 （约 128 个交易日 pred；VM 不跑 ~25min handler_init）。
 

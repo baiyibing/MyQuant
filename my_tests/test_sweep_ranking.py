@@ -582,3 +582,83 @@ def test_run_sweep_parent_unknown_when_no_shared_timings(tmp_path: Path):
         assert man["data"]["parent_id"] == parent["data"]["parent_id"]
         assert man["timings"].get("unknown") is True
         assert man["timings"]["total_seconds"] is None
+
+
+
+def test_cli_accepts_pred_from_flags():
+    args = build_arg_parser().parse_args(
+        ["--pred-from", "p.csv", "--label-from", "l.csv", "--pred-out", "o.csv", "--limit", "1"]
+    )
+    assert args.pred_from == "p.csv"
+    assert args.label_from == "l.csv"
+    assert args.pred_out == "o.csv"
+
+
+def test_main_pred_from_defaults_adapter_and_configures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    """--pred-from without --adapter defaults to sweep_live_adapter + configure_pred_handoff."""
+    import types
+
+    calls = {}
+
+    fake = types.ModuleType("sweep_live_adapter")
+
+    def configure_pred_handoff(**kwargs):
+        calls["cfg"] = kwargs
+
+    def train_predict_fn(cfg: SweepConfig):
+        return {
+            "ic": 0.1,
+            "ir": 1.0,
+            "notes": "fake",
+            "timings": {"total_seconds": 0.01, "nodes": [{"name": "pred_from", "seconds": 0.01}]},
+            "data": {"arm_mode": "PRED_FROM"},
+            "pred_path": str(tmp_path / "x.csv"),
+            "pred_md5": "0" * 32,
+        }
+
+    fake.configure_pred_handoff = configure_pred_handoff
+    fake.train_predict_fn = train_predict_fn
+    fake.SEGMENTS = {
+        "train": ("2026-01-01", "2026-01-31"),
+        "valid": ("2026-02-01", "2026-02-28"),
+        "test": ("2026-03-01", "2026-03-23"),
+    }
+    fake.set_segments = lambda segs: calls.setdefault("segs", segs)
+
+    import importlib
+
+    real_import = importlib.import_module
+
+    def fake_import(name, *a, **k):
+        if name == "sweep_live_adapter":
+            return fake
+        return real_import(name, *a, **k)
+
+    monkeypatch.setattr(importlib, "import_module", fake_import)
+    pred = tmp_path / "pred.csv"
+    label = tmp_path / "label.csv"
+    pred.write_text("datetime,instrument,score\n", encoding="utf-8")
+    label.write_text("datetime,instrument,label\n", encoding="utf-8")
+    out_dir = tmp_path / "out"
+    rc = main(
+        [
+            "--pred-from",
+            str(pred),
+            "--label-from",
+            str(label),
+            "--topk",
+            "5",
+            "--n-drop",
+            "1",
+            "--hold",
+            "1",
+            "--limit",
+            "1",
+            "--out-dir",
+            str(out_dir),
+            "--no-manifests",
+        ]
+    )
+    assert rc == 0
+    assert calls["cfg"]["pred_from"] == str(pred)
+    assert calls["cfg"]["label_from"] == str(label)
