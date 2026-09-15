@@ -138,6 +138,11 @@ def _bare_filter_strategy(*, close_cache=None):
     strat._close_wide = wide_close_from_features(close_cache) if close_cache is not None else None
     strat._bar_close_scratch = None
     strat.df_calls = 0
+    strat.tradable_calls = 0
+    strat.deal_price_calls = 0
+    strat.factor_calls = 0
+    strat.cache_hit = 0
+    strat.n_stocks = 0
     return strat
 
 

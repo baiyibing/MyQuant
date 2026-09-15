@@ -433,6 +433,8 @@ if __name__ == '__main__':
         _buy_state_strategy_kwargs = {
             "eligibility": _elig,
             "close_cache": build_close_cache(_bt_codes, test_start_time, test_end_time),
+            # Default 10; short-window diagnosis: --timing-interval-steps 1 (eng-perf P1-6).
+            "timing_interval_steps": int(getattr(cli_args, "timing_interval_steps", 10) or 10),
         }
 
     # 定义投资组合分析（回测）的配置

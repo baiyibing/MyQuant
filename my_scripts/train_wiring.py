@@ -314,6 +314,16 @@ def parse_train_cli(argv=None):
             "仅对 get_feature_config() 表达式列名做前 N 切片打印（零 IO）。"
         ),
     )
+    parser.add_argument(
+        "--timing-interval-steps",
+        type=int,
+        default=10,
+        help=(
+            "TopkDropoutStrategyWithFilter TimerRecorder 采样间隔（默认 10，生产保持）。"
+            "短窗 bar 调用谱诊断用 1；仅在 --buy-state-filter（过滤策略）路径生效。"
+            "always-on 计数器（df/tradable/deal_price/factor）不受此门控。"
+        ),
+    )
     return parser.parse_args(argv)
 
 
