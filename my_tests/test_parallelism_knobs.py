@@ -77,10 +77,13 @@ def test_custom_train_uses_resolve_lgb_not_bare_20():
     src = (_MY_SCRIPTS / "custom_train_backtest.py").read_text(encoding="utf-8")
     assert "resolve_lgb_num_threads" in src
     assert "log_parallelism_knobs" in src
-    # LGB kwargs must not hard-code a bare 20 for num_threads
-    assert re.search(r'"num_threads"\s*:\s*_lgb_threads', src), (
-        "custom_train_backtest must pass resolve_lgb_num_threads() into LGB kwargs"
+    # Threads go through YAML $num_threads; the train script must still pass the resolver.
+    assert re.search(r"build_model_task\(\s*cli_args\s*,\s*_lgb_threads", src), (
+        "custom_train_backtest must pass resolve_lgb_num_threads() into build_model_task"
     )
+    lgb_yaml = (_ROOT / "configs" / "models" / "lgb.yaml").read_text(encoding="utf-8")
+    assert "$num_threads" in lgb_yaml
+    assert not re.search(r"num_threads:\s*20\b", lgb_yaml)
     for i, line in enumerate(src.splitlines(), 1):
         stripped = line.lstrip()
         if stripped.startswith("#"):

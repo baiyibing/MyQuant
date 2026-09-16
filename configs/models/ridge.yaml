@@ -1,0 +1,6 @@
+class: LinearModel
+module_path: qlib.contrib.model.linear
+kwargs:
+  estimator: ridge
+  alpha: 1.0
+  fit_intercept: true

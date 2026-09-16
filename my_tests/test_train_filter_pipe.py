@@ -134,6 +134,7 @@ def test_guard_and_cache_cli_flags_default_off():
 
     lgb_task = build_model_task(args, 20)
     assert lgb_task["class"] == "LGBModel"
+    assert lgb_task["kwargs"]["num_threads"] == 20
     xgb_task = build_model_task(args_xgb, 20)
     assert xgb_task["class"] == "XGBModel"
     assert "num_leaves" not in xgb_task["kwargs"]
@@ -163,6 +164,21 @@ def test_guard_and_cache_cli_flags_default_off():
         assert "not-a-real-learner" in str(exc)
     else:
         raise AssertionError("expected FileNotFoundError for unknown --model")
+    extra = {
+        "ridge": "LinearModel",
+        "lasso": "LinearModel",
+        "tabnet": "TabnetModel",
+        "gru": "GRU",
+        "lstm": "LSTM",
+        "alstm": "ALSTM",
+        "tcn": "TCN",
+        "densemble": "DEnsembleModel",
+    }
+    for name, cls_name in extra.items():
+        extra_args = parse_train_cli(["--model", name])
+        extra_task = build_model_task(extra_args, 8, n_features=183)
+        assert extra_task["class"] == cls_name, name
+        assert resolve_model_config_path(extra_args).stem == name
     args_wide = parse_train_cli(["--topk", "50", "--n-drop", "5"])
     assert args_wide.topk == 50
     assert args_wide.n_drop == 5

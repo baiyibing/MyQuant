@@ -1,0 +1,12 @@
+class: TabnetModel
+module_path: qlib.contrib.model.pytorch_tabnet
+kwargs:
+  d_feat: $n_features
+  batch_size: 8192
+  n_epochs: 30
+  pretrain: false
+  pretrain_n_epochs: 0
+  early_stop: 8
+  lr: 0.01
+  GPU: 0
+  loss: mse
