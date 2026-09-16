@@ -1,0 +1,15 @@
+class: DEnsembleModel
+module_path: qlib.contrib.model.double_ensemble
+kwargs:
+  base_model: gbm
+  loss: mse
+  num_models: 3
+  enable_sr: true
+  enable_fs: true
+  decay: 0.9
+  epochs: 40
+  early_stopping_rounds: 50
+  num_leaves: 210
+  learning_rate: 0.0421
+  max_depth: 8
+  num_threads: $num_threads

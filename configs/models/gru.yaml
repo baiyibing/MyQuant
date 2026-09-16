@@ -1,0 +1,13 @@
+class: GRU
+module_path: qlib.contrib.model.pytorch_gru
+kwargs:
+  d_feat: $n_features
+  hidden_size: 64
+  num_layers: 2
+  n_epochs: 30
+  batch_size: 16384
+  early_stop: 8
+  lr: 0.001
+  GPU: 0
+  loss: mse
+  optimizer: adam

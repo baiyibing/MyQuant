@@ -1,0 +1,15 @@
+class: TCN
+module_path: qlib.contrib.model.pytorch_tcn
+kwargs:
+  d_feat: 3
+  n_chans: 64
+  kernel_size: 5
+  num_layers: 2
+  dropout: 0.1
+  n_epochs: 30
+  batch_size: 16384
+  early_stop: 8
+  lr: 0.001
+  GPU: 0
+  loss: mse
+  optimizer: adam

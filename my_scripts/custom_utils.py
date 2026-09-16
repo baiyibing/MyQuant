@@ -124,6 +124,52 @@ class TimerRecorder:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(payload, f, ensure_ascii=False, indent=2)
 
+    def rollup_seconds(self, name: str) -> float:
+        return float(sum(float(n.get("seconds") or 0) for n in self.nodes if n.get("name") == name))
+
+    def digest_line(self, extra: Optional[Dict] = None) -> str:
+        """One-line compare-friendly digest. ``dataset.prepare.*`` is nested inside model_fit."""
+        extra = extra or {}
+        prepare = float(
+            sum(
+                float(n.get("seconds") or 0)
+                for n in self.nodes
+                if str(n.get("name") or "").startswith("dataset.prepare.")
+            )
+        )
+        parts = []
+        model = extra.get("model")
+        if model:
+            parts.append(f"model={model}")
+        hit = extra.get("handler_cache_hit")
+        if hit is not None:
+            parts.append(f"handler={'HIT' if hit else 'MISS'}")
+        parts.append(f"fit={self.rollup_seconds('model_fit'):.1f}s")
+        parts.append(f"prepare={prepare:.1f}s")
+        parts.append(f"predict={self.rollup_seconds('SignalRecord.generate'):.1f}s")
+        parts.append(f"portana={self.rollup_seconds('PortAnaRecord.generate'):.1f}s")
+        parts.append(f"total={timer() - self._t0:.1f}s")
+        return "[timing] " + " ".join(parts)
+
+
+def wrap_dataset_prepare(dataset, recorder: Optional["TimerRecorder"] = None):
+    """Split DatasetH.prepare out of the model_fit blob (nested; fit still includes it)."""
+    rec = recorder if recorder is not None else get_global_timer_recorder()
+    orig = dataset.prepare
+
+    def prepare(segments, *args, **kwargs):
+        if isinstance(segments, (list, tuple)):
+            label = "+".join(str(s) for s in segments)
+        else:
+            label = str(segments)
+        if rec is None:
+            return orig(segments, *args, **kwargs)
+        with rec.timer(f"dataset.prepare.{label}"):
+            return orig(segments, *args, **kwargs)
+
+    dataset.prepare = prepare
+    return dataset
+
 
 # Global recorder reference for cross-module timing.
 # Used by `custom_strategy.py` / `custom_handler.py` to append into the same JSON dump.

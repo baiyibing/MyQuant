@@ -6,7 +6,7 @@
 
 ## 目标
 
-一次 train / export / refresh 跑完后留下可追溯 JSON：用了哪版代码、哪份配置、哪段日历、哪些产物（MD5）、耗时节点。判优仍只看 IC/IR/名单命中率，**不用** PortAna NAV。
+一次 train / export / refresh 跑完后留下可追溯 JSON：用了哪版代码、哪份配置、哪段日历、哪些产物（MD5）、耗时节点。线上判优仍只看 IC/IR/名单命中率，**不用** PortAna NAV 做上线尺子。研究扫参可以把 PortAna 命名单元格写进 `data`（见下），schema 不 bump。
 
 ## 文件约定
 
@@ -32,7 +32,11 @@
     "calendar_first": "YYYY-MM-DD",
     "calendar_last": "YYYY-MM-DD",
     "calendar_days": 0,
-    "calendar_md5": "optional"
+    "calendar_md5": "optional",
+    "handler_cache_hit": true,
+    "excess_ann_with_cost": 0.118,
+    "excess_ir_with_cost": 0.55,
+    "excess_mdd_with_cost": -0.20
   },
   "artifacts": [
     {"path": "相对或文件名", "md5": "32-hex lowercase", "rows": 0}
@@ -58,9 +62,11 @@
 
 ### stage 建议 config 键
 
-- **train**：`exp_name`, `segments`, `topk`, `n_drop`, `benchmark`, …
+- **train**：`exp_name`, `segments`, `topk`, `n_drop`, `benchmark`, `model`, `model_config`, `recorder_id`, …
 - **export**：`asof`（默认锁 `pred_minus_one`）, `topk`, `pred`, `out_dir`, `output_file_count`
 - **refresh**：编排参数摘要（max_workers=8 等；禁 dump_update）
+
+`data` 可选键（加字段不 bump schema）：`handler_cache_hit` / `handler_cache_key`；PortAna 命名单元格 `excess_ann_with_cost` / `excess_ir_with_cost` / `excess_mdd_with_cost`（以及 without-cost 三件）。扫参汇总读 `my_scripts/summarize_model_runs.py`，不要再从日志里 grep `annualized_return`（同表有多行，容易抓错）。
 
 ## 接入点（本仓）
 

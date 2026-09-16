@@ -18,9 +18,11 @@ from train_wiring import (  # noqa: E402
     build_filtered_instruments,
     build_limit_up_filter,
     build_production_filter_pipe,
+    extract_portana_metrics,
     parse_segment,
     parse_train_cli,
     resolve_segments,
+    resolve_train_timing_path,
     should_verify_filters,
     unique_pred_export_names,
     verify_limit_up_filter,
@@ -123,6 +125,63 @@ def test_guard_and_cache_cli_flags_default_off():
     assert args.no_export_analysis is False
     assert args.topk == 10
     assert args.n_drop == 3
+    assert args.num_boost_round == 1000
+    assert args.early_stopping_rounds == 50
+    assert args.model == "lgb"
+    assert args.exp_name == "alpha158_cost_kdj_lgb"
+    args_xgb = parse_train_cli(["--model", "xgb"])
+    assert args_xgb.model == "xgb"
+    args_cat = parse_train_cli(["--model", "cat"])
+    assert args_cat.model == "cat"
+    from train_wiring import build_model_task
+
+    lgb_task = build_model_task(args, 20)
+    assert lgb_task["class"] == "LGBModel"
+    assert lgb_task["kwargs"]["num_threads"] == 20
+    xgb_task = build_model_task(args_xgb, 20)
+    assert xgb_task["class"] == "XGBModel"
+    assert "num_leaves" not in xgb_task["kwargs"]
+    cat_task = build_model_task(args_cat, 20)
+    assert cat_task["class"] == "CatBoostModel"
+    assert "num_leaves" not in cat_task["kwargs"]
+    assert "rsm" not in cat_task["kwargs"]
+    assert cat_task["kwargs"]["bootstrap_type"] == "Bernoulli"
+    args_dnn = parse_train_cli(["--model", "dnn"])
+    assert args_dnn.model == "dnn"
+    dnn_task = build_model_task(args_dnn, 20, n_features=183)
+    assert dnn_task["class"] == "DNNModelPytorch"
+    assert dnn_task["kwargs"]["optimizer"] == "adam"
+    assert dnn_task["kwargs"]["pt_model_kwargs"]["input_dim"] == 183
+    from train_wiring import MODEL_CONFIG_DIR, build_fit_kwargs, resolve_model_config_path
+
+    assert resolve_model_config_path(args).name == "lgb.yaml"
+    assert build_fit_kwargs(args_xgb)["num_boost_round"] == 1000
+    assert build_fit_kwargs(args_dnn) == {}
+    args_cfg = parse_train_cli(["--model-config", str(MODEL_CONFIG_DIR / "cat.yaml")])
+    cat_from_cfg = build_model_task(args_cfg, 20)
+    assert cat_from_cfg["class"] == "CatBoostModel"
+    missing = parse_train_cli(["--model", "not-a-real-learner"])
+    try:
+        resolve_model_config_path(missing)
+    except FileNotFoundError as exc:
+        assert "not-a-real-learner" in str(exc)
+    else:
+        raise AssertionError("expected FileNotFoundError for unknown --model")
+    extra = {
+        "ridge": "LinearModel",
+        "lasso": "LinearModel",
+        "tabnet": "TabnetModel",
+        "gru": "GRU",
+        "lstm": "LSTM",
+        "alstm": "ALSTM",
+        "tcn": "TCN",
+        "densemble": "DEnsembleModel",
+    }
+    for name, cls_name in extra.items():
+        extra_args = parse_train_cli(["--model", name])
+        extra_task = build_model_task(extra_args, 8, n_features=183)
+        assert extra_task["class"] == cls_name, name
+        assert resolve_model_config_path(extra_args).stem == name
     args_wide = parse_train_cli(["--topk", "50", "--n-drop", "5"])
     assert args_wide.topk == 50
     assert args_wide.n_drop == 5
@@ -241,3 +300,36 @@ def test_unique_pred_export_names_never_bare():
     assert labeled == "预测结果和真实标签_20260915T061116Z_907edbfb_10n3.csv"
     assert pred != "预测结果.csv"
     assert labeled != "预测结果和真实标签.csv"
+
+
+def test_resolve_train_timing_path_is_unique_per_model():
+    a = resolve_train_timing_path("D:/x", "alpha158_cost_kdj_lgb", "ridge", "20260915T133000Z")
+    b = resolve_train_timing_path("D:/x", "alpha158_cost_kdj_lgb", "lasso", "20260915T133000Z")
+    assert a.name == "timing_alpha158_cost_kdj_lgb_ridge_20260915T133000Z.json"
+    assert b.name == "timing_alpha158_cost_kdj_lgb_lasso_20260915T133000Z.json"
+    assert a != b
+    yaml = resolve_train_timing_path("D:/x", "exp", "configs/models/tcn.yaml", "20260916T000000Z")
+    assert yaml.name == "timing_exp_tcn_20260916T000000Z.json"
+
+
+def test_extract_portana_metrics_named_cells():
+    import pandas as pd
+
+    idx = pd.MultiIndex.from_tuples(
+        [
+            ("excess_return_with_cost", "annualized_return"),
+            ("excess_return_with_cost", "information_ratio"),
+            ("excess_return_with_cost", "max_drawdown"),
+            ("excess_return_without_cost", "annualized_return"),
+            ("excess_return_without_cost", "information_ratio"),
+            ("excess_return_without_cost", "max_drawdown"),
+        ]
+    )
+    df = pd.DataFrame({"risk": [0.118, 0.55, -0.20, 0.20, 0.8, -0.15]}, index=idx)
+    got = extract_portana_metrics(df)
+    assert abs(got["excess_ann_with_cost"] - 0.118) < 1e-9
+    assert abs(got["excess_ir_with_cost"] - 0.55) < 1e-9
+    assert abs(got["excess_mdd_with_cost"] + 0.20) < 1e-9
+    assert abs(got["excess_ann_without_cost"] - 0.20) < 1e-9
+    empty = extract_portana_metrics(None)
+    assert empty == {}

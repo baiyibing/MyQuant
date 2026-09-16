@@ -77,10 +77,13 @@ def test_custom_train_uses_resolve_lgb_not_bare_20():
     src = (_MY_SCRIPTS / "custom_train_backtest.py").read_text(encoding="utf-8")
     assert "resolve_lgb_num_threads" in src
     assert "log_parallelism_knobs" in src
-    # LGB kwargs must not hard-code a bare 20 for num_threads
-    assert re.search(r'"num_threads"\s*:\s*_lgb_threads', src), (
-        "custom_train_backtest must pass resolve_lgb_num_threads() into LGB kwargs"
+    # Threads go through YAML $num_threads; the train script must still pass the resolver.
+    assert re.search(r"build_model_task\(\s*cli_args\s*,\s*_lgb_threads", src), (
+        "custom_train_backtest must pass resolve_lgb_num_threads() into build_model_task"
     )
+    lgb_yaml = (_ROOT / "configs" / "models" / "lgb.yaml").read_text(encoding="utf-8")
+    assert "$num_threads" in lgb_yaml
+    assert not re.search(r"num_threads:\s*20\b", lgb_yaml)
     for i, line in enumerate(src.splitlines(), 1):
         stripped = line.lstrip()
         if stripped.startswith("#"):
@@ -98,6 +101,15 @@ def test_custom_train_qlib_init_no_kernels_16():
         assert "kernels=16" not in line and "kernels = 16" not in line, (
             f"custom_train_backtest.py:{i} has literal kernels=16"
         )
+
+
+def test_custom_train_sweep_timing_not_shared():
+    src = (_MY_SCRIPTS / "custom_train_backtest.py").read_text(encoding="utf-8")
+    assert "resolve_train_timing_path" in src
+    assert "wrap_dataset_prepare" in src
+    assert "extract_portana_metrics" in src
+    assert "digest_line" in src
+    assert "timing_custom_train_backtest_alpha158_cost_kdj_lgb.json" not in src
 
 
 def test_manifest_writes_three_knobs():

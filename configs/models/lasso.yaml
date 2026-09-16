@@ -1,0 +1,6 @@
+class: LinearModel
+module_path: qlib.contrib.model.linear
+kwargs:
+  estimator: lasso
+  alpha: 0.001
+  fit_intercept: true
