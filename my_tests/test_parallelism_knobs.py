@@ -103,6 +103,15 @@ def test_custom_train_qlib_init_no_kernels_16():
         )
 
 
+def test_custom_train_sweep_timing_not_shared():
+    src = (_MY_SCRIPTS / "custom_train_backtest.py").read_text(encoding="utf-8")
+    assert "resolve_train_timing_path" in src
+    assert "wrap_dataset_prepare" in src
+    assert "extract_portana_metrics" in src
+    assert "digest_line" in src
+    assert "timing_custom_train_backtest_alpha158_cost_kdj_lgb.json" not in src
+
+
 def test_manifest_writes_three_knobs():
     src = (_MY_SCRIPTS / "custom_train_backtest.py").read_text(encoding="utf-8")
     assert '"qlib_kernels"' in src or "'qlib_kernels'" in src

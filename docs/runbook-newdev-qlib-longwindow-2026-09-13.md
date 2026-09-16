@@ -93,8 +93,9 @@ MLFLOW_DISABLE_AGENT_HINT=1 python custom_train_backtest.py \
 - 并行：训练脚本默认 `kernels=1`（`QLIB_KERNELS` 可覆盖）。Windows 上 `kernels=16` 曾把 Loading 拖到 52 分钟。
   LGBM `num_threads=20` 可按核数调；内存峰值估 8~12 GB（handler 一次性持有全量特征 frame）。
 - 产物（都在 `my_scripts/` 下）：
-  `manifests/train_<UTC>.json`（含 **recorder_id**，Phase 2 要用）、`预测结果.csv`、
-  `timing_custom_train_backtest_alpha158_cost_kdj_lgb.json`、`mlruns/` 里对应 recorder。
+  `manifests/train_<UTC>.json`（含 **recorder_id**，Phase 2 要用）、带戳的 `预测结果_<UTC>_<rid>_<topk>n<ndrop>.csv`、
+  根目录 `timing_<exp>_<model>_<UTC>.json`（扫参不再互相覆盖）、`mlruns/` 里对应 recorder。
+  多模型对照见 `docs/reviews/2026-09-16-model-sweep-datasetH.md`；汇总 `python my_scripts/summarize_model_runs.py`。
 
 ## 5. 跑 Phase 2：成本敏感性 + 等权基准（不重训）
 

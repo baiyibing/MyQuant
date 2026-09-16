@@ -1,0 +1,109 @@
+2026 50/5 DatasetH sweep vs LGB/XGB/Cat +11.8% DNN +4.8%
+
+==== START ridge 2026-09-15T21:28:11.5242111+08:00 ====
+exit=0
+D:\PycharmProjects\MyQuant\manifests\sweep_ridge.log:33:[46160:MainThread](2026-09-15 21:28:23,344) INFO - qlib.workflow - [recorder.py:345] - Recorder 1e82e9042e8e4db789da818831730173 starts running under Experiment 465313019917448184 ...
+D:\PycharmProjects\MyQuant\manifests\sweep_ridge.log:286:annualized_return -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_ridge.log:293:annualized_return -0.233764
+D:\PycharmProjects\MyQuant\manifests\sweep_ridge.log:300:annualized_return -0.242846
+D:\PycharmProjects\MyQuant\manifests\sweep_ridge.log:331:annualized_return   -0.262663
+D:\PycharmProjects\MyQuant\manifests\sweep_ridge.log:338:annualized_return   -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_ridge.log:345:annualized_return   -0.233764
+D:\PycharmProjects\MyQuant\manifests\sweep_ridge.log:382:                           annualized_return -0.233764
+D:\PycharmProjects\MyQuant\manifests\sweep_ridge.log:387:                           annualized_return -0.242846
+
+==== START lasso 2026-09-15T21:30:26.9140908+08:00 ====
+exit=0
+D:\PycharmProjects\MyQuant\manifests\sweep_lasso.log:33:[22844:MainThread](2026-09-15 21:30:42,616) INFO - qlib.workflow - [recorder.py:345] - Recorder d8770029c39c4712bf4b202ad996ec02 starts running under Experiment 465313019917448184 ...
+D:\PycharmProjects\MyQuant\manifests\sweep_lasso.log:275:annualized_return -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_lasso.log:282:annualized_return -0.183649
+D:\PycharmProjects\MyQuant\manifests\sweep_lasso.log:289:annualized_return -0.194862
+D:\PycharmProjects\MyQuant\manifests\sweep_lasso.log:320:annualized_return   -0.212548
+D:\PycharmProjects\MyQuant\manifests\sweep_lasso.log:327:annualized_return   -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_lasso.log:334:annualized_return   -0.183649
+D:\PycharmProjects\MyQuant\manifests\sweep_lasso.log:371:                           annualized_return -0.183649
+D:\PycharmProjects\MyQuant\manifests\sweep_lasso.log:376:                           annualized_return -0.194862
+
+==== START tabnet 2026-09-15T21:36:25.8486250+08:00 ====
+exit=0
+D:\PycharmProjects\MyQuant\manifests\sweep_tabnet.log:141:[33860:MainThread](2026-09-15 21:36:43,994) INFO - qlib.workflow - [recorder.py:345] - Recorder 970fdab6f3794c1592fa13fa2fbb805e starts running under Experiment 465313019917448184 ...
+D:\PycharmProjects\MyQuant\manifests\sweep_tabnet.log:359:annualized_return -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_tabnet.log:366:annualized_return -0.172707
+D:\PycharmProjects\MyQuant\manifests\sweep_tabnet.log:373:annualized_return -0.189358
+D:\PycharmProjects\MyQuant\manifests\sweep_tabnet.log:404:annualized_return   -0.201606
+D:\PycharmProjects\MyQuant\manifests\sweep_tabnet.log:411:annualized_return   -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_tabnet.log:418:annualized_return   -0.172707
+D:\PycharmProjects\MyQuant\manifests\sweep_tabnet.log:455:                           annualized_return -0.172707
+D:\PycharmProjects\MyQuant\manifests\sweep_tabnet.log:460:                           annualized_return -0.189358
+
+==== START gru 2026-09-15T22:02:48.7155152+08:00 ====
+exit=0
+D:\PycharmProjects\MyQuant\manifests\sweep_gru.log:55:[33956:MainThread](2026-09-15 22:03:12,470) INFO - qlib.workflow - [recorder.py:345] - Recorder 79265f8537294d8c99936357c4c02c62 starts running under Experiment 465313019917448184 ...
+D:\PycharmProjects\MyQuant\manifests\sweep_gru.log:378:annualized_return -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_gru.log:385:annualized_return -0.034101
+D:\PycharmProjects\MyQuant\manifests\sweep_gru.log:392:annualized_return -0.041443
+D:\PycharmProjects\MyQuant\manifests\sweep_gru.log:423:annualized_return   -0.062999
+D:\PycharmProjects\MyQuant\manifests\sweep_gru.log:430:annualized_return   -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_gru.log:437:annualized_return   -0.034101
+D:\PycharmProjects\MyQuant\manifests\sweep_gru.log:474:                           annualized_return -0.034101
+D:\PycharmProjects\MyQuant\manifests\sweep_gru.log:479:                           annualized_return -0.041443
+
+==== START lstm 2026-09-15T22:10:22.8653815+08:00 ====
+exit=0
+D:\PycharmProjects\MyQuant\manifests\sweep_lstm.log:49:[3264:MainThread](2026-09-15 22:10:41,225) INFO - qlib.workflow - [recorder.py:345] - Recorder 9de8e92755f648368495344aea2718eb starts running under Experiment 465313019917448184 ...
+D:\PycharmProjects\MyQuant\manifests\sweep_lstm.log:328:annualized_return -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_lstm.log:335:annualized_return -0.002709
+D:\PycharmProjects\MyQuant\manifests\sweep_lstm.log:342:annualized_return -0.012677
+D:\PycharmProjects\MyQuant\manifests\sweep_lstm.log:373:annualized_return   -0.031608
+D:\PycharmProjects\MyQuant\manifests\sweep_lstm.log:380:annualized_return   -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_lstm.log:387:annualized_return   -0.002709
+D:\PycharmProjects\MyQuant\manifests\sweep_lstm.log:424:                           annualized_return -0.002709
+D:\PycharmProjects\MyQuant\manifests\sweep_lstm.log:429:                           annualized_return -0.012677
+
+==== START alstm 2026-09-15T22:17:19.9944984+08:00 ====
+exit=0
+D:\PycharmProjects\MyQuant\manifests\sweep_alstm.log:66:[44920:MainThread](2026-09-15 22:17:38,788) INFO - qlib.workflow - [recorder.py:345] - Recorder 88dd0e6c91664cea8765c93c476c9abd starts running under Experiment 465313019917448184 ...
+D:\PycharmProjects\MyQuant\manifests\sweep_alstm.log:397:annualized_return -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_alstm.log:404:annualized_return -0.149273
+D:\PycharmProjects\MyQuant\manifests\sweep_alstm.log:411:annualized_return -0.157177
+D:\PycharmProjects\MyQuant\manifests\sweep_alstm.log:442:annualized_return   -0.178172
+D:\PycharmProjects\MyQuant\manifests\sweep_alstm.log:449:annualized_return   -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_alstm.log:456:annualized_return   -0.149273
+D:\PycharmProjects\MyQuant\manifests\sweep_alstm.log:493:                           annualized_return -0.149273
+D:\PycharmProjects\MyQuant\manifests\sweep_alstm.log:498:                           annualized_return -0.157177
+
+==== START tcn 2026-09-15T22:24:14.9998226+08:00 ====
+exit=1
+D:\PycharmProjects\MyQuant\manifests\sweep_tcn.log:104:[752:MainThread](2026-09-15 22:24:32,714) INFO - qlib.workflow - [recorder.py:345] - Recorder dc2bce1492114ecc9365c2691ab85be0 starts running under Experiment 465313019917448184 ...
+D:\PycharmProjects\MyQuant\manifests\sweep_tcn.log:110:[752:MainThread](2026-09-15 22:24:43,066) ERROR - qlib.workflow - [utils.py:41] - An exception has been raised[RuntimeError: Calculated padded input size per channel: (0). Kernel size: (1). Kernel size can't 
+
+==== START densemble 2026-09-15T22:24:45.3850164+08:00 ====
+exit=1
+D:\PycharmProjects\MyQuant\manifests\sweep_densemble.log:34:[22880:MainThread](2026-09-15 22:25:00,963) INFO - qlib.workflow - [recorder.py:345] - Recorder 5faed9dfb31d45e0bd1cd2c7b060ed35 starts running under Experiment 465313019917448184 ...
+D:\PycharmProjects\MyQuant\manifests\sweep_densemble.log:53:[22880:MainThread](2026-09-15 22:27:16,646) ERROR - qlib.workflow - [utils.py:41] - An exception has been raised[TypeError: unsupported operand type(s) for ** or pow(): 'NoneType' and 'int'].
+
+==== RETRY tcn 2026-09-15T22:28:22.2181543+08:00 ====
+
+==== RETRY tcn 2026-09-16T10:06:13.5300032+08:00 ====
+exit=0
+D:\PycharmProjects\MyQuant\manifests\sweep_tcn.log:104:[26348:MainThread](2026-09-16 10:06:30,452) INFO - qlib.workflow - [recorder.py:345] - Recorder 00c103f93ec940e9917a768f58185315 starts running under Experiment 465313019917448184 ...
+D:\PycharmProjects\MyQuant\manifests\sweep_tcn.log:368:annualized_return -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_tcn.log:375:annualized_return -0.022455
+D:\PycharmProjects\MyQuant\manifests\sweep_tcn.log:382:annualized_return -0.035561
+D:\PycharmProjects\MyQuant\manifests\sweep_tcn.log:413:annualized_return   -0.051354
+D:\PycharmProjects\MyQuant\manifests\sweep_tcn.log:420:annualized_return   -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_tcn.log:427:annualized_return   -0.022455
+D:\PycharmProjects\MyQuant\manifests\sweep_tcn.log:464:                           annualized_return -0.022455
+D:\PycharmProjects\MyQuant\manifests\sweep_tcn.log:469:                           annualized_return -0.035561
+
+==== RETRY densemble 2026-09-16T10:14:49.2475037+08:00 ====
+exit=0
+D:\PycharmProjects\MyQuant\manifests\sweep_densemble.log:34:[11844:MainThread](2026-09-16 10:15:03,725) INFO - qlib.workflow - [recorder.py:345] - Recorder 61344198c64543ce8a41918475507ba8 starts running under Experiment 465313019917448184 ...
+D:\PycharmProjects\MyQuant\manifests\sweep_densemble.log:447:annualized_return -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_densemble.log:454:annualized_return -0.117700
+D:\PycharmProjects\MyQuant\manifests\sweep_densemble.log:461:annualized_return -0.133252
+D:\PycharmProjects\MyQuant\manifests\sweep_densemble.log:492:annualized_return   -0.146598
+D:\PycharmProjects\MyQuant\manifests\sweep_densemble.log:499:annualized_return   -0.028899
+D:\PycharmProjects\MyQuant\manifests\sweep_densemble.log:506:annualized_return   -0.117700
+D:\PycharmProjects\MyQuant\manifests\sweep_densemble.log:543:                           annualized_return -0.117700
+D:\PycharmProjects\MyQuant\manifests\sweep_densemble.log:548:                           annualized_return -0.133252

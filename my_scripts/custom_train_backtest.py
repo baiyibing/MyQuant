@@ -7,6 +7,7 @@ import copy
 # 共享 mlflow 逃生口 / 静音（须在任何 qlib import 之前）
 import host_env  # noqa: F401
 
+from datetime import datetime, timezone
 from timeit import default_timer as timer
 
 
@@ -48,7 +49,9 @@ from train_wiring import (
     check_pred_report_alignment,
     build_fit_kwargs,
     build_model_task,
+    extract_portana_metrics,
     parse_train_cli,
+    resolve_train_timing_path,
     resolve_segments,
     should_verify_filters,
     unique_pred_export_names,
@@ -59,7 +62,7 @@ import plotly.graph_objects as go
 
 from pprint import pprint
 from custom_utils import pprint_position_report, analyze_position_by_date, generate_position_report, \
-    pprint_risk_analysis, TimerRecorder, set_global_timer_recorder, install_features_probe
+    pprint_risk_analysis, TimerRecorder, set_global_timer_recorder, install_features_probe, wrap_dataset_prepare
 from run_manifest import capture_git_provenance, write_train_manifest
 
 
@@ -82,6 +85,7 @@ if __name__ == '__main__':
     timing_path = None
     _analysis_dir = None
     _uninstall_features_probe = None
+    _timing_extra: dict = {}
 
     logger.remove(0)
 
@@ -256,8 +260,12 @@ if __name__ == '__main__':
     benchmark = "SH000300"  # 沪深300 / CSI300
     # market = ['SH600000','SH600010','SH600028','SH600025','SH600019','SH600900','SH600941','SZ300059','SZ300124','SZ300274']
 
-    exp_name = "alpha158_cost_kdj_lgb"
-    timing_path = os.path.join(base_dir, f"timing_custom_train_backtest_{exp_name}.json")
+    exp_name = str(getattr(cli_args, "exp_name", None) or "alpha158_cost_kdj_lgb")
+    _timing_stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    timing_path = str(
+        resolve_train_timing_path(base_dir, exp_name, getattr(cli_args, "model", "lgb"), _timing_stamp)
+    )
+    _timing_extra.update({"exp_name": exp_name, "model": getattr(cli_args, "model", "lgb")})
 
     def _dump_timing_on_exit():
         # Ensure we always persist timing nodes, even if the run crashes mid-way.
@@ -268,12 +276,13 @@ if __name__ == '__main__':
             pass
         try:
             t_rec.print_summary()
+            print(t_rec.digest_line(_timing_extra), flush=True)
             _path = timing_path or os.path.join(base_dir, "timing_custom_train_backtest_unknown.json")
-            t_rec.dump_json(_path, extra={"exp_name": exp_name})
+            t_rec.dump_json(_path, extra=dict(_timing_extra))
             print(f"=== Timing saved: {_path} ===")
             if _analysis_dir:
                 side = os.path.join(_analysis_dir, "timing.json")
-                t_rec.dump_json(side, extra={"exp_name": exp_name})
+                t_rec.dump_json(side, extra=dict(_timing_extra))
                 print(f"=== Timing saved: {side} ===")
         except Exception as e:
             print(f"Failed to dump timing json: {e}")
@@ -344,6 +353,8 @@ if __name__ == '__main__':
             enabled=bool(cli_args.handler_cache),
         )
     _hc_digest = _hc_obs.get("digest")
+    if bool(cli_args.handler_cache):
+        _timing_extra["handler_cache_hit"] = bool(_hc_obs.get("cache_hit"))
     print("[debug] after handler_init(filtered)", flush=True)
     # Default path: single production handler only (no handler_no_limit_filter).
     # Contrast verify is gated by --verify-filters / QLIB_VERIFY_FILTERS (slice C).
@@ -402,6 +413,7 @@ if __name__ == '__main__':
         dataset = init_instance_by_config(task["dataset"])  # 根据dataset配置创建数据集实例
     print("[debug] after dataset_init", flush=True)
     print(u'根据dataset配置创建数据集实例', timer() - start)
+    wrap_dataset_prepare(dataset, t_rec)
 
     # Q3-R4: verify_limit_up_filter only with --verify-filters / QLIB_VERIFY_FILTERS.
     # Default path must NOT build the second ~900s contrast handler.
@@ -514,6 +526,8 @@ if __name__ == '__main__':
         # 保存的模型可以通过 recorder.load_object("trained_model")在后续流程（如回测阶段）中重新加载使用，确保模型的一致性和可复用性
 
         rid = R.get_recorder().id  # 获取当前实验记录器的ID，用于后续检索
+        _timing_extra["recorder_id"] = rid
+        _portana_metrics: dict = {}
 
         # 5. 特征重要性分析与选择
         # 获取特征重要性（新版本QLib模型通常内置该方法）
@@ -829,6 +843,8 @@ if __name__ == '__main__':
         analysis_df = recorder.load_object("portfolio_analysis/port_analysis_1day.pkl")  # 分析报告
         print("分析报告")
         print(analysis_df.head(10))
+        _portana_metrics = extract_portana_metrics(analysis_df)
+        _timing_extra.update(_portana_metrics)
         #                                                   risk
         # excess_return_without_cost mean               0.000512
         #                            std                0.007390
@@ -998,6 +1014,7 @@ if __name__ == '__main__':
                 _cal_data["handler_cache_size_mb"] = _hc_obs.get("size_mb")
                 _cal_data["handler_cache_peak_rss_mb"] = _hc_obs.get("peak_rss_mb")
                 _cal_data["handler_cache_miss_reason"] = _hc_obs.get("miss_reason")
+            _cal_data.update({k: v for k, v in _portana_metrics.items() if v is not None})
             _written = write_train_manifest(
                 manifests_dir=os.path.join(base_dir, "manifests"),
                 config=_manifest_cfg,

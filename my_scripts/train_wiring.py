@@ -376,6 +376,12 @@ def parse_train_cli(argv=None):
         default=None,
         help="显式模型配置路径（yaml/yml/json），覆盖 --model 的名字查找。",
     )
+    parser.add_argument(
+        "--exp-name",
+        dest="exp_name",
+        default="alpha158_cost_kdj_lgb",
+        help="MLflow / qlib 实验名（默认 alpha158_cost_kdj_lgb，与现役 recorder 同实验）。",
+    )
     return parser.parse_args(argv)
 
 
@@ -476,6 +482,40 @@ def build_model_task(args, num_threads: int, n_features: int | None = None) -> d
         "module_path": spec["module_path"],
         "kwargs": dict(spec.get("kwargs") or {}),
     }
+
+
+def resolve_train_timing_path(base_dir, exp_name: str, model: str, created_utc: str | None = None) -> Path:
+    """Unique timing JSON so a model sweep does not overwrite the previous run."""
+    ts = created_utc or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    raw = str(model or "lgb")
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in Path(raw).stem)
+    name = f"timing_{exp_name}_{safe}_{ts}.json"
+    return Path(base_dir) / name
+
+
+def extract_portana_metrics(analysis_df) -> dict:
+    """Named cells from qlib ``port_analysis_1day.pkl`` (column ``risk``)."""
+    keys = (
+        ("excess_return_with_cost", "annualized_return", "excess_ann_with_cost"),
+        ("excess_return_with_cost", "information_ratio", "excess_ir_with_cost"),
+        ("excess_return_with_cost", "max_drawdown", "excess_mdd_with_cost"),
+        ("excess_return_without_cost", "annualized_return", "excess_ann_without_cost"),
+        ("excess_return_without_cost", "information_ratio", "excess_ir_without_cost"),
+        ("excess_return_without_cost", "max_drawdown", "excess_mdd_without_cost"),
+    )
+    out: dict = {}
+    if analysis_df is None:
+        return out
+    col = "risk" if hasattr(analysis_df, "columns") and "risk" in analysis_df.columns else None
+    for group, stat, alias in keys:
+        try:
+            val = analysis_df.loc[(group, stat)]
+            if col is not None:
+                val = val[col] if hasattr(val, "__getitem__") and col in getattr(val, "index", []) else val
+            out[alias] = float(val.iloc[0] if hasattr(val, "iloc") else val)
+        except Exception:
+            out[alias] = None
+    return out
 
 
 def build_fit_kwargs(args) -> dict:

@@ -18,6 +18,7 @@ from custom_utils import (  # noqa: E402
     install_features_probe,
     maybe_timer,
     set_global_timer_recorder,
+    wrap_dataset_prepare,
 )
 from run_manifest import timings_from_recorder  # noqa: E402
 
@@ -94,3 +95,33 @@ def test_maybe_timer_and_manifest_payload():
 
     with maybe_timer("no_recorder"):
         pass
+
+
+def test_digest_line_and_prepare_wrap():
+    rec = TimerRecorder()
+    rec.nodes.append({"name": "model_fit", "seconds": 10.0})
+    rec.nodes.append({"name": "dataset.prepare.train", "seconds": 3.0})
+    rec.nodes.append({"name": "dataset.prepare.valid", "seconds": 1.0})
+    rec.nodes.append({"name": "SignalRecord.generate", "seconds": 2.0})
+    rec.nodes.append({"name": "PortAnaRecord.generate", "seconds": 4.0})
+    assert rec.rollup_seconds("model_fit") == 10.0
+    line = rec.digest_line({"model": "ridge", "handler_cache_hit": True})
+    assert line.startswith("[timing] ")
+    assert "model=ridge" in line
+    assert "handler=HIT" in line
+    assert "fit=10.0s" in line
+    assert "prepare=4.0s" in line
+    assert "predict=2.0s" in line
+    assert "portana=4.0s" in line
+
+    class _DS:
+        def prepare(self, segments, *args, **kwargs):
+            return segments
+
+    ds = _DS()
+    wrap_dataset_prepare(ds, rec)
+    assert ds.prepare("train") == "train"
+    assert ds.prepare(("train", "valid")) == ("train", "valid")
+    names = [n["name"] for n in rec.nodes]
+    assert "dataset.prepare.train" in names
+    assert "dataset.prepare.train+valid" in names
