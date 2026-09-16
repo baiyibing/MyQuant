@@ -32,7 +32,7 @@ def test_pred_minus_one_uses_previous_prediction_and_skips_last(tmp_path):
     )
     out = tmp_path / "out"
 
-    written, _ = export_daily_pool(predictions, out, topk=1)
+    written, _scores, _ = export_daily_pool(predictions, out, topk=1)
 
     assert [path.name for path in written] == ["20260305.csv", "20260309.csv"]
     assert (out / "20260305.csv").read_text(encoding="utf-8") == "300190\n"
@@ -56,7 +56,7 @@ def test_identity_tiebreak_dedupe_illegal_and_contract_bytes(tmp_path):
     )
     out = tmp_path / "identity"
 
-    written, illegal = export_daily_pool(predictions, out, asof="identity")
+    written, _scores, illegal = export_daily_pool(predictions, out, asof="identity")
 
     assert [path.name for path in written] == ["20260302.csv"]
     assert illegal == 4
@@ -355,7 +355,126 @@ def test_export_uses_single_groupby(tmp_path, monkeypatch):
 
     monkeypatch.setattr(pd.DataFrame, "groupby", counting_groupby)
 
-    written, illegal = export_daily_pool(predictions, tmp_path / "g", topk=1)
+    written, _scores, illegal = export_daily_pool(predictions, tmp_path / "g", topk=1)
     assert calls["n"] == 1
     assert illegal == 0
     assert [p.name for p in written] == ["20260305.csv", "20260309.csv"]
+
+
+# --- MQ-A: full-universe scores sidecar ------------------------------------
+
+
+def test_scores_sidecar_pred_minus_one_two_pred_days(tmp_path):
+    """2 pred days → 1 buy-day scores file; rows = that pred day instrument count."""
+    predictions = _pred(
+        tmp_path,
+        "datetime,instrument,score\n"
+        "2026-03-02,SZ300190,2.5\n"
+        "2026-03-02,SH600000,1.0\n"
+        "2026-03-02,BJ920014,0.5\n"
+        "2026-03-05,SZ000001,4.0\n"
+        "2026-03-05,SH600001,3.0\n",
+    )
+    out = tmp_path / "pool"
+
+    written, scores_written, illegal = export_daily_pool(predictions, out, topk=1)
+
+    assert illegal == 0
+    assert [path.name for path in written] == ["20260305.csv"]
+    assert [path.name for path in scores_written] == ["20260305.csv"]
+    scores_path = out / "scores" / "20260305.csv"
+    assert scores_written[0] == scores_path
+    payload = scores_path.read_bytes()
+    assert not payload.startswith(b"\xef\xbb\xbf")
+    assert b"\r" not in payload
+    text = payload.decode("utf-8")
+    lines = text.splitlines()
+    assert lines[0] == "code,score"
+    # Full cross-section from pred 2026-03-02 (3 instruments), not topk=1.
+    assert len(lines) - 1 == 3
+    assert lines[1:] == ["300190,2.5", "600000,1.0", "920014,0.5"]
+    # Same asof buy date as TopK; TopK still bare-code only.
+    assert (out / "20260305.csv").read_bytes() == b"300190\n"
+    assert not (out / "scores" / "20260302.csv").exists()
+    assert not (out / "20260302.csv").exists()
+
+
+def test_scores_sidecar_shares_identity_asof(tmp_path):
+    predictions = _pred(
+        tmp_path,
+        "datetime,instrument,score\n"
+        "2026-03-02,SZ300190,2\n"
+        "2026-03-02,SH600000,1\n"
+        "2026-03-03,SZ000001,9\n",
+    )
+    out = tmp_path / "ident"
+
+    written, scores_written, _ = export_daily_pool(
+        predictions, out, topk=1, asof="identity"
+    )
+
+    assert [p.name for p in written] == ["20260302.csv", "20260303.csv"]
+    assert [p.name for p in scores_written] == ["20260302.csv", "20260303.csv"]
+    assert (out / "scores" / "20260302.csv").read_text(encoding="utf-8") == (
+        "code,score\n300190,2.0\n600000,1.0\n"
+    )
+    assert (out / "scores" / "20260303.csv").read_text(encoding="utf-8") == (
+        "code,score\n000001,9.0\n"
+    )
+
+
+def test_scores_only_does_not_overwrite_existing_topk(tmp_path, monkeypatch):
+    """--scores-only must not clobber TopK files (cat_50_raw_* safety)."""
+    pred = _write(
+        tmp_path / "pred.csv",
+        "datetime,instrument,score\n"
+        "2026-03-02,SZ300190,2\n"
+        "2026-03-02,SH600000,1\n"
+        "2026-03-05,SZ000001,4\n",
+    )
+    # Pretend an existing cat_50_raw-style pool dir with a TopK file.
+    out = tmp_path / "exports" / "cat_50_raw_20260105_20260914"
+    out.mkdir(parents=True)
+    topk_path = out / "20260305.csv"
+    sentinel = b"999999\n888888\n"
+    topk_path.write_bytes(sentinel)
+
+    monkeypatch.setattr(edp, "REPO_ROOT", tmp_path)
+    assert main(
+        [
+            "--pred",
+            str(pred),
+            "--out-dir",
+            str(out),
+            "--topk",
+            "1",
+            "--scores-only",
+        ]
+    ) == 0
+
+    assert topk_path.read_bytes() == sentinel
+    scores = (out / "scores" / "20260305.csv").read_text(encoding="utf-8")
+    assert scores.startswith("code,score\n")
+    assert "300190,2.0" in scores
+    assert "600000,1.0" in scores
+    assert "000001" not in scores  # last pred day skipped under pred_minus_one
+
+
+def test_no_scores_flag_skips_sidecar(tmp_path, monkeypatch):
+    pred = _write(
+        tmp_path / "pred.csv",
+        "datetime,instrument,score\n"
+        "2026-03-02,SZ300190,2\n"
+        "2026-03-05,SZ000001,4\n",
+    )
+    out = tmp_path / "out"
+    monkeypatch.setattr(edp, "REPO_ROOT", tmp_path)
+    assert main(["--pred", str(pred), "--out-dir", str(out), "--topk", "1", "--no-scores"]) == 0
+    assert (out / "20260305.csv").read_bytes() == b"300190\n"
+    assert not (out / "scores").exists()
+
+
+def test_scores_cli_defaults_write_both():
+    args = build_parser().parse_args(["--pred", "anything.csv"])
+    assert args.no_scores is False
+    assert args.scores_only is False
