@@ -6,6 +6,13 @@ Stage machine (eng-perf P1-5): ``predict_extended|train → pred artifact → ex
 file; ``--asof identity`` writes it to D's file.  The default is
 ``pred_minus_one`` (locked 2026-09-12).
 
+MQ-A: the same asof mapping also writes a **full-universe scores sidecar**
+under ``<out-dir>/scores/YYYYMMDD.csv`` (buy date T → cross-section used for T).
+Columns: bare 6-digit ``code``, ``score``. LF, no BOM. Default on; no ST/age
+filter. TopK pool files at ``<out-dir>/YYYYMMDD.csv`` stay the bare-code
+contract. ``--scores-only`` writes the sidecar without rewriting TopK CSVs
+(safe beside an existing ``cat_50_raw_*`` pool dir).
+
 The output intentionally has no stock-name column.  Consequently unnamed ST
 stocks are assigned a board limit by code prefix (10%/20%/30%), not the 5% ST
 limit; this validation window is not E-R2.
@@ -53,8 +60,8 @@ def build_parser() -> argparse.ArgumentParser:
     """Build the CLI parser, exposed separately to make defaults testable."""
     parser = argparse.ArgumentParser(
         description=(
-            "Export daily TopN pool CSVs. pred_minus_one maps pred[D] to "
-            "next(D); identity maps pred[D] to D."
+            "Export daily TopN pool CSVs plus full-universe scores sidecar. "
+            "pred_minus_one maps pred[D] to next(D); identity maps pred[D] to D."
         ),
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -71,6 +78,19 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=DEFAULT_OUT_DIR,
         help="output directory (the default is resolved from the repository root)",
+    )
+    parser.add_argument(
+        "--no-scores",
+        action="store_true",
+        help="skip scores sidecar (TopK pool CSVs only)",
+    )
+    parser.add_argument(
+        "--scores-only",
+        action="store_true",
+        help=(
+            "write <out-dir>/scores only; do not rewrite TopK pool CSVs "
+            "(use to attach sidecar beside an existing cat_50_raw_* dir)"
+        ),
     )
     parser.add_argument(
         "--neutralize",
@@ -191,45 +211,77 @@ def _safe_output_dir(path: Path) -> Path:
     return resolved
 
 
+def _ranked_day_rows(day: pd.DataFrame) -> tuple[list[tuple[str, float]], int]:
+    """Return (code, score) rows for one pred day, plus illegal instrument count.
+
+    Sort is score desc, instrument asc (mergesort); bare-code dedupe keeps the
+    first (highest-score) row. No ST/age filter — full universe for the scores
+    sidecar.
+    """
+    day = day.sort_values(
+        ["score", "instrument"], ascending=[False, True], kind="mergesort"
+    )
+    rows: list[tuple[str, float]] = []
+    seen: set[str] = set()
+    illegal = 0
+    for instrument, score in zip(day["instrument"], day["score"], strict=True):
+        match = INSTRUMENT_RE.fullmatch(instrument)
+        if match is None:
+            illegal += 1
+            continue
+        code = match.group(1)
+        if code in seen:
+            continue
+        seen.add(code)
+        rows.append((code, float(score)))
+    return rows, illegal
+
+
+def _write_scores_csv(path: Path, rows: Sequence[tuple[str, float]]) -> None:
+    """Write ``code,score`` CSV: LF, UTF-8, no BOM."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = ["code,score\n"]
+    lines.extend(f"{code},{score}\n" for code, score in rows)
+    path.write_text("".join(lines), encoding="utf-8", newline="\n")
+
+
 def export_daily_pool(
     predictions: pd.DataFrame,
     out_dir: Path,
     *,
     topk: int = 10,
     asof: str = "pred_minus_one",
-) -> tuple[list[Path], int]:
-    """Write daily contract files and return (written paths, illegal count)."""
+    write_topk: bool = True,
+    write_scores: bool = True,
+) -> tuple[list[Path], list[Path], int]:
+    """Write daily TopK and/or scores sidecar; return (topk paths, scores paths, illegal).
+
+    Scores live under ``<out-dir>/scores/YYYYMMDD.csv`` with the **same buy-date
+    asof** as the TopK pool files. Content is the full cross-section for the
+    prediction day that feeds buy date T (``pred_minus_one`` → pred[T−1]).
+    """
     if topk <= 0:
         raise ValueError("topk must be greater than zero")
     if asof not in {"pred_minus_one", "identity"}:
         raise ValueError(f"unsupported asof: {asof}")
+    if not write_topk and not write_scores:
+        raise ValueError("at least one of write_topk / write_scores must be true")
 
     output = _safe_output_dir(Path(out_dir))
     written: list[Path] = []
+    scores_written: list[Path] = []
     illegal_count = 0
 
     # eng-perf P1-7: one groupby instead of per-day full-table boolean scan.
     # Neutralize (if any) already ran in main() before this call — do not cache
     # post-neutralize ranks across configs.
-    day_codes: dict[pd.Timestamp, list[str]] = {}
+    day_rows: dict[pd.Timestamp, list[tuple[str, float]]] = {}
     dates: list[pd.Timestamp] = []
     for pred_date, day in predictions.groupby("datetime", sort=True):
         dates.append(pred_date)
-        day = day.sort_values(
-            ["score", "instrument"], ascending=[False, True], kind="mergesort"
-        )
-        ranked_codes: list[str] = []
-        seen: set[str] = set()
-        for instrument in day["instrument"]:
-            match = INSTRUMENT_RE.fullmatch(instrument)
-            if match is None:
-                illegal_count += 1
-                continue
-            code = match.group(1)
-            if code not in seen:
-                seen.add(code)
-                ranked_codes.append(code)
-        day_codes[pred_date] = ranked_codes[:topk]
+        rows, illegal = _ranked_day_rows(day)
+        illegal_count += illegal
+        day_rows[pred_date] = rows
 
     for index, pred_date in enumerate(dates):
         if asof == "pred_minus_one":
@@ -238,25 +290,35 @@ def export_daily_pool(
             buy_date = dates[index + 1]
         else:
             buy_date = pred_date
-        codes = day_codes[pred_date]
-        if not codes:
+        rows = day_rows[pred_date]
+        if not rows:
             continue
         output.mkdir(parents=True, exist_ok=True)
-        destination = output / f"{buy_date:%Y%m%d}.csv"
-        destination.write_text(
-            "".join(f"{code}\n" for code in codes), encoding="utf-8", newline="\n"
-        )
-        written.append(destination)
+        if write_topk:
+            codes = [code for code, _score in rows[:topk]]
+            destination = output / f"{buy_date:%Y%m%d}.csv"
+            destination.write_text(
+                "".join(f"{code}\n" for code in codes), encoding="utf-8", newline="\n"
+            )
+            written.append(destination)
+        if write_scores:
+            scores_path = output / "scores" / f"{buy_date:%Y%m%d}.csv"
+            _write_scores_csv(scores_path, rows)
+            scores_written.append(scores_path)
 
-    return written, illegal_count
+    return written, scores_written, illegal_count
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+    if args.no_scores and args.scores_only:
+        parser.error("--no-scores and --scores-only are mutually exclusive")
     pred_path = Path(args.pred).expanduser()
     if not pred_path.is_file():
         parser.error(f"prediction file does not exist: {pred_path}")
+    write_topk = not args.scores_only
+    write_scores = not args.no_scores
     try:
         predictions = load_predictions(pred_path)
         pred_rows = int(len(predictions))
@@ -267,8 +329,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             industry_map=args.industry_map,
             float_cap=args.float_cap,
         )
-        written, illegal_count = export_daily_pool(
-            predictions, args.out_dir, topk=args.topk, asof=args.asof
+        written, scores_written, illegal_count = export_daily_pool(
+            predictions,
+            args.out_dir,
+            topk=args.topk,
+            asof=args.asof,
+            write_topk=write_topk,
+            write_scores=write_scores,
         )
     except (OSError, ValueError, pd.errors.ParserError) as exc:
         parser.error(str(exc))
@@ -286,6 +353,9 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "pred_md5": md5_file(pred_path),
                 "out_dir": str(Path(args.out_dir).expanduser()),
                 "output_file_count": len(written),
+                "scores_file_count": len(scores_written),
+                "write_topk": write_topk,
+                "write_scores": write_scores,
                 **neutralize_config,
             },
             pred_path=pred_path,
