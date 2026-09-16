@@ -522,7 +522,7 @@ def _build_pred_label() -> tuple[pd.Series, pd.Series]:
     from qlib.data.dataset import DatasetH
     from qlib.contrib.model import LGBModel
 
-    from custom_handler import Alpha158CostKDJ
+    from custom_handler import Alpha158CostKDJ, build_learn_processors
     from train_wiring import build_filtered_instruments
 
     _kernels = resolve_qlib_kernels()
@@ -555,15 +555,7 @@ def _build_pred_label() -> tuple[pd.Series, pd.Series]:
             {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature"}},
             {"class": "Fillna", "kwargs": {"fields_group": "feature"}},
         ],
-        learn_processors=[
-            {
-                "class": "DropLimitUpLearn",
-                "module_path": "custom_handler",
-                "kwargs": {"col": "LIMIT_STATUS", "value": 1},
-            },
-            {"class": "DropnaLabel"},
-            {"class": "CSZScoreNorm", "kwargs": {"fields_group": "label"}},
-        ],
+        learn_processors=build_learn_processors(drop_limit_up=False),
         include_alpha158=bool(_HANDLER_KEY_KNOBS["include_alpha158"]),
         include_cost_kdj=bool(_HANDLER_KEY_KNOBS["include_cost_kdj"]),
         include_lz=bool(_HANDLER_KEY_KNOBS["include_lz"]),

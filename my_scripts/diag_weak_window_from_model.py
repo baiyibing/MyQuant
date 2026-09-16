@@ -20,7 +20,7 @@ from qlib.config import REG_CN
 from qlib.data.dataset import DatasetH
 from qlib.workflow import R
 
-from custom_handler import Alpha158CostKDJ
+from custom_handler import Alpha158CostKDJ, build_learn_processors
 from custom_utils import TimerRecorder, install_features_probe, set_global_timer_recorder
 from handler_frame_cache import (
     attach_calendar_fingerprint,
@@ -64,7 +64,7 @@ def predict_valid_2025(t_rec: TimerRecorder) -> pd.Series:
             end_time=end_time,
             exclude_stocks=EXCLUDE_STOCKS_DEFAULT,
             use_exclude=False,
-            limit_up=True,
+            limit_up=False,
             market="all",
         )
     data_handler_config = {
@@ -77,15 +77,7 @@ def predict_valid_2025(t_rec: TimerRecorder) -> pd.Series:
             {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature"}},
             {"class": "Fillna", "kwargs": {"fields_group": "feature"}},
         ],
-        "learn_processors": [
-            {
-                "class": "DropLimitUpLearn",
-                "module_path": "custom_handler",
-                "kwargs": {"col": "LIMIT_STATUS", "value": 1},
-            },
-            {"class": "DropnaLabel"},
-            {"class": "CSZScoreNorm", "kwargs": {"fields_group": "label"}},
-        ],
+        "learn_processors": build_learn_processors(drop_limit_up=False),
         "instruments": instruments,
         "include_alpha158": True,
         "include_cost_kdj": True,
@@ -106,8 +98,9 @@ def predict_valid_2025(t_rec: TimerRecorder) -> pd.Series:
             include_lz=True,
             drop_raw=True,
             exclude_filter_on=False,
-            limit_up_filter_on=True,
+            limit_up_filter_on=False,
             tradable_universe_on=False,
+            drop_limit_up_learn_on=False,
             provider_uri=PROVIDER,
         )
     )

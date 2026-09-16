@@ -114,7 +114,8 @@ def load_pred(exp_name: str, recorder_id: str | None):
 
 def build_strategy_config(args) -> dict:
     """按开关选择策略类：任一资格开关打开 → 带资格层的过滤策略（复用其回补流程）。"""
-    filters_on = args.buy_state_filter or args.st_filter or args.age_filter
+    return_threshold_on = bool(getattr(args, "return_threshold_filter", False))
+    filters_on = args.buy_state_filter or args.st_filter or args.age_filter or return_threshold_on
     if not filters_on:
         return {
             "class": "TopkDropoutStrategy",
@@ -148,27 +149,31 @@ def build_strategy_config(args) -> dict:
     n_st = len(eligibility.st_codes_of_date(test_end) if eligibility._st_by_date is not None else eligibility.st_codes)
     print(
         f"[rebacktest] 资格过滤: ST={args.st_filter}({n_st} 只"
-        f"{', PIT+fallback' if eligibility._st_by_date is not None else ', 静态'}) "
+        f"{', PIT' if eligibility._st_by_date is not None else ', 静态'}) "
         f"age>={args.age_days}日={args.age_filter}({len(eligibility.min_trade_date)} 只有起始登记) "
-        f"buy_state={args.buy_state_filter}"
+        f"buy_state={args.buy_state_filter} "
+        f"return_threshold={return_threshold_on}"
         f"{f'(精确盈筹率 {len(wr_map)} 条)' if wr_map else ''}",
         flush=True,
     )
     codes = args.pred_score.index.get_level_values("instrument").unique()
     if args.buy_state_filter:
         eligibility.preload(codes, test_start, test_end)
-    close_cache = build_close_cache(codes, test_start, test_end)
+    kwargs = {
+        "signal": args.pred_score,
+        "topk": args.topk,
+        "n_drop": args.n_drop,
+        "hold_thresh": args.hold_thresh,
+        "eligibility": eligibility,
+        "lookback_days": 5 if return_threshold_on else 0,
+        "max_return_threshold": 0.15 if return_threshold_on else -1.0,
+    }
+    if return_threshold_on:
+        kwargs["close_cache"] = build_close_cache(codes, test_start, test_end)
     return {
         "class": "TopkDropoutStrategyWithBuyEligibility",
         "module_path": "buy_eligibility",
-        "kwargs": {
-            "signal": args.pred_score,
-            "topk": args.topk,
-            "n_drop": args.n_drop,
-            "hold_thresh": args.hold_thresh,
-            "eligibility": eligibility,
-            "close_cache": close_cache,
-        },
+        "kwargs": kwargs,
     }
 
 
@@ -195,6 +200,7 @@ def run_tiers(args) -> dict:
         "buy_state_filter": bool(args.buy_state_filter),
         "st_filter": bool(args.st_filter),
         "age_filter": f"{args.age_days}d" if args.age_filter else False,
+        "return_threshold_filter": bool(getattr(args, "return_threshold_filter", False)),
         # qlib report["return"] 列是加回成本的毛收益（account.py: return_rate=(earning+cost)/last_value），
         # 净收益 = return - cost；三档毛收益几乎相同（决策不看成本），差异全在 cost 列
         "note": "abs_net=return-cost（真净值口径）；gross=return（未扣费）；成本拖累单列",
@@ -244,9 +250,14 @@ def parse_cli(argv=None):
         help="关掉执行端涨跌停拒单（limit_threshold=None）：涨停可买、跌停可卖。默认 0.095 拒单。",
     )
     parser.add_argument("--buy-state-filter", action="store_true",
-                        help="买入状态过滤：MA20/MA60 之下且盈筹率<10%%可买，或站上MA20且5日线斜率>=-30°可买")
+                        help="买入状态过滤：MA20/MA60 之下且盈筹率<10%%可买，或站上MA20且5日线斜率>=-30°可买。不含5日涨幅。")
+    parser.add_argument(
+        "--return-threshold-filter",
+        action="store_true",
+        help="丢掉过去5日涨幅超过15%%的票。默认关，与ST/年龄/买入状态独立。",
+    )
     parser.add_argument("--st-filter", action="store_true",
-                        help="ST 禁买：静态黑名单；若给 --st-daily-file 则按日 PIT，静态仅 fallback")
+                        help="ST 禁买：有 --st-daily-file 则只认 parquet 当日 is_st；否则用空静态名单")
     parser.add_argument("--age-filter", action="store_true",
                         help="上市年龄禁买：数据起始日起算不足 --age-days 个交易日的剔除")
     parser.add_argument("--age-days", type=int, default=60)
@@ -254,7 +265,7 @@ def parse_cli(argv=None):
     parser.add_argument(
         "--st-daily-file",
         default=None,
-        help="st_daily.parquet：PIT 按日 ST；未覆盖/unknown_end 仍走静态黑名单",
+        help="st_daily.parquet：只读 is_st（不读 st_coverage.json，与 BT 对齐）",
     )
     parser.add_argument(
         "--winner-ratio-file",

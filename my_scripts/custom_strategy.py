@@ -56,6 +56,9 @@ def select_by_return_threshold(stocks, start_closes, end_closes, threshold, requ
     end_s = end_closes.reindex(common)
     returns = (end_s - start_s) / start_s
     returns = returns.replace([float("inf"), float("-inf")], float("-inf"))
+    # 停牌 NaN 与「票不在表里」同一口径：当 -inf ≤ threshold，放过。
+    # 否则 NaN <= 0.15 为 False，会把缺 T-6 的高分票错杀（2026-01-16 SZ000608）。
+    returns = returns.fillna(float("-inf"))
     ret_map = returns.to_dict()
     out = []
     for stock in stocks:
@@ -64,6 +67,46 @@ def select_by_return_threshold(stocks, start_closes, end_closes, threshold, requ
             if required_count and len(out) >= required_count:
                 break
     return out
+
+
+def _canon_sort_key(inst) -> str:
+    """SZ000608 / 000608.SZ → 000608.SZ，与 BT 并列键一致。"""
+    text = str(inst or "").strip().upper()
+    if len(text) >= 8 and text[:2] in {"SH", "SZ", "BJ"} and text[2:8].isdigit():
+        return f"{text[2:8]}.{text[:2]}"
+    return text
+
+
+def sort_score_desc(pred_score: pd.Series) -> pd.Index:
+    """分数降序，代码升序；NaN / 缺分与 BT 一样当作最低。
+
+    并列键用 ``000608.SZ`` 而不是 ``SZ000608``，否则 SH 会排在 SZ 前面，
+    和 BT 在 2026-04-14 对 002943 / 603950 的取舍反了。
+    """
+    if pred_score is None or len(pred_score) == 0:
+        return pd.Index([])
+    score = pd.to_numeric(pred_score, errors="coerce").fillna(float("-inf"))
+    ranked = pd.DataFrame(
+        {"score": score.to_numpy(), "code": [_canon_sort_key(c) for c in score.index]},
+        index=score.index,
+    )
+    ranked = ranked.sort_values(["score", "code"], ascending=[False, True], kind="mergesort")
+    return ranked.index
+
+
+def floor_amount_to_lot(amount: float, lot: int = 100) -> float:
+    """买入向下取整到手数，与 BT ``int(额度/价/100)*100`` 一致。
+
+    官方 ``round_amount_by_trade_unit`` 会 ``+0.1`` 再整除，本意是吃浮点误差，
+    余量却有 0.1 股：2026-05-25 ``920469`` 未取整 324299.95，被抬成 324300，
+    多买 1 手并略超额度。不改 qlib Exchange。
+    """
+    if amount is None or lot <= 0:
+        return 0.0
+    shares = float(amount)
+    if shares <= 0:
+        return 0.0
+    return float(int(shares / lot) * lot)
 
 
 def wide_close_from_features(close_df: pd.DataFrame) -> pd.DataFrame:
@@ -126,10 +169,20 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
     sample gate. Preload / quote caching is out of scope for this knife.
     """
 
-    def __init__(self, *args, timing_interval_steps: int = 10, close_cache=None, **kwargs):
+    def __init__(
+        self,
+        *args,
+        timing_interval_steps: int = 10,
+        close_cache=None,
+        max_return_threshold: float = -1.0,
+        lookback_days: int = 0,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)   # 调用父类构造函数
-        self.max_return_threshold = 0.15    # 设置最大收益阈值（15%），超过此阈值的股票将被过滤
-        self.lookback_days = 5              # 设置回溯天数（5天），用于计算历史收益
+        # 5日涨幅>15% 默认关（lookback_days<=0 或 threshold<0 即跳过）。
+        # 与 ST / 年龄 / 买入状态无关；要开须显式传入 5 / 0.15。
+        self.max_return_threshold = float(max_return_threshold)
+        self.lookback_days = int(lookback_days)
         self.logger = get_module_logger("TopkDropoutStrategyWithFilter")    # 获取模块专用的日志记录器
         # Default 10 keeps TimerRecorder JSON lean on long runs; use 1 for short-window bar diagnosis.
         self.timing_interval_steps = int(timing_interval_steps) if timing_interval_steps else 10
@@ -522,13 +575,13 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         current_stock_list = current_temp.get_stock_list()
 
         # 获取上一期持仓股票（按分数排序）
-        last = pred_score.reindex(current_stock_list).sort_values(ascending=False).index
+        last = sort_score_desc(pred_score.reindex(current_stock_list))
 
         # The new stocks today want to buy **at most**
         # 生成今日候选买入股票列表
         if self.method_buy == "top":
             # 获取候选股票列表（按分数从高到低排序），排除掉上一期持仓股票
-            candidate_stocks = pred_score[~pred_score.index.isin(last)].sort_values(ascending=False).index
+            candidate_stocks = sort_score_desc(pred_score[~pred_score.index.isin(last)])
 
             # 1. 先获取初始候选股票（按分数排序的前 self.n_drop + self.topk - len(last) 只）
             # self.n_drop   计划卖出数量
@@ -579,7 +632,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
 
         elif self.method_buy == "random":
             # 随机选择买入股票的方法
-            topk_candi = get_first_n(pred_score.sort_values(ascending=False).index, self.topk)
+            topk_candi = get_first_n(sort_score_desc(pred_score), self.topk)
             candi = list(filter(lambda x: x not in last, topk_candi))
             n = self.n_drop + self.topk - len(last)
             try:
@@ -592,7 +645,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
         # combine(new stocks + last stocks), we will drop stocks from this list
         # In case of dropping higher score stock and buying lower score stock.
         # 合并新旧股票列表，并排序
-        comb = pred_score.reindex(last.union(pd.Index(today))).sort_values(ascending=False).index
+        comb = sort_score_desc(pred_score.reindex(last.union(pd.Index(today))))
 
         # Get the stock list we really want to sell (After filtering the case that we sell high and buy low)
         # 生成卖出股票列表
@@ -677,13 +730,7 @@ class TopkDropoutStrategyWithFilter(TopkDropoutStrategy):
                     end_time=trade_end_time,
                     direction=OrderDir.BUY,
                 )
-                buy_amount = value / buy_price
-                factor = self._ex_get_factor(
-                    stock_id=code,
-                    start_time=trade_start_time,
-                    end_time=trade_end_time,
-                )
-                buy_amount = self.trade_exchange.round_amount_by_trade_unit(buy_amount, factor)
+                buy_amount = floor_amount_to_lot(value / buy_price)
                 buy_order = Order(
                     stock_id=code,
                     amount=buy_amount,

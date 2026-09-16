@@ -55,9 +55,12 @@ def test_coverage_fallback_and_asof(tmp_path):
     assert "SZ000615" not in fallback
     by_date, fb = load_st_daily_index(daily_path, fallback_static=static)
     assert by_date[pd.Timestamp("2026-01-07").date()] == {"SZ000615"}
-    assert fb == fallback
+    assert fb == set()
     asof = load_st_codes_asof(daily_path, asof="2026-01-07", fallback_static=static)
-    assert asof == {"SZ000615", "SZ000504", "SH688999"}
+    assert asof == {"SZ000615"}
+    by_cov, fb_on = load_st_daily_index(daily_path, fallback_static=static, use_coverage=True)
+    assert by_cov[pd.Timestamp("2026-01-07").date()] == {"SZ000615"}
+    assert fb_on == fallback
     snap = coverage_fallback_qlib(
         {
             "harvested_wind_codes": ["000615.SZ"],

@@ -27,9 +27,9 @@ from qlib.contrib.strategy import TopkDropoutStrategy
 from qlib.workflow.record_temp import SignalRecord, SigAnaRecord, PortAnaRecord
 from qlib.contrib.report import analysis_model, analysis_position
 from qlib.data import D  # 导入数据模块
-from custom_handler import Alpha158CostKDJ
+from custom_handler import Alpha158CostKDJ, build_learn_processors
 from custom_filter import UnifiedLimitUpFilter
-from buy_eligibility import BuyEligibilityFilter, TopkDropoutStrategyWithBuyEligibility  # noqa: F401 (类经 module_path 字符串实例化)
+from buy_eligibility import BuyEligibilityFilter, TopkDropoutStrategyWithBuyEligibility, load_age_map  # noqa: F401
 from custom_strategy import build_close_cache
 from handler_frame_cache import (
     attach_calendar_fingerprint,
@@ -112,14 +112,28 @@ if __name__ == '__main__':
     #     filter=lambda record: record["extra"].get("name") != "custom_strategy"
     # )
 
-    # 黑名单默认关（--exclude-filter 才开）；涨停两层默认开（--no-limit-* 才关）
+    # 黑名单 / $zhangting 出池 / 训练帧涨停剔除默认关（--exclude-filter / --limit-filter / --drop-limit-up-learn 才开）。
+    # 交易所 9.5% 拒单仍默认开（--no-limit-threshold 才关）。
     exclude_filter_on = bool(cli_args.exclude_filter) and not cli_args.no_exclude_filter
-    limit_up_filter_on = not cli_args.no_limit_filter
+    limit_up_filter_on = bool(getattr(cli_args, "limit_filter", False)) and not cli_args.no_limit_filter
+    drop_limit_up_learn_on = bool(getattr(cli_args, "drop_limit_up_learn", False))
     limit_threshold_on = not cli_args.no_limit_threshold
+    st_filter_on = bool(getattr(cli_args, "st_filter", False))
+    age_filter_on = bool(getattr(cli_args, "age_filter", False))
+    buy_state_on = bool(cli_args.buy_state_filter)
+    return_threshold_on = bool(getattr(cli_args, "return_threshold_filter", False))
     print(
         f"[stock-guards] blacklist(黑名单出池)={'ON' if exclude_filter_on else 'OFF'} "
         f"limit_filter(涨停股出池)={'ON' if limit_up_filter_on else 'OFF'} "
+        f"drop_limit_up_learn(训练帧涨停剔除)={'ON' if drop_limit_up_learn_on else 'OFF'} "
         f"limit_reject(涨跌停拒单)={'ON' if limit_threshold_on else 'OFF'}",
+        flush=True,
+    )
+    print(
+        f"[buy-eligibility] st={'ON' if st_filter_on else 'OFF'} "
+        f"age={'ON' if age_filter_on else 'OFF'} "
+        f"buy_state={'ON' if buy_state_on else 'OFF'} "
+        f"return_threshold={'ON' if return_threshold_on else 'OFF'}",
         flush=True,
     )
     print(
@@ -306,16 +320,8 @@ if __name__ == '__main__':
             # 旧版 method="ffill" 已删除（此前该配置因 processors 未传父类而从未生效）。
             {"class": "Fillna", "kwargs": {"fields_group": "feature"}}
         ],
-        # M3-A: learn-only 涨停样本剔除；勿放入 infer_processors / 勿改导出池 as-of。
-        "learn_processors": [
-            {
-                "class": "DropLimitUpLearn",
-                "module_path": "custom_handler",
-                "kwargs": {"col": "LIMIT_STATUS", "value": 1},
-            },
-            {"class": "DropnaLabel"},
-            {"class": "CSZScoreNorm", "kwargs": {"fields_group": "label"}},
-        ],
+        # DropLimitUpLearn 默认关；--drop-limit-up-learn 才进 learn_processors。勿放入 infer。
+        "learn_processors": build_learn_processors(drop_limit_up=drop_limit_up_learn_on),
         "instruments": instruments,  # from build_filtered_instruments / D.instruments
         "include_alpha158": True,  # 若仅需自定义因子，可设为 False 以加速
         "include_cost_kdj": True,
@@ -342,6 +348,7 @@ if __name__ == '__main__':
             exclude_filter_on=exclude_filter_on,
             limit_up_filter_on=limit_up_filter_on,
             tradable_universe_on=bool(cli_args.tradable_universe),
+            drop_limit_up_learn_on=drop_limit_up_learn_on,
         )
     )
 
@@ -422,7 +429,7 @@ if __name__ == '__main__':
             market="all",
             start_time=start_time,
             end_time=end_time,
-            filter_pipe=[exclude_filter],
+            filter_pipe=[exclude_filter] if exclude_filter is not None else [],
         )
         no_limit_filter_config = copy.deepcopy(data_handler_config)
         no_limit_filter_config["instruments"] = no_limit_instruments
@@ -439,30 +446,40 @@ if __name__ == '__main__':
         )
         print("[debug] after verify_limit_up_filter", flush=True)
 
-    _buy_state_strategy_kwargs = {}
-    if cli_args.buy_state_filter:
-        with t_rec.timer("elig.preload"):
-            _elig = BuyEligibilityFilter(
-                st_codes=None,
-                age_map=None,
-                check_buy_state=True,
-                calendar=list(D.calendar(future=True)),
-            )
-            _bt_codes = D.list_instruments(
-                D.instruments(market="all"),
-                start_time=test_start_time,
-                end_time=test_end_time,
-                as_list=True,
-            )
-            _elig.preload(_bt_codes, test_start_time, test_end_time)
-        with t_rec.timer("close_cache"):
-            _close_cache = build_close_cache(_bt_codes, test_start_time, test_end_time)
-        _buy_state_strategy_kwargs = {
+    _elig_strategy_kwargs = {}
+    _use_elig_strategy = st_filter_on or age_filter_on or buy_state_on or return_threshold_on
+    if _use_elig_strategy:
+        from pathlib import Path as _Path
+
+        _provider = _Path(os.path.expanduser("~/.qlib/qlib_data/my_data"))
+        _elig = BuyEligibilityFilter(
+            st_codes=set(EXCLUDE_STOCKS_DEFAULT) if st_filter_on else None,
+            age_map=load_age_map(_provider) if age_filter_on else None,
+            age_days=int(getattr(cli_args, "age_days", 60) or 60),
+            check_buy_state=buy_state_on,
+            calendar=list(D.calendar(future=True)),
+            st_daily_file=getattr(cli_args, "st_daily_file", None) if st_filter_on else None,
+        )
+        _bt_codes = D.list_instruments(
+            D.instruments(market="all"),
+            start_time=test_start_time,
+            end_time=test_end_time,
+            as_list=True,
+        )
+        if buy_state_on:
+            with t_rec.timer("elig.preload"):
+                _elig.preload(_bt_codes, test_start_time, test_end_time)
+        _elig_strategy_kwargs = {
             "eligibility": _elig,
-            "close_cache": _close_cache,
-            # Default 10; short-window diagnosis: --timing-interval-steps 1 (eng-perf P1-6).
+            "lookback_days": 5 if return_threshold_on else 0,
+            "max_return_threshold": 0.15 if return_threshold_on else -1.0,
             "timing_interval_steps": int(getattr(cli_args, "timing_interval_steps", 10) or 10),
         }
+        if return_threshold_on:
+            with t_rec.timer("close_cache"):
+                _elig_strategy_kwargs["close_cache"] = build_close_cache(
+                    _bt_codes, test_start_time, test_end_time
+                )
 
     # 定义投资组合分析（回测）的配置
     port_analysis_config = {
@@ -475,19 +492,16 @@ if __name__ == '__main__':
             },
         },
         "strategy": {  # 交易策略配置
-            # --buy-state-filter：策略级买入状态过滤（MA20/60 之下且 盈筹率<10% 可买；站上MA20 且 5日线斜率>=-30° 可买），
-            # 复用 TopkDropoutStrategyWithFilter 的过滤+后排回补流程（开关④）。
-            # ST/年龄在训练侧由 --tradable-universe 从宇宙层解决（更彻底）。
-            "class": "TopkDropoutStrategyWithBuyEligibility" if cli_args.buy_state_filter else "TopkDropoutStrategy",
-            "module_path": "buy_eligibility" if cli_args.buy_state_filter else "qlib.contrib.strategy.signal_strategy",
+            # 资格层（ST/年龄/买入状态/5日涨幅）各自独立；全关则原生 TopkDropout。
+            "class": "TopkDropoutStrategyWithBuyEligibility" if _use_elig_strategy else "TopkDropoutStrategy",
+            "module_path": "buy_eligibility" if _use_elig_strategy else "qlib.contrib.strategy.signal_strategy",
             "kwargs": {  # 策略参数
                 "model": model,  # 使用的预测模型
                 "dataset": dataset,  # 使用的数据集
                 "topk": int(cli_args.topk),
                 "n_drop": int(cli_args.n_drop),
                 "hold_thresh": 1,  # 最小持有1天
-                # timing_interval_steps 仅适用于 custom_strategy.TopkDropoutStrategyWithFilter，勿传给 qlib TopkDropoutStrategy
-                **_buy_state_strategy_kwargs,
+                **_elig_strategy_kwargs,
             },
         },
         "backtest": {  # 回测参数配置
@@ -982,6 +996,7 @@ if __name__ == '__main__':
                 # 三层闸门 + 缓存开关（False=闸门开，即生产默认）
                 "exclude_filter_on": exclude_filter_on,
                 "limit_up_filter_on": limit_up_filter_on,
+                "drop_limit_up_learn_on": drop_limit_up_learn_on,
                 "limit_threshold_on": limit_threshold_on,
                 "dataset_cache": bool(cli_args.dataset_cache),
                 "expr_cache": bool(cli_args.expr_cache),
@@ -992,6 +1007,9 @@ if __name__ == '__main__':
                 # 买入资格开关（默认全关）
                 "tradable_universe_on": bool(cli_args.tradable_universe),
                 "buy_state_filter_on": bool(cli_args.buy_state_filter),
+                "st_filter_on": st_filter_on,
+                "age_filter_on": age_filter_on,
+                "return_threshold_filter_on": return_threshold_on,
                 "preview_rows": int(getattr(cli_args, "preview_rows", 0) or 0),
                 "model": cli_args.model,
                 "model_config": getattr(cli_args, "model_config_path", None)

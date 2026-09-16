@@ -15,6 +15,8 @@ if _MY_SCRIPTS not in sys.path:
 from custom_filter import UnifiedLimitUpFilter  # noqa: E402
 from train_wiring import (  # noqa: E402
     DEFAULT_SEGMENTS,
+    EXCLUDE_STOCKS_DEFAULT,
+    build_exclude_name_filter,
     build_filtered_instruments,
     build_limit_up_filter,
     build_production_filter_pipe,
@@ -32,14 +34,24 @@ from train_wiring import (  # noqa: E402
 EXCLUDE_SAMPLE = ["SZ000004", "SH600107"]
 
 
+def test_exclude_stocks_default_is_empty():
+    assert EXCLUDE_STOCKS_DEFAULT == []
+    assert build_exclude_name_filter([]) is None
+    assert build_production_filter_pipe([], use_exclude=True, limit_up=False) == []
+
+
 def test_production_filter_pipe_order_and_length():
-    pipe = build_production_filter_pipe(EXCLUDE_SAMPLE)
+    pipe = build_production_filter_pipe(EXCLUDE_SAMPLE, limit_up=True)
     assert len(pipe) == 2
     # Order: exclude NameDFilter → UnifiedLimitUpFilter($zhangting)
     assert pipe[0].__class__.__name__ == "NameDFilter"
     assert isinstance(pipe[1], UnifiedLimitUpFilter)
     assert pipe[1].rule_expression == "$zhangting == 0"
     assert pipe[1].keep is False
+    # Default: $zhangting 出池关，只留显式打开的黑名单层
+    default_pipe = build_production_filter_pipe(EXCLUDE_SAMPLE)
+    assert len(default_pipe) == 1
+    assert default_pipe[0].__class__.__name__ == "NameDFilter"
 
 
 def test_build_filtered_instruments_not_bare_all():
@@ -58,6 +70,7 @@ def test_build_filtered_instruments_not_bare_all():
         end_time="2026-03-23",
         exclude_stocks=EXCLUDE_SAMPLE,
         instruments_fn=fake_instruments,
+        limit_up=True,
     )
 
     assert instruments != "all"
@@ -81,12 +94,12 @@ def test_limit_up_filter_keeps_zhangting_zero():
 
 
 def test_filter_pipe_switches_drop_layers():
-    """未开 --exclude-filter / 开了 --no-limit-filter 时对应层不进 pipe，全关时 pipe 为空。"""
-    # 只关黑名单
-    pipe = build_production_filter_pipe(EXCLUDE_SAMPLE, use_exclude=False)
+    """未开 --exclude-filter / 未开 --limit-filter 时对应层不进 pipe，全关时 pipe 为空。"""
+    # 只开涨停出池
+    pipe = build_production_filter_pipe(EXCLUDE_SAMPLE, use_exclude=False, limit_up=True)
     assert len(pipe) == 1
     assert isinstance(pipe[0], UnifiedLimitUpFilter)
-    # 只关涨停过滤
+    # 默认：黑名单开、涨停出池关
     pipe = build_production_filter_pipe(EXCLUDE_SAMPLE, limit_up=False)
     assert len(pipe) == 1
     assert pipe[0].__class__.__name__ == "NameDFilter"
@@ -117,7 +130,12 @@ def test_guard_and_cache_cli_flags_default_off():
     args = parse_train_cli([])
     assert args.exclude_filter is False
     assert args.no_exclude_filter is False
+    assert args.limit_filter is False
     assert args.no_limit_filter is False
+    assert args.drop_limit_up_learn is False
+    assert args.st_filter is False
+    assert args.age_filter is False
+    assert args.return_threshold_filter is False
     assert args.no_limit_threshold is False
     assert args.dataset_cache is False
     assert args.expr_cache is False
@@ -187,6 +205,21 @@ def test_guard_and_cache_cli_flags_default_off():
     assert args_wide.n_drop == 5
     args_on = parse_train_cli(["--exclude-filter"])
     assert args_on.exclude_filter is True
+    args_limit = parse_train_cli(["--limit-filter"])
+    assert args_limit.limit_filter is True
+    args_drop = parse_train_cli(["--drop-limit-up-learn"])
+    assert args_drop.drop_limit_up_learn is True
+    args_st = parse_train_cli(["--st-filter"])
+    assert args_st.st_filter is True
+    assert args_st.age_filter is False
+    assert args_st.return_threshold_filter is False
+    args_age = parse_train_cli(["--age-filter"])
+    assert args_age.age_filter is True
+    assert args_age.st_filter is False
+    args_ret = parse_train_cli(["--return-threshold-filter"])
+    assert args_ret.return_threshold_filter is True
+    assert args_ret.st_filter is False
+    assert args_ret.buy_state_filter is False
     args_off = parse_train_cli(
         [
             "--no-exclude-filter",

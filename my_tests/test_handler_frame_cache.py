@@ -46,6 +46,7 @@ def _payload(**overrides):
         exclude_filter_on=False,
         limit_up_filter_on=True,
         tradable_universe_on=False,
+        drop_limit_up_learn_on=False,
     )
     base.update(overrides)
     return make_handler_cache_payload(**base)
@@ -62,6 +63,7 @@ def test_digest_stable_and_isolated():
     assert handler_cache_digest(_payload(end_time="2025-12-31")) != handler_cache_digest(a)
     assert handler_cache_digest(_payload(include_lz=False)) != handler_cache_digest(a)
     assert handler_cache_digest(_payload(tradable_universe_on=True)) != handler_cache_digest(a)
+    assert handler_cache_digest(_payload(drop_limit_up_learn_on=True)) != handler_cache_digest(a)
 
 
 def test_ops_source_hash_changes_digest(tmp_path):

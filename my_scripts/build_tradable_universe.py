@@ -25,6 +25,7 @@ import pandas as pd
 _ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(_ROOT / "my_scripts"))
 
+from buy_eligibility import AGE_NOT_YET, earliest_buy_date  # noqa: E402
 from st_status import load_st_codes_asof  # noqa: E402
 from train_wiring import EXCLUDE_STOCKS_DEFAULT  # noqa: E402
 
@@ -53,9 +54,8 @@ def shift_start_for_age(lines: list[str], calendar: pd.DatetimeIndex, age_days: 
     """每行的起始日顺延 age_days 个交易日；起始日在日历外（< 首日）的行不动。
 
     数据起始日在日历内 → 新起始 = calendar[pos(start)+age_days]；
-    老股（start == 日历首日）同样顺延，实验窗在 2025+ 时全部不受影响。
+    +age 越出日历 → 9999-12-31（窗内不可买，不再写回上市日）。
     """
-    pos = {d: i for i, d in enumerate(calendar)}
     out = []
     for ln in lines:
         parts = ln.split("\t")
@@ -63,12 +63,13 @@ def shift_start_for_age(lines: list[str], calendar: pd.DatetimeIndex, age_days: 
             out.append(ln)
             continue
         code, start_s, end_s = parts[0], parts[1], parts[2]
-        start = pd.Timestamp(start_s)
-        idx = pos.get(start)
-        if idx is None or idx + age_days >= len(calendar):
-            new_start = start_s  # 日历外/顺延后越界：不动（越界股在窗内本就买不到）
+        min_d = earliest_buy_date(start_s, calendar, age_days)
+        if min_d is None:
+            new_start = start_s
+        elif min_d == AGE_NOT_YET:
+            new_start = "9999-12-31"
         else:
-            new_start = calendar[idx + age_days].strftime("%Y-%m-%d")
+            new_start = min_d.strftime("%Y-%m-%d")
         out.append(f"{code}\t{new_start}\t{end_s}")
     return out
 
@@ -79,7 +80,6 @@ def build(
     extra_exclude_file: str | None,
     st_daily_file: str | None = None,
     st_asof: str | None = None,
-    st_coverage_file: str | None = None,
 ) -> dict:
     cal = read_calendar(qlib_dir)
     all_path = Path(qlib_dir) / "instruments" / "all.txt"
@@ -90,12 +90,7 @@ def build(
     if extra_path and extra_path.is_file():
         exclude |= {ln.strip().upper() for ln in extra_path.read_text(encoding="utf-8").splitlines() if ln.strip()}
     if st_daily_file:
-        exclude |= load_st_codes_asof(
-            st_daily_file,
-            asof=st_asof,
-            coverage_path=st_coverage_file,
-            fallback_static=exclude,
-        )
+        exclude |= load_st_codes_asof(st_daily_file, asof=st_asof)
 
     kept, dropped = drop_excluded(lines, exclude)
     shifted = shift_start_for_age(kept, cal, age_days)
@@ -116,11 +111,6 @@ def main() -> int:
         help="vendor_wind_st_status/st_daily.parquet：按 --st-asof 并入当日 ST（缺省矩阵末日）",
     )
     parser.add_argument("--st-asof", default=None, help="ST 过滤 as-of 日 YYYY-MM-DD，缺省用 daily 最后一天")
-    parser.add_argument(
-        "--st-coverage-file",
-        default=None,
-        help="st_coverage.json；缺省取 daily 同目录。未覆盖/unknown_end 仍走静态黑名单",
-    )
     args = parser.parse_args()
     stats = build(
         Path(args.qlib_dir).expanduser(),
@@ -128,7 +118,6 @@ def main() -> int:
         args.extra_exclude_file,
         st_daily_file=args.st_daily_file,
         st_asof=args.st_asof,
-        st_coverage_file=args.st_coverage_file,
     )
     print(
         f"[tradable] 全宇宙 {stats['total']} → 剔除ST {stats['dropped_st']} → 保留 {stats['kept']}，"

@@ -76,16 +76,23 @@ _DEFAULT_INFER_PROCESSORS = [
     {"class": "Fillna", "kwargs": {}},
 ]
 
+DROP_LIMIT_UP_LEARN_SPEC = {
+    "class": "DropLimitUpLearn",
+    "module_path": "custom_handler",
+    "kwargs": {"col": "LIMIT_STATUS", "value": 1},
+}
+
 _DEFAULT_LEARN_PROCESSORS = [
-    # M3-A: learn-only drop of limit-up samples (do not put on infer_processors).
-    {
-        "class": "DropLimitUpLearn",
-        "module_path": "custom_handler",
-        "kwargs": {"col": "LIMIT_STATUS", "value": 1},
-    },
     {"class": "DropnaLabel"},
     {"class": "CSZScoreNorm", "kwargs": {"fields_group": "label"}},
 ]
+
+
+def build_learn_processors(drop_limit_up=False):
+    """Train-frame processors. DropLimitUpLearn is opt-in (``--drop-limit-up-learn``)."""
+    if drop_limit_up:
+        return [dict(DROP_LIMIT_UP_LEARN_SPEC), *_DEFAULT_LEARN_PROCESSORS]
+    return list(_DEFAULT_LEARN_PROCESSORS)
 
 
 def drop_limit_up_rows(df: pd.DataFrame, col: str = "LIMIT_STATUS", value=1) -> pd.DataFrame:
@@ -118,9 +125,9 @@ class DropLimitUpLearn(Processor):
     """Learn-phase processor: drop samples with LIMIT_STATUS/$zhangting == 1.
 
     Must not be placed on infer_processors (``is_for_infer`` is False). Export
-    pool / as-of path is untouched. With production filter_pipe already removing
-    limit-up instruments, this is defense-in-depth on the learn frame; when
-    LIMIT_STATUS is still 0/1 (shared/raw or PTYPE_I), the drop is exact.
+    pool / as-of path is untouched. Default train path omits this processor;
+    opt in with ``--drop-limit-up-learn``. When LIMIT_STATUS is still 0/1
+    (shared/raw or PTYPE_I), the drop is exact.
     """
 
     def __init__(self, col: str = "LIMIT_STATUS", value=1):

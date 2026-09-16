@@ -155,10 +155,10 @@ def test_generate_trade_decision_counts_grow_across_steps():
     after = strat.bar_call_spectrum()
     assert after["tradable_calls"] > before["tradable_calls"]
     assert after["deal_price_calls"] > before["deal_price_calls"]
-    assert after["factor_calls"] > before["factor_calls"]
     assert after["deal_price_calls"] >= 3
-    assert after["factor_calls"] >= 3
     assert after["tradable_calls"] >= 3
+    # 买入手数改本仓向下取整，不再读 $factor / round_amount_by_trade_unit。
+    assert after["factor_calls"] == before["factor_calls"] == 0
 
 
 def test_always_on_counts_while_timer_respects_interval():

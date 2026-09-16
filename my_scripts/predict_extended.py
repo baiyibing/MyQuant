@@ -6,7 +6,7 @@ sweep --pred-from``。本脚本是上游 pred 写出端；下游只用产物续�
 
 复用 ``sweep_live_adapter`` 的构建模式：一次 handler_init 覆盖
 train/valid/test 三段 min start ~ max end；模型与 processors 同 M3-A
-（含 ``DropLimitUpLearn`` 的 ``module_path`` 接线）。
+（``DropLimitUpLearn`` 默认关，与训练入口一致）。
 
 产物（CWD）：
   - ``预测结果_ext.csv``（datetime,instrument,score）
@@ -172,7 +172,7 @@ def live_predict(
     from qlib.contrib.model import LGBModel
     from qlib.data.dataset import DatasetH
 
-    from custom_handler import Alpha158CostKDJ
+    from custom_handler import Alpha158CostKDJ, build_learn_processors
     from train_wiring import build_filtered_instruments
 
     from custom_utils import TimerRecorder, install_features_probe, set_global_timer_recorder
@@ -207,15 +207,7 @@ def live_predict(
             {"class": "RobustZScoreNorm", "kwargs": {"fields_group": "feature"}},
             {"class": "Fillna", "kwargs": {"fields_group": "feature"}},
         ],
-        learn_processors=[
-            {
-                "class": "DropLimitUpLearn",
-                "module_path": "custom_handler",
-                "kwargs": {"col": "LIMIT_STATUS", "value": 1},
-            },
-            {"class": "DropnaLabel"},
-            {"class": "CSZScoreNorm", "kwargs": {"fields_group": "label"}},
-        ],
+        learn_processors=build_learn_processors(drop_limit_up=False),
         include_alpha158=True,
         include_cost_kdj=True,
         include_lz=True,
@@ -371,7 +363,7 @@ def run_predict_extended(
             "handler_start": start_time,
             "handler_end": end_time,
             "include_lz": True,
-            "drop_limit_up_learn": True,
+            "drop_limit_up_learn": False,
             "portana": False,
             "alignment_check": False,
             "pred_csv": out_path.name,
