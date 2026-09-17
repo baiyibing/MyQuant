@@ -61,10 +61,11 @@
 | 标签 | 只用当前 `Ref($close,-2)/Ref($close,-1)-1`；禁止改 label 或 horizon |
 | 基线 pred | `8a061ea428e04bb3a199a485ade49d0e`；2026 原 `pred.pkl`、2025 同模型补分 CSV 均只读，不覆盖、不回写；`55c5bf77` 也不读写 |
 | 唯一候选量 | `my_scripts/build_winner_ratio.py` 的连续 `winner_ratio`；`--shares free --window 1000 --step 0.01`。信息门固定看 `cyq_signal = -winner_ratio`，即获利盘越低，信号越高 |
+| 唯一 CYQ 数据件 | 只运行一次 `build_winner_ratio.py --test 2020-01-01:2026-09-14 --window 1000 --step 0.01 --shares free`，生成一份 2020–2026 parquet；A/B/C 共用该文件及其 SHA-256，A 只切片 2025/2026，禁止另建短窗文件或过 A 后按更长历史重算 |
 | CYQ 变体 | 不试 `circ`、券商 `winratio`、QMT、Quantile 代理、Rust 数值、ASR/CKDW/PRP、阈值或衍生窗口；不做跨仓筹码量拼接 |
-| 训练 | 只有信息门过后才可复制 `8a061ea4` 的 LGB 配置，唯一差异是新增原始连续列 `CYQ_WR_1000_FREE`；train 2020–2024、valid 2025、test 2026、seed/超参/早停/scaler/训练宇宙全冻结；涨停出池开、`DropLimitUpLearn` 关 |
+| 训练 | 只有信息门过后才可复制 `8a061ea4` 的 LGB 配置，唯一差异是把同一 CYQ sidecar 在现成 handler 帧上按 `(instrument, datetime)` 左连为原始连续列 `CYQ_WR_1000_FREE`，禁止为这一列重做 9×11G 表达式；train 2020–2024、valid 2025、test 2026、seed/超参/早停/scaler/训练宇宙全冻结；涨停出池开、`DropLimitUpLearn` 关 |
 | 组合 | PortAna 只有模型信号门过后才可运行；固定 10/3、`hold_thresh=1`、top/bottom，买入状态/ST/年龄/5日15% 全关，止损/trail/止盈全关 |
-| 两窗 | 2025 valid：`2025-01-03～2025-12-31`；2026 OOS：信号窗 `2026-01-01～2026-09-14`，组合成交窗沿现尺子 `2026-01-06～2026-09-14` |
+| 两窗 | A/B/C 统一为 2025 valid `2025-01-03～2025-12-31`、2026 OOS `2026-01-01～2026-09-14`；本刀不跑 BT，不另设成交首日窗口 |
 | 尺子 | qlib `$close` 后复权 bin；买5bp/卖15bp/最低5；拒单0.095、不追买、整手向下；本金1e8、`risk_degree=0.95`、基准 SH000300 |
 | 已死路线 | 不换树、不月滚、不 per-fold scaler、不跑 20/3、不把关 15% 升默认、不重建 9×11G handler；不扫闸/止损/trail/止盈/宽度/`n_drop` |
 | 线上 | 始终仍是 `8a061ea4` + 10/3；即使本刀全过也只得到候选标签，不自动替换 pred 或线上参数 |
@@ -79,23 +80,25 @@
 
 1. 令 `s = percentile_rank(score)`、`c = percentile_rank(-winner_ratio)`、`y = percentile_rank(label)`。
 2. 当日分别做 `c ~ 1 + s` 与 `y ~ 1 + s` 的 OLS，取两组残差的 Pearson 相关，定义为当日 **CYQ partial RankIC**。这是控制现有 score 后的截面秩增量，不是把 CYQ 与 score 任意加权。
-3. 两窗分别报 mean、median、ICIR、有效日数、共同股票数中位数、CYQ 缺失率；2026 按自然季度列 mean partial RankIC。
+3. 两窗的主统计量是日 CYQ partial RankIC 的 **mean**；同时报 median、ICIR、有效日数、退化日数及原因、共同股票数中位数、CYQ 缺失率，2026 按自然季度列 mean partial RankIC。截面样本不足以估计上述 OLS/Pearson，或任一残差为零方差/非有限时，该日不得填 0，须剔除，并分别披露退化日数与剔除后的有效日数。
 4. 对每日 partial RankIC 用 5 交易日 moving-block bootstrap，固定 10,000 次、seed `20260917`，报 95% CI。
 
-共同样本只用于诊断；不得因 CYQ 缺失重定义 `8a061ea4` 宇宙。两窗共同样本覆盖率均须至少 98%，值域须在 `[0,1]`，日期 t 的 CYQ 只能使用截至 t 收盘的数据。训练臂中极少量缺失沿现有特征处理链在标准化后 `Fillna(0)`，不得另加缺失指示列。
+共同样本只用于诊断；不得因 CYQ 缺失重定义 `8a061ea4` 宇宙。两窗共同样本覆盖率均须至少 98%，值域须在 `[0,1]`，日期 t 的 CYQ 只能使用截至 t 收盘的数据。A/B 的 `score`、pred 与标签均按 `(instrument, datetime)` 的**特征日索引**对齐；不得用成交日偏移或 `pred_minus_one` 计算 RankIC。训练臂中极少量缺失严格沿现网链在 `RobustZScoreNorm` 后 `Fillna(0)`，不得另加缺失指示列；2020–2024 训练期的 CYQ 覆盖率必须报告，但不另开杀门。
+
+A 段不是独立造数阶段：它只从冻结的 2020–2026 CYQ parquet 切片 2025/2026。qlib 日历左端为 `2020-01-02`，会裁掉 `--window 1000` 所需的左侧热身，因此 2020 段存在冷启动；这不算改变 CYQ 口径，也不得据此把 `--window` 改成 250/500，或改用券商 `$winratio`。A 切片与 B/C 实际左连的重叠日 `winner_ratio` 必须来自同一文件且数值一致；任何重算、舍入或预处理造成的不一致一律记 `CYQ_DATA_INVALID` 并停止。
 
 ### 4.2 B 段：A 过门后，只加一列训练并再过信号门
 
-A 段全过后，才允许生成 2020–2026 的同口径 CYQ 文件，并建立一个新 recorder：
+A 段全过后，只允许复用 A 已读取的同一份 2020–2026 CYQ 文件建立一个新 recorder；不得再生成或替换 CYQ parquet：
 
 - 对照仍是现成 `8a061ea4`，不重训、不覆盖。
-- 候选复制其训练配置，只在特征矩阵末尾加入原始连续 `CYQ_WR_1000_FREE = winner_ratio`；LGB 自己决定非线性方向，不增加 `<10%` 指示器或其他 CYQ 派生量。
+- 候选复制其训练配置，在现成 handler 帧上按 `(instrument, datetime)` 左连同一 sidecar，只在特征矩阵末尾加入原始连续 `CYQ_WR_1000_FREE = winner_ratio`；禁止为新增列重做 9×11G 表达式，LGB 自己决定非线性方向，不增加 `<10%` 指示器或其他 CYQ 派生量。
 - 候选同时导出 2025 valid 与 2026 test 分数到新目录。
-- 在两窗共同样本上，以当前标签比较候选与 `8a061ea4` 的日 RankIC、Top10 等权信号差，以及 `ΔRankIC` 的同口径 bootstrap CI；仍不跑组合。
+- 在两窗共同样本上，按特征日索引以当前标签比较候选与 `8a061ea4` 的日 RankIC、Top10 等权信号差，以及 `ΔRankIC` 的同口径 bootstrap CI；不得用 `pred_minus_one` 做 A/B 诊断，仍不跑组合。
 
 ### 4.3 C 段：B 过门后，才允许 10/3 PortAna
 
-B 段全过后，才对基线 pred 与候选 pred 做两窗配对 PortAna。两臂的唯一上游差异必须是那一列 CYQ 特征；组合、成本、成交、闸和窗口完全一致。输出两臂的输入 hash、末值、区间收益、扣费年化超额、最大回撤、换手、费用，并报季度 `ΔNetReturn` 和 2026 配对日收益差的 5 日 block-bootstrap 95% CI。
+B 段全过后，才对基线 pred 与候选 pred 做两窗配对 PortAna。两臂的唯一上游差异必须是来自同一冻结 CYQ parquet 的那一列特征；组合、成本、成交、闸和窗口完全一致。C 段用全宇宙 pred 做 PortAna，不以 A/B 的共同样本替代组合输入。输出两臂的输入 hash、末值、区间收益、扣费年化超额、最大回撤、换手、费用，并报季度 `ΔNetReturn` 和 2026 配对日收益差的 5 日 block-bootstrap 95% CI。
 
 PortAna 是第三段，不得用 A 段的 partial RankIC 直接推算 NAV，也不得在 A/B 失败后“跑一下看看”。本刀不授权 BT；PortAna 过门后是否需要新盲窗/BT，另立任务，不在本刀追加。
 
@@ -105,7 +108,7 @@ PortAna 是第三段，不得用 A 段的 partial RankIC 直接推算 NAV，也�
 
 | 门 | 预注册判据 |
 |---|---|
-| S0 · 数据/语义 | 两窗共同样本覆盖率均 `>=98%`；CYQ 值域、输入 hash、t 日可得性通过；候选配置 diff 只能出现一列 `CYQ_WR_1000_FREE` |
+| S0 · 数据/语义 | A/B/C 使用同一份 CYQ parquet 及 SHA-256，A 切片与 B/C 左连的重叠日数值一致；两窗共同样本覆盖率均 `>=98%`；CYQ 值域、t 日可得性通过；B/C 候选配置 diff 只能出现一列 `CYQ_WR_1000_FREE`；训练期覆盖率只报告、不设门 |
 | S1 · 条件信息 | 2025、2026 的 mean CYQ partial RankIC 均 `>0`；2026 的 5 日 block-bootstrap 95% CI 下界 `>0`；2026 不得多数季度为负，也不得只靠一个季度为正 |
 | S2 · 模型传递 | 候选模型在 2025、2026 均同时满足 `RankIC(candidate)>RankIC(8a)` 与 `Top10Spread(candidate)>Top10Spread(8a)`；2026 `ΔRankIC` 的 95% CI 下界 `>0`，季度稳定性通过 |
 | S3 · 组合兑现 | 固定 10/3 locked-cost PortAna 在 2025、2026 均 `ΔNetReturn>0` 且扣费年化超额排序候选>基线；2026 `ΔNetReturn` 的 95% CI 下界 `>0`，`majority_negative=false`、`single_quarter_driven=false` |
@@ -125,10 +128,10 @@ A 段的“增量”是 partial RankIC，B 段是候选减基线的 RankIC/Top10
 
 | 优先级 | 标签 | 命中条件 | 动作 |
 |---:|---|---|---|
-| 1 | `CYQ_DATA_INVALID` | S0 不过 | 停；只允许修数据可得性/代码错误后按原协议重跑，不得改 CYQ 口径 |
+| 1 | `CYQ_DATA_INVALID` | S0 不过，或 A 切片与 B/C 的重叠日 `winner_ratio` 不一致 | 停；只允许修数据可得性/代码错误后按原协议重跑，不得另建短窗/长窗数据件或改 CYQ 口径 |
 | 2 | `CYQ_CONDITIONAL_FLIP` | A 段 2025/2026 mean partial RankIC 反号，或 2026 多数季度为负 | CYQ 单列路线停止；不改方向、不切季度、不试阈值 |
 | 3 | `CYQ_CONDITIONAL_NO_EDGE` | 未翻号但 A 段 2026 CI 下界 `<=0`，或只靠单季 | 证据不足即停；不得以 PortAna 复活 |
-| 4 | `CYQ_MODEL_NO_TRANSFER` | A 过而 B 的两窗同序、2026 CI 或季度门任一不过 | 独立信息没有传进模型；停，不加第二个 CYQ 特征、不改树/seed/早停 |
+| 4 | `CYQ_MODEL_NO_TRANSFER` | A 过而 B 任一窗 `RankIC(candidate)<=RankIC(8a)`、任一窗 `Top10Spread(candidate)<=Top10Spread(8a)`，或 2026 CI/季度门不过 | 独立信息没有传进模型或头部兑现不成立；停，不加第二个 CYQ 特征、不改树/seed/早停 |
 | 5 | `CYQ_PORTANA_FLIP` | A/B 过而 C 段 2025/2026 locked-cost `ΔNetReturn` 反号，或 2026 多数季度为负 | 组合兑现窗口依赖；停，不改 10/3 或成本救结果 |
 | 6 | `CYQ_PORTANA_NO_EDGE` | 未翻号但 C 段 2026 CI 下界 `<=0`、单季驱动或任一 S3 条件不过 | 无可兑现增量；停，不转扫阈值、宽度、`n_drop` 或卖出 |
 
@@ -138,22 +141,22 @@ A 段的“增量”是 partial RankIC，B 段是候选减基线的 RankIC/Top10
 
 以下是未来实现 PR 的接口草案，**本轮禁止执行**。当前仓已有 `build_winner_ratio.py`；`diag_cyq_increment.py`、`train_cyq_feature_arm.py`、`diag_pred_pair.py`、`portana_pred_pair.py` 尚不存在，须在后续实现 PR 中按本页协议落地，并对已存在输出目录 fail-closed，不能删除后复用。
 
-### 6.1 A 段：两窗 CYQ + 条件 RankIC
+### 6.1 唯一一次 CYQ 构建 + A 段条件 RankIC
 
 ```powershell
 Set-Location D:\PycharmProjects\MyQuant
 $py = "D:/anaconda3/envs/vanna312/python.exe"
-$cyqA = "F:/stock_data/cyq_winner_ratio/t5_cyq1_2025_2026_20260917.parquet"
+$cyqFile = "F:/stock_data/cyq_winner_ratio/t5_cyq1_2020_2026_20260917.parquet"
 
 & $py -u my_scripts/build_winner_ratio.py `
-  --test 2025-01-03:2026-09-14 --window 1000 --step 0.01 `
-  --shares free --workers 8 --out $cyqA
+  --test 2020-01-01:2026-09-14 --window 1000 --step 0.01 `
+  --shares free --workers 8 --out $cyqFile
 
 & $py -u my_scripts/diag_cyq_increment.py `
   --experiment alpha158_cost_kdj_lgb `
   --recorder-id 8a061ea428e04bb3a199a485ade49d0e `
   --pred-2025 my_scripts/预测结果_8a061ea4_2025valid.csv `
-  --cyq-file $cyqA --cyq-column winner_ratio --direction lower `
+  --cyq-file $cyqFile --cyq-column winner_ratio --direction lower `
   --label "Ref(`$close,-2)/Ref(`$close,-1)-1" `
   --window 2025-01-03:2025-12-31 `
   --window 2026-01-01:2026-09-14 `
@@ -163,18 +166,14 @@ $cyqA = "F:/stock_data/cyq_winner_ratio/t5_cyq1_2025_2026_20260917.parquet"
 
 若终端 verdict 不是 `CYQ_INFORMATION_PASS`，立即停，不执行后两段。
 
+`build_winner_ratio.py` 在整把 T5-CYQ1 中只允许执行上述一次。A 诊断必须从 `$cyqFile` 切出 2025/2026，并记录整文件 SHA-256 与切片行键/数值摘要；后续 B/C 必须校验同一 SHA-256 和重叠日数值，任一不一致立即输出 `CYQ_DATA_INVALID`。不得在 A 通过后换成长历史文件重算，也不得为绕开 2020 冷启动另建短窗 parquet。
+
 ### 6.2 B 段：只加一列训练 + 模型信号门
 
 ```powershell
-$cyqFull = "F:/stock_data/cyq_winner_ratio/t5_cyq1_2020_2026_20260917.parquet"
-
-& $py -u my_scripts/build_winner_ratio.py `
-  --test 2020-01-01:2026-09-14 --window 1000 --step 0.01 `
-  --shares free --workers 8 --out $cyqFull
-
 & $py -u my_scripts/train_cyq_feature_arm.py `
   --clone-recorder 8a061ea428e04bb3a199a485ade49d0e `
-  --cyq-file $cyqFull --cyq-column winner_ratio `
+  --cyq-file $cyqFile --cyq-column winner_ratio `
   --feature-name CYQ_WR_1000_FREE --only-extra-feature CYQ_WR_1000_FREE `
   --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 `
   --test 2026-01-01:2026-09-14 --no-portana `
