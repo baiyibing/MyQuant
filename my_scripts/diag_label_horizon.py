@@ -755,6 +755,7 @@ def _prepare_output(out_dir: Path) -> Path:
 
 
 def run(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
+    out_dir = _prepare_output(args.out_dir)
     _load_runtime_dependencies()
     windows = _windows_from_args(args.window)
     scores_2025, meta_2025 = _load_2025_scores(args.pred_2025)
@@ -844,7 +845,6 @@ def run(args: argparse.Namespace) -> tuple[Path, dict[str, Any]]:
         },
     }
 
-    out_dir = _prepare_output(args.out_dir)
     daily_all = pd.concat(daily_parts, ignore_index=True)
     daily_all.to_csv(out_dir / "daily_metrics.csv", index=False, encoding="utf-8", lineterminator="\n")
     _write_json(out_dir / "window_summary.json", summary_payload)
