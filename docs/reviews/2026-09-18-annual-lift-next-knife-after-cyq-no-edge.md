@@ -58,10 +58,12 @@ PR #77 的 T5-CYQ1 已在 `newtest_4090` 跑完并停在 **A 门**，最终标�
 |---|---|
 | 当前标签 | 只用 `Ref($close,-2)/Ref($close,-1)-1`；禁止换 label 或 horizon |
 | 基线 pred | `8a061ea428e04bb3a199a485ade49d0e`；2026 原 `pred.pkl` 与 2025 同模型补分 CSV 只读，不覆盖、不回写；不读写 `55c5bf77` |
-| 精确 CYQ 控制量 | 只读上一刀的 `t5_cyq1_2020_2026_20260917.parquet` 及上述 SHA-256；列为 free/1000 `winner_ratio`；禁止重建、舍入、换分母或换窗 |
-| 券商源 | qlib 独立字段 `$winratio`，源口径 `[0,1]`、两位小数；后续执行时一次性导出 2020-01-02～2026-09-14 的不可变 sidecar 并记录 provider 快照、行键摘要与 SHA-256；A/B/C 共用，禁止中途刷新或换包 |
+| 精确 CYQ 控制量 | 只读上一刀的 `t5_cyq1_2020_2026_20260917.parquet` 及上述 SHA-256；列为 free/1000 `winner_ratio`；执行前必须校验 SHA-256，`exact_winner_ratio` 只能从该冻结列拷贝；禁止再跑 `build_winner_ratio.py`，也禁止重建、舍入、换分母或换窗 |
+| 券商源 | qlib 独立字段 `$winratio`，源口径 `[0,1]`、两位小数；钉死 provider 快照后只读一次并写入 sidecar，禁止中途刷新或换包 |
 | 唯一候选特征 | `BROKER_WR_GAP`，严格按 §3.1 构造；不试 raw `$winratio`、差值、比值、阈值、分桶、平滑、lag、交互、方向翻转或另一种 rank/回归定义 |
-| 宇宙 | 特征构造逐日使用冻结 `8a061ea4` handler 对应分段的样本索引，不因 `$winratio`/CYQ 缺失改写基线宇宙；A/B 比较只在共同有限样本上诊断，C 仍吃各臂全宇宙 pred |
+| OLS 构造宇宙 | `export_winratio_gap.py` 必须读取 `alpha158_cost_kdj_lgb / 8a061ea428e04bb3a199a485ade49d0e` 的冻结 handler 样本索引；每个特征日只在「handler 当日行 ∩ 精确 CYQ 与 `$winratio` 均有限且在 `[0,1]`」上拟合一次。禁止先在全市场或全 CYQ parquet 拟合再切片/左连；残差刀的成员集合一变，当日所有 `g` 都会变 |
+| 唯一 sidecar | 只导出一次覆盖 2020-01-02～2026-09-14 的不可变 sidecar；至少持久化 `(instrument, datetime)`、`broker_winratio`、`exact_winner_ratio`、构造日 `q`/`v`、`BROKER_WR_GAP=g`、当日 OLS 样本数与退化原因，并写出 sidecar SHA-256 与行键摘要。A 只切片诊断，B 只左连这同一文件，C 以 B recorder 血缘中的同一 SHA-256 为证；禁止 A 通过后按更长历史、另一宇宙或另一快照重算残差 |
+| 诊断宇宙 | 两列缺失不得改写基线宇宙；A/B 比较只在共同有限样本上诊断，C 仍吃各臂全宇宙 pred。A 的覆盖率分母固定为当日 handler 的有限 `score` 行数，分子为其中 `score`、当前标签、sidecar `q`、sidecar `g` 均有限的行数；分别披露券商缺失、精确 CYQ 缺失与联合缺失 |
 | 训练 | A 全过后才可复制 `8a061ea4` 的 LGB 配置；唯一差异是在原 handler 帧左连一列 `BROKER_WR_GAP`；train 2020–2024、valid 2025、test 2026，seed/超参/早停/scaler/训练宇宙冻结；涨停出池开、`DropLimitUpLearn` 关 |
 | 两窗 | A/B/C 统一为 2025 valid `2025-01-03～2025-12-31`、2026 OOS `2026-01-01～2026-09-14`；两窗均已被研究，不包装为新盲窗 |
 | 组合 | 只有 B 全过后才可做 paired PortAna；固定 10/3、`hold_thresh=1`、top/bottom，buy-state/ST/年龄/5日15% 全关，止损/trail/止盈全关 |
@@ -73,23 +75,26 @@ PR #77 的 T5-CYQ1 已在 `newtest_4090` 跑完并停在 **A 门**，最终标�
 
 ### 3.1 A 门：分歧残差条件信息门；禁止重训与 PortAna
 
-先在每个特征日 `t`，仅以当日可见数据构造唯一 sidecar 特征。构造不得读取 label 或未来数据：
+先用与 A 门相同的 `alpha158_cost_kdj_lgb / 8a061ea428e04bb3a199a485ade49d0e` 冻结 handler 样本索引，一次性构造覆盖 2020-01-02～2026-09-14 的唯一 sidecar。构造不得读取 label 或未来数据；A 只从该文件切片，B/C 不得另建第二份 `g`：
 
-1. 在冻结 handler 当日索引中，取精确 CYQ 与券商 `$winratio` 都有限的股票；两列均须在 `[0,1]`。
-2. 用固定的 average-tie percentile rank 定义 `q = rank_pct(-exact_winner_ratio)`、`v = rank_pct(-$winratio)`；负号使“获利盘更低 / 更深洗”方向为正。
-3. 当日做带截距 OLS `v ~ 1 + q`，取残差 `g`，写为唯一候选列 `BROKER_WR_GAP`。`g>0` 表示券商相对精确 CYQ 给出更强的“深洗”判断。样本不足、`q`/`v` 零方差、秩亏或非有限时，该日特征为缺失并记退化原因，不得填造数值。
-4. A 门在 `score`、当前标签、`q`、`g` 均有限的共同样本上，令 `s=rank_pct(score)`、`y=rank_pct(label)`；分别做 `g ~ 1+s+q` 与 `y ~ 1+s+q`，取两组残差的 Pearson 相关，定义当日 **WR-gap partial RankIC**。
+1. 先校验冻结 CYQ parquet 的 SHA-256，且禁止再跑 `build_winner_ratio.py`；`exact_winner_ratio` 只能从该文件的冻结列拷贝，不得重算。券商 `$winratio` 从钉死的 provider 快照只读一次写入 sidecar，禁止构造中途刷新 provider 或换包。
+2. 每个特征日 `t`，只在「冻结 handler 当日行 ∩ 精确 CYQ 与券商 `$winratio` 均有限且均在 `[0,1]`」的构造样本上拟合。禁止先在全市场或全 CYQ parquet 上拟合后再切进 handler；成员集合一变，当日每一个残差 `g` 都会改变。
+3. `rank_pct(x)` 唯一定义为 `pandas.Series.rank(method="average", pct=True)`。在同一构造样本上令 `q = rank_pct(-exact_winner_ratio)`、`v = rank_pct(-$winratio)`；负号使“获利盘更低 / 更深洗”方向为正。
+4. 当日仅拟合一次带截距 OLS `v ~ 1 + q`，取残差 `g`，写为唯一候选列 `BROKER_WR_GAP`。`g>0` 表示券商相对精确 CYQ 给出更强的“深洗”判断。构造样本 `n<3`、`q`/`v` 零方差、秩亏或结果非有限时，该日特征为缺失并记退化原因，不得填造数值。
+5. sidecar 至少持久化 `(instrument, datetime)`、`broker_winratio`、`exact_winner_ratio`、构造日的 `q`/`v`、`BROKER_WR_GAP=g`、当日 OLS 样本数与退化原因；同时写出 sidecar SHA-256 与行键摘要。源列是冻结输入的拷贝，不得在导出后重算或替换。
+6. A 门的 `g`、`q` 只能读取 sidecar 存储值；允许按上述唯一公式在完全相同的构造样本上复算作一致性校验，且 `corr(g,q)` 只许浮点误差。严禁在 A 门的 `score`/label 共同子样本上重新拟合 `v ~ 1+q` 后拿新残差当 IC，否则信息门与训练列会成为两把刀。
+7. A 门在 `score`、当前标签、sidecar `q`、sidecar `g` 均有限且 `n>=4` 的共同样本上，令 `s=rank_pct(score)`、`y=rank_pct(label)`；分别做 `g ~ 1+s+q` 与 `y ~ 1+s+q`，取两组残差的 Pearson 相关，定义当日 **WR-gap partial RankIC**。`n<4` 或回归退化时该日 IC 缺失并记原因，不得事后改变门槛。
 
 这一定义把现有 score 与已失败的精确 CYQ 水平同时列为控制量。A 门检验的是券商独有分歧，不得改成 `corr(-$winratio, label)`，也不得在看到结果后删去 `q` 以放大相关性。
 
-每窗须报告 mean、median、ICIR、有效/退化日数及原因、共同股票数中位数、券商/精确 CYQ/联合缺失率；2026 按自然季度报告 mean WR-gap partial RankIC。对逐日值用 5 交易日 moving-block bootstrap，固定 10,000 次、seed `20260918`，报告 95% CI。
+每窗须报告 mean、median、ICIR、有效/退化日数及原因、共同股票数中位数、券商/精确 CYQ/联合缺失率；2026 按自然季度报告 mean WR-gap partial RankIC。覆盖率逐日以 handler 有限 `score` 行数为分母，以其中 `score`、当前标签、sidecar `q`、sidecar `g` 均有限的行数为分子；窗口覆盖率沿用同一分子/分母口径汇总。对逐日值用 5 交易日 moving-block bootstrap，固定 10,000 次、seed `20260918`，报告 95% CI。
 
 数据门同时要求：
 
 - 2025、2026 的共同样本覆盖率均 `>=98%`；2020–2024 训练期覆盖率只报告，不另设研究门；
 - feature day `t` 的两种获利盘只能使用截至 `t` 收盘的数据，A/B 均按 `(instrument, datetime)` 特征日索引对齐，禁止成交日偏移或 `pred_minus_one`；
-- sidecar 的 `BROKER_WR_GAP` 必须与固定公式逐日复算一致；OLS 残差与 `q` 的样本内相关只允许浮点误差；
-- 精确 CYQ SHA-256、券商 sidecar SHA-256、行键摘要一经写入 manifest，A/B/C 不得变化。
+- `diag_winratio_gap.py` 必须校验精确 CYQ SHA-256 与 sidecar SHA-256，并检查上述必备列、行键摘要及同构造样本复算一致性；缺列、任一 hash/摘要变化或复算不一致，一律 `WINRATIO_GAP_DATA_INVALID`；
+- A、B 重叠日期键上的 `BROKER_WR_GAP` 必须逐值一致，否则 `WINRATIO_GAP_DATA_INVALID`；精确 CYQ SHA-256、券商 sidecar SHA-256、行键摘要一经写入 manifest，A/B/C 不得变化；不得在 A 通过后按更长历史或另一宇宙重算残差。
 
 **A 门全过条件**：数据门通过；2025、2026 mean WR-gap partial RankIC 均 `>0`；2026 的 95% CI 下界 `>0`；2026 不得多数季度为负，也不得只靠一个季度为正。未全过立即进入 §4 失败瀑布，B/C 取消。
 
@@ -134,7 +139,7 @@ B 全过后，才允许对基线 pred 与候选 pred 做两窗配对 PortAna：
 
 ## 5. 实现接口草案（本轮禁止执行）
 
-以下仅定义未来实现 PR 的接口形状。当前 PR **不得创建这些脚本、不得导出 `$winratio`、不得计算 IC、不得重训、不得跑 PortAna/BT**。脚本目前不存在；未来实现必须对已存在输出目录 fail-closed，不得删除旧目录后复用。
+以下仅定义未来实现 PR 的接口形状。当前 PR **不得创建这些脚本、不得导出 `$winratio`、不得计算 IC、不得重训、不得跑 PortAna/BT**。脚本目前不存在；未来实现必须对任一已存在的输出目录 fail-closed，不得删除、清空或复用旧目录。
 
 ### 5.1 一次性冻结 sidecar + A 门
 
@@ -145,29 +150,46 @@ $cyqFile = "E:/stock_data/cyq_winner_ratio/t5_cyq1_2020_2026_20260917.parquet"
 $out = "exports/analysis/t5_wrd1_20260918"
 
 & $py -u my_scripts/export_winratio_gap.py `
+  --experiment alpha158_cost_kdj_lgb `
+  --recorder-id 8a061ea428e04bb3a199a485ade49d0e `
+  --handler-index-source recorder-handler `
   --provider-uri "C:/Users/wangc/.qlib/qlib_data/my_data" `
+  --freeze-provider-snapshot --read-broker-field-once `
   --broker-field "`$winratio" `
   --cyq-file $cyqFile --cyq-column winner_ratio `
   --cyq-sha256 d167d27916920ea7c49a3f0cb2202de2bb64b7a4425a7852de64f0b278c88a34 `
   --start 2020-01-02 --end 2026-09-14 `
-  --rank-method average --direction lower `
+  --rank-method average --rank-pct pandas-pct-true --direction lower `
+  --min-ols-n 3 --fit-universe handler-daily-valid-intersection --fit-once `
   --feature-name BROKER_WR_GAP `
-  --out-dir "$out/sidecar"
+  --emit-source-columns --emit-q-v --emit-ols-qc --emit-hash-and-key-digest `
+  --out-dir "$out/sidecar" --fail-if-out-exists
+
+# 下值只能抄自本次唯一导出的不可变 manifest；不得为通过诊断而重导 sidecar。
+$sidecarSha256 = "<SIDECAR_SHA256_EMITTED_BY_EXPORT_MANIFEST>"
 
 & $py -u my_scripts/diag_winratio_gap.py `
   --experiment alpha158_cost_kdj_lgb `
   --recorder-id 8a061ea428e04bb3a199a485ade49d0e `
   --pred-2025 my_scripts/预测结果_8a061ea4_2025valid.csv `
+  --cyq-file $cyqFile `
+  --cyq-sha256 d167d27916920ea7c49a3f0cb2202de2bb64b7a4425a7852de64f0b278c88a34 `
   --sidecar "$out/sidecar/BROKER_WR_GAP.parquet" `
-  --feature BROKER_WR_GAP --control-cyq-column exact_winner_ratio `
+  --sidecar-manifest "$out/sidecar/manifest.json" `
+  --sidecar-sha256 $sidecarSha256 `
+  --feature BROKER_WR_GAP --control-q-column q --control-cyq-column exact_winner_ratio `
+  --consume-stored-q-g-only --recompute-construction-for-check-only `
+  --require-columns "instrument,datetime,broker_winratio,exact_winner_ratio,q,v,BROKER_WR_GAP,ols_n,degenerate_reason" `
+  --verify-key-digest --verify-same-construction-sample --verify-residual-orthogonality `
   --label "Ref(`$close,-2)/Ref(`$close,-1)-1" `
   --window 2025-01-03:2025-12-31 `
   --window 2026-01-01:2026-09-14 `
+  --min-partial-n 4 --coverage-denominator handler-finite-score `
   --min-coverage 0.98 --block-days 5 --bootstrap-reps 10000 --seed 20260918 `
-  --out-dir "$out/information"
+  --out-dir "$out/information" --fail-if-out-exists
 ```
 
-若 A gate boolean 不是全真，立即按 §4 裁决，禁止执行后两段。
+导出端必须先验证 CYQ hash，再在 recorder 的 handler 当日索引上读取一次冻结 provider 并完成全部日期的唯一一次构造；诊断端只读已存的 `q/g`。上述任何必备列、CYQ/sidecar hash、行键摘要或同构造样本复算检查失败，都必须 fail-closed 为 `WINRATIO_GAP_DATA_INVALID`，不得继续 A 门。若 A gate boolean 不是全真，立即按 §4 裁决，禁止执行后两段。
 
 ### 5.2 B 门：只加一列训练与信号诊断
 
@@ -175,10 +197,11 @@ $out = "exports/analysis/t5_wrd1_20260918"
 & $py -u my_scripts/train_sidecar_feature_arm.py `
   --clone-recorder 8a061ea428e04bb3a199a485ade49d0e `
   --sidecar "$out/sidecar/BROKER_WR_GAP.parquet" `
+  --sidecar-sha256 $sidecarSha256 --verify-key-digest `
   --only-extra-feature BROKER_WR_GAP `
   --train 2020-01-01:2024-12-31 --valid 2025-01-01:2025-12-31 `
   --test 2026-01-01:2026-09-14 --no-portana `
-  --out-dir "$out/model"
+  --out-dir "$out/model" --fail-if-out-exists
 
 & $py -u my_scripts/diag_pred_pair.py `
   --control-recorder 8a061ea428e04bb3a199a485ade49d0e `
@@ -189,10 +212,10 @@ $out = "exports/analysis/t5_wrd1_20260918"
   --window 2025-01-03:2025-12-31 `
   --window 2026-01-01:2026-09-14 `
   --block-days 5 --bootstrap-reps 10000 --seed 20260918 `
-  --out-dir "$out/pred_pair"
+  --out-dir "$out/pred_pair" --fail-if-out-exists
 ```
 
-`<WRD_RECORDER_ID>` 只能是该唯一候选训练新建的 recorder。B 未全过即停，禁止运行 C。
+`<WRD_RECORDER_ID>` 只能是该唯一候选训练新建的 recorder。训练左连后必须把 sidecar SHA-256 与重叠键 `BROKER_WR_GAP` 一致性写入 recorder 血缘；A/B 重叠日任一值不同即 `WINRATIO_GAP_DATA_INVALID`，不得重导或重拟合。B 未全过即停，禁止运行 C。
 
 ### 5.3 C 门：最后才做 10/3 paired PortAna
 
@@ -209,10 +232,10 @@ $out = "exports/analysis/t5_wrd1_20260918"
   --account 100000000 --risk-degree 0.95 --benchmark SH000300 `
   --all-buy-gates-off --all-price-exits-off `
   --block-days 5 --bootstrap-reps 10000 --seed 20260918 `
-  --out-dir "$out/portana_pair"
+  --out-dir "$out/portana_pair" --fail-if-out-exists
 ```
 
-三个阶段都必须记录代码 commit、参数 JSON、provider 快照、输入 SHA-256、行键摘要、共同样本口径与候选/基线配置 diff。无法证明唯一变量隔离时，必须拒绝运行，不能手写研究标签。
+三个阶段都必须记录代码 commit、参数 JSON、provider 快照、输入 SHA-256、行键摘要、共同样本口径与候选/基线配置 diff。C 不得再次读取或导出 sidecar；它只能沿用 B recorder 已记录的同一 sidecar SHA-256 与特征血缘。无法证明唯一变量隔离时，必须拒绝运行，不能手写研究标签。
 
 ## 6. 10/3 与 50/5 永久分账
 
