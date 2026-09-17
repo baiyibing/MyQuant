@@ -54,8 +54,10 @@ def load_st_daily_index(
     daily_path: str | Path,
     coverage_path: str | Path | None = None,
     fallback_static: set[str] | None = None,
+    *,
+    use_coverage: bool = False,
 ) -> tuple[dict[date, set[str]], set[str]]:
-    """st_daily.parquet → {date: {QLib代码}}，以及 fallback 集合。"""
+    """st_daily.parquet → {date: {QLib代码}}。默认只认 ``is_st``，不读 coverage。"""
     p = Path(daily_path)
     df = pd.read_parquet(p)
     by_date: dict[date, set[str]] = {}
@@ -65,6 +67,8 @@ def load_st_daily_index(
         hit["qlib"] = hit["code"].map(to_qlib_code)
         for d, sub in hit.groupby(hit["trade_date"].dt.date):
             by_date[d] = set(sub["qlib"].astype(str).str.upper())
+    if not use_coverage:
+        return by_date, set()
     cov_path = Path(coverage_path) if coverage_path else p.parent / "st_coverage.json"
     coverage = {}
     if cov_path.is_file():
@@ -79,10 +83,11 @@ def load_st_codes_asof(
     coverage_path: str | Path | None = None,
     fallback_static: set[str] | None = None,
 ) -> set[str]:
-    """取 as-of 日（默认矩阵最后一天）的 QLib ST 集合，并并上 fallback。"""
-    by_date, fallback = load_st_daily_index(daily_path, coverage_path, fallback_static)
+    """取 as-of 日（默认矩阵最后一天）的 QLib ST 集合。只认 parquet ``is_st``。"""
+    del coverage_path, fallback_static
+    by_date, _fallback = load_st_daily_index(daily_path, use_coverage=False)
     if not by_date:
-        return set(fallback)
+        return set()
     dates = sorted(by_date)
     if asof is None:
         chosen = dates[-1]
@@ -90,6 +95,6 @@ def load_st_codes_asof(
         target = pd.Timestamp(asof).date()
         idx = bisect_right(dates, target) - 1
         if idx < 0:
-            return set(fallback)
+            return set()
         chosen = dates[idx]
-    return set(by_date[chosen]) | set(fallback)
+    return set(by_date[chosen])

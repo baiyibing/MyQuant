@@ -24,9 +24,11 @@ if _ch is not None:
         del sys.modules["custom_handler"]
 
 from custom_handler import (  # noqa: E402
+    DROP_LIMIT_UP_LEARN_SPEC,
     DropLimitUpLearn,
     _DEFAULT_INFER_PROCESSORS,
     _DEFAULT_LEARN_PROCESSORS,
+    build_learn_processors,
     drop_limit_up_rows,
 )
 
@@ -92,11 +94,13 @@ def test_missing_col_noop():
     assert len(drop_limit_up_rows(df)) == len(df)
 
 
-def test_default_learn_processors_include_drop_limit_up():
-    assert _DEFAULT_LEARN_PROCESSORS[0]["class"] == "DropLimitUpLearn"
-    assert _DEFAULT_LEARN_PROCESSORS[0]["module_path"] == "custom_handler"
-    # infer path unchanged: no DropLimitUpLearn
+def test_default_learn_processors_omit_drop_limit_up():
+    assert all(p.get("class") != "DropLimitUpLearn" for p in _DEFAULT_LEARN_PROCESSORS)
     assert all(p.get("class") != "DropLimitUpLearn" for p in _DEFAULT_INFER_PROCESSORS)
+    assert build_learn_processors() == list(_DEFAULT_LEARN_PROCESSORS)
+    on = build_learn_processors(drop_limit_up=True)
+    assert on[0] == DROP_LIMIT_UP_LEARN_SPEC
+    assert on[1:] == list(_DEFAULT_LEARN_PROCESSORS)
 
 
 def test_nan_limit_status_kept():

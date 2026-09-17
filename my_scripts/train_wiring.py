@@ -30,15 +30,19 @@ DEFAULT_SEGMENTS = {
     "test": ("2026-03-01", "2026-03-23"),
 }
 
-# ST/风险股静态黑名单（非 PIT；来源为仓库历史维护清单，QMT 可用时可经
-# qlib_scripts/list_st.py 重新生成全量后经 --extra-exclude-file 追加）。
-# 消费方：训练宇宙过滤、build_tradable_universe.py、buy_eligibility 策略级 ST 过滤。
-EXCLUDE_STOCKS_DEFAULT = ['SZ000004', 'SZ000430', 'SZ000488', 'SZ000504', 'SZ000518', 'SZ000595', 'SZ000608', 'SZ000609', 'SZ000615', 'SZ000638', 'SZ000656', 'SZ000668', 'SZ000669', 'SZ000691', 'SZ000697', 'SZ000698', 'SZ000711', 'SZ000736', 'SZ000752', 'SZ000793', 'SZ000820', 'SZ000903', 'SZ000908', 'SZ000909', 'SZ000929', 'SZ000972', 'SZ001270', 'SZ002005', 'SZ002024', 'SZ002047', 'SZ002058', 'SZ002076', 'SZ002122', 'SZ002168', 'SZ002197', 'SZ002199', 'SZ002200', 'SZ002211', 'SZ002214', 'SZ002231', 'SZ002253', 'SZ002289', 'SZ002305', 'SZ002306', 'SZ002388', 'SZ002425', 'SZ002485', 'SZ002496', 'SZ002528', 'SZ002529', 'SZ002569', 'SZ002581', 'SZ002586', 'SZ002592', 'SZ002620', 'SZ002630', 'SZ002647', 'SZ002650', 'SZ002656', 'SZ002693', 'SZ002713', 'SZ002717', 'SZ002742', 'SZ002762', 'SZ002789', 'SZ002808', 'SZ002816', 'SZ002822', 'SZ002848', 'SZ002868', 'SZ002872', 'SZ002898', 'SZ003004', 'SZ003032', 'SZ300020', 'SZ300029', 'SZ300044', 'SZ300052', 'SZ300093', 'SZ300096', 'SZ300097', 'SZ300125', 'SZ300137', 'SZ300147', 'SZ300152', 'SZ300159', 'SZ300165', 'SZ300167', 'SZ300175', 'SZ300198', 'SZ300205', 'SZ300211', 'SZ300225', 'SZ300237', 'SZ300268', 'SZ300301', 'SZ300311', 'SZ300313', 'SZ300326', 'SZ300338', 'SZ300343', 'SZ300344', 'SZ300366', 'SZ300376', 'SZ300379', 'SZ300391', 'SZ300419', 'SZ300462', 'SZ300472', 'SZ300477', 'SZ300506', 'SZ300527', 'SZ300555', 'SZ300561', 'SZ300716', 'SZ300899', 'SZ301288', 'SH600107', 'SH600130', 'SH600136', 'SH600165', 'SH600169', 'SH600193', 'SH600200', 'SH600228', 'SH600238', 'SH600243', 'SH600265', 'SH600289', 'SH600355', 'SH600358', 'SH600360', 'SH600365', 'SH600381', 'SH600421', 'SH600525', 'SH600568', 'SH600599', 'SH600608', 'SH600624', 'SH600636', 'SH600696', 'SH600735', 'SH600753', 'SH600777', 'SH600892', 'SH603007', 'SH603021', 'SH603261', 'SH603268', 'SH603377', 'SH603388', 'SH603389', 'SH603398', 'SH603517', 'SH603557', 'SH603559', 'SH603580', 'SH603595', 'SH603721', 'SH603789', 'SH603813', 'SH603825', 'SH603828', 'SH603838', 'SH603843', 'SH603869', 'SH605081', 'SH605199', 'SH688053', 'SH688076', 'SH688184', 'SH688287', 'SH688511', 'SH688646', 'BJ920305', 'BJ920680']
+# 静态黑名单默认空。ST 以 --st-daily-file 的 PIT 为准；要加名单用 --extra-exclude-file。
+EXCLUDE_STOCKS_DEFAULT: list[str] = []
 
 
 def build_exclude_name_filter(exclude_stocks):
-    """NameDFilter regex that keeps instruments not in exclude_stocks."""
-    return NameDFilter(name_rule_re="^(?!(" + "|".join(exclude_stocks) + ")).*$")
+    """NameDFilter regex that keeps instruments not in exclude_stocks.
+
+    Empty list is a no-op (do not emit ``^(?!(|))``).
+    """
+    names = [str(c) for c in (exclude_stocks or []) if str(c).strip()]
+    if not names:
+        return None
+    return NameDFilter(name_rule_re="^(?!(" + "|".join(names) + ")).*$")
 
 
 def build_limit_up_filter():
@@ -50,15 +54,17 @@ def build_limit_up_filter():
 DEFAULT_LIMIT_THRESHOLD = 0.095
 
 
-def build_production_filter_pipe(exclude_stocks, use_exclude=True, limit_up=True):
+def build_production_filter_pipe(exclude_stocks, use_exclude=True, limit_up=False):
     """Exclude blacklist then $zhangting limit-up. Order is part of the contract.
 
-    use_exclude/limit_up 对应 --exclude-filter / --no-limit-filter
-    （黑名单默认关，需 --exclude-filter 才进 pipe；涨停层默认开）。
+    use_exclude/limit_up 对应 --exclude-filter / --limit-filter
+    （两层默认关；要进 pipe 须显式打开）。
     """
     pipe = []
     if use_exclude:
-        pipe.append(build_exclude_name_filter(exclude_stocks))
+        exclude_filter = build_exclude_name_filter(exclude_stocks)
+        if exclude_filter is not None:
+            pipe.append(exclude_filter)
     if limit_up:
         pipe.append(build_limit_up_filter())
     return pipe
@@ -71,7 +77,7 @@ def build_filtered_instruments(
     market="all",
     instruments_fn=None,
     use_exclude=True,
-    limit_up=True,
+    limit_up=False,
 ):
     """Production instruments: D.instruments(..., filter_pipe=[exclude, limit_up]).
 
@@ -239,7 +245,7 @@ def parse_train_cli(argv=None):
     parser.add_argument(
         "--exclude-filter",
         action="store_true",
-        help="打开静态黑名单剔除（EXCLUDE_STOCKS_DEFAULT 177 只挂 NameDFilter）。默认关闭，不使用黑名单。",
+        help="打开静态黑名单剔除（EXCLUDE_STOCKS_DEFAULT，现为空；可经 --extra-exclude-file 追加）。默认关闭。",
     )
     parser.add_argument(
         "--no-exclude-filter",
@@ -247,12 +253,17 @@ def parse_train_cli(argv=None):
         help="已废弃：黑名单默认关闭，此开关保持关闭（兼容旧命令行）。",
     )
     parser.add_argument(
-        "--no-limit-filter",
+        "--limit-filter",
         action="store_true",
         help=(
-            "关掉第一层涨停过滤：filter_pipe 不再剔除 T 日涨停股"
-            "（黑名单剔除保留）。默认开启过滤。"
+            "打开第一层涨停出池（UnifiedLimitUpFilter / $zhangting）。"
+            "默认关闭：不是 qlib 原生宇宙过滤。"
         ),
+    )
+    parser.add_argument(
+        "--no-limit-filter",
+        action="store_true",
+        help="已废弃：涨停出池默认关闭，此开关保持关闭（兼容旧命令行）。",
     )
     parser.add_argument(
         "--no-limit-threshold",
@@ -260,6 +271,14 @@ def parse_train_cli(argv=None):
         help=(
             "关掉第四层涨跌停拒单：交易所 limit_threshold 置 None，"
             "涨停可买、跌停可卖。默认 0.095 拒单。"
+        ),
+    )
+    parser.add_argument(
+        "--drop-limit-up-learn",
+        action="store_true",
+        help=(
+            "训练帧剔除 LIMIT_STATUS==1（DropLimitUpLearn）。"
+            "默认关闭：不是 qlib 原生 learn processor；不影响 infer / 出分。"
         ),
     )
     parser.add_argument(
@@ -295,17 +314,43 @@ def parse_train_cli(argv=None):
         "--tradable-universe",
         action="store_true",
         help=(
-            "训练宇宙改用 instruments/all_tradable.txt（build_tradable_universe.py 生成："
-            "−ST 黑名单、起始日顺延 60 交易日）。ST/新股从源头不进训练与预测。缺省 all。"
+            "训练宇宙改用 instruments/all_tradable.txt（−ST、起始日顺延 60 交易日）。"
+            "默认 all，不做宇宙层过滤。"
         ),
+    )
+    parser.add_argument(
+        "--st-filter",
+        action="store_true",
+        help="策略买入时禁买 ST。给 --st-daily-file 则只认 parquet 当日 is_st（不读 st_coverage.json）；否则用 EXCLUDE_STOCKS_DEFAULT（现为空）。宇宙仍是 all。",
+    )
+    parser.add_argument(
+        "--age-filter",
+        action="store_true",
+        help="策略买入时禁买上市不足 --age-days 个交易日的票。宇宙仍是 all，不影响训练。",
+    )
+    parser.add_argument(
+        "--age-days",
+        type=int,
+        default=60,
+        help="配合 --age-filter：上市年龄门槛（交易日，默认 60）。",
+    )
+    parser.add_argument(
+        "--st-daily-file",
+        default=None,
+        help="st_daily.parquet：--st-filter 只读此表 is_st（与 BT 对齐，不读同目录 st_coverage.json）。",
     )
     parser.add_argument(
         "--buy-state-filter",
         action="store_true",
         help=(
-            "策略级买入状态过滤（开关①）：MA20/MA60 之下且 盈筹率<10% 可买，"
-            "或站上 MA20 且 5 日线斜率>=-30° 可买；过滤后从后排得分回补（开关④）。"
+            "策略级买入状态过滤：MA20/MA60 之下且 盈筹率<10% 可买，"
+            "或站上 MA20 且 5 日线斜率>=-30° 可买。不含 5 日涨幅过滤。"
         ),
+    )
+    parser.add_argument(
+        "--return-threshold-filter",
+        action="store_true",
+        help="策略买入时丢掉过去 5 日涨幅超过 15%% 的票。默认关，与 ST/年龄/买入状态独立。",
     )
     parser.add_argument(
         "--preview-rows",

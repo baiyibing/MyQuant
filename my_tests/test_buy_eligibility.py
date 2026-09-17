@@ -15,9 +15,11 @@ if _MY_SCRIPTS not in sys.path:
     sys.path.insert(0, _MY_SCRIPTS)
 
 from buy_eligibility import (  # noqa: E402
+    AGE_NOT_YET,
     MA5_SLOPE_MIN_DEG,
     BuyEligibilityFilter,
     buy_state_ok,
+    earliest_buy_date,
     load_extra_exclude,
     ma5_slope_deg,
     ma20_stand_ok,
@@ -138,12 +140,12 @@ def test_shift_start_for_age():
     lines = [
         "SH600000\t2020-01-02\t2026-09-08",   # 日历外起始（老股）→ 不动
         "SZ300001\t2026-01-05\t2026-09-08",   # → 顺延 3 个交易日 = 2026-01-08
-        "SZ300002\t2026-01-16\t2026-09-08",   # 顺延越界 → 不动
+        "SZ300002\t2026-01-16\t2026-09-08",   # 顺延越界 → 窗内不可买
     ]
     out = shift_start_for_age(lines, cal, 3)
     assert out[0] == lines[0]
     assert out[1] == "SZ300001\t2026-01-08\t2026-09-08"
-    assert out[2] == lines[2]
+    assert out[2] == "SZ300002\t9999-12-31\t2026-09-08"
 
 
 def test_shift_start_matches_strategy_age_map():
@@ -157,6 +159,20 @@ def test_shift_start_matches_strategy_age_map():
     assert f.min_trade_date["SZ300001"] == new_start
     assert f.eligible(["SZ300001"], pd.Timestamp("2026-01-07")) == []
     assert f.eligible(["SZ300001"], new_start) == ["SZ300001"]
+
+
+def test_age_overflow_blocks_like_920072():
+    """起始 + 60 越出日历 = 不可买，不能写回上市日。"""
+    start = pd.Timestamp("2026-01-14")
+    assert earliest_buy_date(start, CAL, 3) == AGE_NOT_YET
+    f = BuyEligibilityFilter(
+        age_map={"BJ920072": start},
+        age_days=3,
+        calendar=CAL,
+    )
+    assert f.min_trade_date["BJ920072"] == AGE_NOT_YET
+    assert f.eligible(["BJ920072"], pd.Timestamp("2026-01-16")) == []
+    assert earliest_buy_date("2019-12-01", CAL, 3) is None
 
 
 def test_eligibility_precise_winner_ratio_overrides_proxy():
@@ -212,3 +228,28 @@ def test_bulk_fetch_skips_quantile_when_winner_ratio_present():
 
     bare = BuyEligibilityFilter(check_buy_state=True)
     assert bare._buy_state_fetch_fields() == BUY_STATE_FIELDS
+
+
+def test_st_daily_file_ignores_coverage_json(tmp_path):
+    """有 parquet 时只认 is_st，旁边的 st_coverage.json 不能禁买。"""
+    daily = pd.DataFrame(
+        {
+            "trade_date": pd.to_datetime(["2026-01-06", "2026-01-06"]),
+            "code": ["000615.SZ", "000608.SZ"],
+            "is_st": [True, False],
+        }
+    )
+    daily_path = tmp_path / "st_daily.parquet"
+    daily.to_parquet(daily_path, index=False)
+    (tmp_path / "st_coverage.json").write_text(
+        '{"harvested_wind_codes": ["000608.SZ"], "unknown_end_wind_codes": ["000608.SZ"]}',
+        encoding="utf-8",
+    )
+    f = BuyEligibilityFilter(
+        st_codes={"SZ000608"},
+        st_daily_file=daily_path,
+    )
+    out = f.eligible(["SZ000615", "SZ000608", "SH600519"], pd.Timestamp("2026-01-06"))
+    assert out == ["SZ000608", "SH600519"]
+    assert "SZ000608" not in f.st_codes_of_date("2026-01-06")
+    assert f.st_fallback == set()

@@ -241,6 +241,7 @@ def make_handler_cache_payload(
     exclude_filter_on: bool,
     limit_up_filter_on: bool,
     tradable_universe_on: bool,
+    drop_limit_up_learn_on: bool = False,
     cost_window: int = 250,
     provider_uri: str = _DEFAULT_PROVIDER,
     handler_class: str = "Alpha158CostKDJ",
@@ -266,6 +267,7 @@ def make_handler_cache_payload(
         "exclude_filter_on": bool(exclude_filter_on),
         "limit_up_filter_on": bool(limit_up_filter_on),
         "tradable_universe_on": bool(tradable_universe_on),
+        "drop_limit_up_learn_on": bool(drop_limit_up_learn_on),
         "cost_window": int(cost_window),
         "provider_uri": str(provider_uri),
     }

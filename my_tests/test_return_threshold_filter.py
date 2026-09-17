@@ -15,7 +15,9 @@ if _MY_SCRIPTS not in sys.path:
 from custom_strategy import (  # noqa: E402
     closes_by_instrument,
     closes_on_date,
+    floor_amount_to_lot,
     select_by_return_threshold,
+    sort_score_desc,
     wide_close_from_features,
 )
 
@@ -44,6 +46,35 @@ def test_closes_by_instrument_aligns_and_filters():
         ["SH600000", "SZ000001", "SH600519"], start, end, 0.15, 10
     )
     assert out == ["SH600000", "SH600519"]  # 缺价当 -inf，放行
+
+
+def test_nan_close_passes_like_missing():
+    """宽表有票但收盘是 NaN（停牌）必须与缺票一样放过，不能 NaN<=15% → False。"""
+    start = pd.Series({"SZ000608": float("nan"), "SH600000": 10.0})
+    end = pd.Series({"SZ000608": 33.5, "SH600000": 10.5})
+    out = select_by_return_threshold(["SZ000608", "SH600000"], start, end, 0.15, 10)
+    assert out == ["SZ000608", "SH600000"]
+
+
+def test_sort_score_desc_missing_ties_by_code():
+    """缺分并列按代码升序；002943 优于 603950，与 BT 一致。"""
+    s = pd.Series(
+        [0.2, float("nan"), float("nan"), 0.1],
+        index=["SH600000", "SH603950", "SZ002943", "SZ300001"],
+    )
+    got = list(sort_score_desc(s))
+    assert got == ["SH600000", "SZ300001", "SZ002943", "SH603950"]
+    # 并列键是 002943.SZ < 603950.SH，不是 SZ vs SH 字面量
+
+
+def test_floor_amount_to_lot_does_not_round_up_like_qlib():
+    """2026-05-25 BJ920469：324299.95 必须 324200，不能被 +0.1 抬成 324300。"""
+    raw = 2_971_884.5757655418 / 9.163999557495117
+    assert raw > 324299.9
+    assert (raw + 0.1) // 100 * 100 == 324300
+    assert floor_amount_to_lot(raw) == 324200.0
+    assert floor_amount_to_lot(324300) == 324300.0
+    assert floor_amount_to_lot(0) == 0.0
 
 
 def test_early_stop_at_required_count():

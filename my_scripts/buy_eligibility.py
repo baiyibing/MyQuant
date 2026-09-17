@@ -1,8 +1,8 @@
 """买入资格过滤（可开关的策略级条件层）。
 
 四个实验开关的载体（默认全关，向后兼容）：
-- ST 禁买：候选股命中静态黑名单（train_wiring.EXCLUDE_STOCKS_DEFAULT + 可选补充文件）→ 剔除；
-  若提供 st_daily.parquet，则按交易日查 PIT 名单，静态名单仅作未覆盖/unknown_end 的 fallback
+- ST 禁买：有 ``st_daily.parquet`` 时只认当日 ``is_st``（与 BT 相同，不读
+  ``st_coverage.json``）；没有日频表才退回 ``EXCLUDE_STOCKS_DEFAULT``（现为空）
 - 上市年龄：数据起始日起算不足 age_days 个交易日 → 剔除（all.txt 的 per-stock start）
 - 买入状态（两条路径 OR，满足其一即可买）：
   1) 价格同时在 MA20 与 MA60 之下，且盈筹率<10%；
@@ -145,6 +145,29 @@ def load_winner_ratio_map(parquet_path: str | Path) -> dict:
     return out
 
 
+AGE_NOT_YET = pd.Timestamp("9999-12-31")
+
+
+def earliest_buy_date(start, calendar, age_days: int):
+    """数据起始 + age_days 个交易日 = 最早可买。
+
+    起始在日历之前（老股）→ ``None``（不限）。
+    起始在日历之后、或 +age 越出日历 → ``AGE_NOT_YET``（窗内不可买）。
+    旧实现越界「不设限」，会把 2026-06-29 才有数的 ``920072`` 在 7 月 8 日放进去。
+    """
+    cal = pd.DatetimeIndex(pd.to_datetime(list(calendar))).normalize()
+    if cal.empty:
+        return AGE_NOT_YET
+    start_ts = pd.Timestamp(start).normalize()
+    pos = {d: i for i, d in enumerate(cal)}
+    idx = pos.get(start_ts)
+    if idx is None:
+        return AGE_NOT_YET if start_ts > cal[-1] else None
+    if idx + int(age_days) < len(cal):
+        return pd.Timestamp(cal[idx + int(age_days)])
+    return AGE_NOT_YET
+
+
 def load_age_map(qlib_dir: Path) -> dict[str, pd.Timestamp]:
     """all.txt → {code: 数据起始日}（上市年龄的可用近似，见模块 docstring 局限）。"""
     all_path = Path(qlib_dir) / "instruments" / "all.txt"
@@ -207,23 +230,20 @@ class BuyEligibilityFilter:
             self._st_dates = sorted(self._st_by_date)
             self.st_fallback = {c.upper() for c in (st_fallback or set())}
         elif st_daily_file:
-            by_date, fallback = load_st_daily_index(
-                st_daily_file, st_coverage_file, fallback_static=self.st_codes
-            )
+            by_date, _ignored = load_st_daily_index(st_daily_file, use_coverage=False)
             self._st_by_date = by_date
             self._st_dates = sorted(by_date)
-            self.st_fallback = fallback if st_fallback is None else {c.upper() for c in st_fallback}
+            # 显式传入的 st_fallback 仍可用；coverage / 静态名单不再偷偷并进来。
+            self.st_fallback = {c.upper() for c in st_fallback} if st_fallback else set()
         elif st_fallback:
             self.st_fallback = {c.upper() for c in st_fallback}
-        # 每只股票的最早可买日 = 日历上(数据起始 + age_days)那天的日期；日历外的起始日不设限
+        # 每只股票的最早可买日 = 日历上(数据起始 + age_days)；越出日历 = 窗内不可买
         self.min_trade_date: dict[str, pd.Timestamp] = {}
         if age_map and calendar:
-            cal = pd.DatetimeIndex(calendar)
-            pos = {d: i for i, d in enumerate(cal)}
             for code, start in age_map.items():
-                idx = pos.get(start)
-                if idx is not None and idx + age_days < len(cal):
-                    self.min_trade_date[code] = cal[idx + age_days]
+                min_d = earliest_buy_date(start, calendar, age_days)
+                if min_d is not None:
+                    self.min_trade_date[code] = min_d
 
     def preload(self, codes, start_time, end_time) -> None:
         """整窗批量预取买入状态特征（逐日单日取数在长回测下慢两个数量级，禁止走那条路）。"""
@@ -250,7 +270,7 @@ class BuyEligibilityFilter:
         return df
 
     def st_codes_of_date(self, trade_date) -> set[str]:
-        """T 日禁买 ST 集合（QLib 形）。有 daily 则 as-of 最近交易日 + fallback，否则退回静态名单。"""
+        """T 日禁买 ST 集合（QLib 形）。有 daily 则 as-of 最近交易日；否则退回静态名单。"""
         if self._st_by_date is None:
             return set(self.st_codes)
         target = _as_date(trade_date)
