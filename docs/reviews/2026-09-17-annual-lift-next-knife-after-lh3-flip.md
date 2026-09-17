@@ -69,7 +69,7 @@ T6-SX0 有三个直接优势：
 2. 先按原 10/3 bottom 算法得到基线 `buy_bottom` / `sell_bottom`。
 3. 在开盘持仓中找出满足 `score` 有限、`score <= 0`、且已经满足原 `hold_thresh=1` / T+1 可卖约束的股票，记为 `sell_sx0`。
 4. 候选卖单为 `sell_bottom ∪ sell_sx0`。同时命中时 reason 记 `model_exit:nonpositive`，并另列 `also_bottom=true`，以便把额外作用与原轮换分开记账。
-5. 候选臂按原分数降序补到最多 10 只；当天因 SX0 卖出的代码不得同日买回。除此之外不加任何买入过滤，不够 10 只则允许留现金，不为了凑满而改阈值。
+5. 保持第 2 步已经生成的原 `buy_bottom` / `sell_bottom` 不变，再处理 SX0 多出来的空位；**禁止先做 SX0 再重跑 dropout**，因为那会改变 `comb` / 实际 `n_drop`。额外空位只能沿当日**全截面 scores sidecar**，从未持仓且非当日 `sell_sx0` 的代码中按 score 降序补到 10 只；买入宇宙不是 Top10 池文件。除禁止当日买回 `sell_sx0` 外不加任何买入过滤，尤其不得加 `score > 0` 或 `score <= 0` 不买的过滤；因此 X 仍可买入其他 `score <= 0` 的股票。只有 sidecar 合格名单耗尽，或现有成交核拒单，才允许留现金。
 6. 涨跌停拒单、停牌、整手、资金和费用继续由现成交核处理；SX0 不另写一套成交规则。
 
 缺分不是负分：持仓当日无有限 score 时，SX0 不触发，仍交给原 bottom 缺分确定序处理。`score == 0` 固定计入非正；不得加容差，也不得事后把阈值改为“略小于零”。
@@ -122,6 +122,8 @@ T6-SX0 有三个直接优势：
 - gross（零费用，仅作成本归因）与 locked cost（5/15bp/最低5，唯一判胜口径）的 C/X 差；
 - 按自然季度的 `ΔNetReturn = NetReturn(X) - NetReturn(C)`，只作稳定性检查，不据此挑季度。
 
+gross 固定为各臂 locked-cost 回放的**同一成交序列费用记零**后重算，不得另跑一次零费率撮合；否则成交序列变化会混入成本归因。
+
 2026 的配对日收益差固定用 5 交易日 moving-block bootstrap、10,000 次、seed `20260917`，报告 `ΔNetReturn` 的 95% CI。不得看到结果后改 block 长度、次数或 seed。
 
 ### 5.2 成功：四门全过
@@ -133,17 +135,24 @@ T6-SX0 有三个直接优势：
 | S2 · OOS 证据 | 2026 配对 `ΔNetReturn` 的 5 日 block-bootstrap 95% CI 下界 `> 0` |
 | S3 · 时间稳定 | 2026 季度 `majority_negative=false` 且 `single_quarter_driven=false`；不能靠一个季度抬起全窗 |
 
+S3 的口径锁死如下，不得由执行者另作解释：
+
+- 季度按成交日的自然季度 `Period('Q')` 切分；2026 必须保留不完整 Q3（`2026-07-01`～`2026-09-14`），不得丢弃，也不得补齐或外推到 9 月 30 日。
+- 全窗和逐季度统一使用 locked-cost `ΔNetReturn = NetReturn(X) - NetReturn(C)`；gross 不参与 S3。
+- `majority_negative = (季度数 > 0) and (ΔNetReturn < 0 的季度数 / 季度数 > 50%)`。
+- `single_quarter_driven = (季度数 >= 2) and (全窗 ΔNetReturn > 0) and (ΔNetReturn > 0 的季度数 <= 1)`。
+
 四门全过才打 **`SCORE_EXIT_CANDIDATE`**。它只表示“固定 10/3 全关时，SX0 在已观察的两窗给出同向增量”，不表示拿到新盲窗、可以上线或可以把 2025 收益当目标。
 
 ### 5.3 失败：按下列优先级打标签，任一失败即停
 
 | 优先级 | 标签 | 条件 | 动作 |
 |---:|---|---|---|
-| 1 | `SCORE_EXIT_COST_ERASED` | gross 的 X-C 在两窗均为正，但 locked-cost 的 S1 任一窗不过 | 额外换手不值成本；停止，不改卖出数量、冷却期或费用假设 |
-| 2 | `SCORE_EXIT_FLIP` | locked-cost `ΔNetReturn` 在 2025/2026 反号，或 2026 季度稳定性翻转 | 判为窗口依赖；停止，不切强/弱窗挑冠军 |
-| 3 | `SCORE_EXIT_NO_EDGE` | 两窗没有反号但 S1/S2 任一不过，或 SX0 基本不触发 | 判为无可兑现增量；停止，不把零阈值改成 rank/分位/`±ε` 网格 |
+| 1 | `SCORE_EXIT_FLIP` | 2025/2026 的 locked-cost `ΔNetReturn` 反号，或 2026 `majority_negative=true` | 判为窗口或时段依赖；停止，不切强/弱窗或季度挑冠军 |
+| 2 | `SCORE_EXIT_COST_ERASED` | 未命中优先级 1，gross 的 X-C 在两窗均为正，但 locked-cost 的 S1 任一窗不过 | 额外换手不值成本；停止，不改卖出数量、冷却期或费用假设 |
+| 3 | `SCORE_EXIT_NO_EDGE` | 未命中优先级 1/2 且没有跨窗反号，但 S1/S2 任一不过、`single_quarter_driven=true`，或 `model_exit:nonpositive` 覆盖交易日数为 0 | 判为无可兑现增量；停止，不把零阈值改成 rank/分位/`±ε` 网格 |
 
-运行或实现错误不得手写研究 verdict，只能标为操作失败并修复同一固定语义。无论成功或失败，跑完即停；禁止把本刀改成参数网格，也禁止转扫 trail、止盈、止损、horizon、宽度或 `n_drop`。
+上述优先级就是唯一裁决梯，确保失败标签互斥；“单季驱动”不得称为“翻转”。运行或实现错误不得手写研究 verdict，只能标为操作失败并修复同一固定语义。任一门失败即停，不得改阈值、卖出数量、季度切法或窗口，也不得滑参数网格；无论成功或失败，跑完即停，禁止转扫 trail、止盈、止损、horizon、宽度或 `n_drop`。
 
 ## 6. 后续复现命令草案（本轮禁止执行）
 
