@@ -1,20 +1,26 @@
 # -*- coding: utf-8 -*-
 """Hive 1m parquet → dump_bin staging (one parquet per qlib code).
 
-Does not write ~/.qlib/qlib_data/my_data. Lake default is E: 1m/none.
+Does not write ~/.qlib/qlib_data/my_data. Lake default = OSKH_SOURCE_PARQUET_ROOT hive.
 """
 
 from __future__ import annotations
 
 import argparse
+import sys
 from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 from typing import Sequence
 
 import pandas as pd
 
-DEFAULT_LAKE = Path(r"E:\stock_data\stock\period=1m\dividend_type=none")
-DEFAULT_INDEX_LAKE = Path(r"E:\stock_data\index\period=1m\dividend_type=none")
+_MY_SCRIPTS = Path(__file__).resolve().parents[1] / "my_scripts"
+if str(_MY_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_MY_SCRIPTS))
+from data_root import resolve_index_1min_none, resolve_stock_1min_none  # noqa: E402
+
+DEFAULT_LAKE = resolve_stock_1min_none()
+DEFAULT_INDEX_LAKE = resolve_index_1min_none()
 DEFAULT_STAGING = Path(r"D:\qlib_data\_staging_1min")
 DEFAULT_MAX_WORKERS = 8
 OHLCV = ("open", "high", "low", "close", "volume", "amount")

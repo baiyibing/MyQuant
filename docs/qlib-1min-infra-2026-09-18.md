@@ -6,10 +6,10 @@
 
 ## 数据从哪来
 
-本机分钟湖：
+本机分钟湖（容器 = `OSKH_SOURCE_PARQUET_ROOT`，常见 `E:\stock_data`）：
 
-- 股票 `E:\stock_data\stock\period=1m\dividend_type=none`（不复权，满日约 241 根，缺 13:00）
-- 指数 `E:\stock_data\index\period=1m\dividend_type=none`（覆盖短于个股；`899001_BJ` 可能空）
+- 股票 `{container}/stock/period=1m/dividend_type=none`（不复权，满日约 241 根，缺 13:00）
+- 指数 `{container}/index/period=1m/dividend_type=none`（覆盖短于个股；`899001_BJ` 可能空）
 
 ```
 qlib_scripts/stage_1min_from_lake.py   股票+指数湖 → staging parquet

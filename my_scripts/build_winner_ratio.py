@@ -20,7 +20,7 @@
 用法::
 
     python build_winner_ratio.py --test 2026-01-01:2026-09-14 \
-        [--out F:/stock_data/cyq_winner_ratio_daily_2026.parquet] [--workers 8]
+        [--out {OSKH_SOURCE_PARQUET_ROOT}/cyq_winner_ratio_daily_2026.parquet] [--workers 8]
         [--shares free|circ] [--codes SH688366,SZ002007]
 """
 
@@ -36,8 +36,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from data_root import resolve_source_parquet
+
 _QLIB_DIR = Path.home() / ".qlib" / "qlib_data" / "my_data"
-_DEFAULT_OUT = Path("F:/stock_data/cyq_winner_ratio_daily_2026.parquet")
+_DEFAULT_OUT = resolve_source_parquet("cyq_winner_ratio_daily_2026.parquet")
 _MAX_GRID = 250_000  # 单股价格网格点数保护；超限则放宽 step
 
 

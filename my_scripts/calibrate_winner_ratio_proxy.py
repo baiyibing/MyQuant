@@ -13,8 +13,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from data_root import resolve_source_parquet
+
 QLIB_DIR = Path.home() / ".qlib" / "qlib_data" / "my_data"
-TRUTH_PATH = Path("F:/stock_data/vendor_qmt_winner_chips.parquet")
+TRUTH_PATH = resolve_source_parquet("vendor_qmt_winner_chips.parquet")
 
 
 def main() -> int:

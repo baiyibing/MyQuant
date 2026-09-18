@@ -5,8 +5,10 @@ from pathlib import Path
 
 import pandas as pd
 
-CYQ_PATH = Path("F:/stock_data/cyq_winner_ratio_daily_2026.parquet")
-QMT_PATH = Path("F:/stock_data/vendor_qmt_winner_chips.parquet")
+from data_root import resolve_source_parquet
+
+CYQ_PATH = resolve_source_parquet("cyq_winner_ratio_daily_2026.parquet")
+QMT_PATH = resolve_source_parquet("vendor_qmt_winner_chips.parquet")
 ANCHORS = {
     "SH688366": 0.0690,  # 昊海生科 rust cyqk_T 2026-09-08（流通股本）
     "SZ002007": 0.2608,  # 华兰生物

@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""F 湖指数日线 → qlib bin 增量补丁。
+"""湖指数日线 → qlib bin 增量补丁（湖根 = OSKH_SOURCE_PARQUET_ROOT）。
 
 固化 2026-09-12 的手工修补流程（当天为修 PortAna benchmark 缺 SH000300 实跑过一遍）：
 my_data 是纯个股数据，无任何指数行情，Qlib 回测的 benchmark 会因数据不存在直接抛
@@ -40,7 +40,11 @@ from pathlib import Path
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_LAKE_ROOT = Path("F:/stock_data/index/period=1d/dividend_type=none")
+if str(REPO_ROOT / "my_scripts") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "my_scripts"))
+from data_root import resolve_index_1d_none  # noqa: E402
+
+DEFAULT_LAKE_ROOT = resolve_index_1d_none()
 DEFAULT_QLIB_DIR = Path.home() / ".qlib" / "qlib_data" / "my_data"
 DEFAULT_SYMBOLS = "000300_SH,000001_SH"
 FIELDS = ["open", "high", "low", "close", "volume", "amount"]

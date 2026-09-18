@@ -9,6 +9,7 @@ my_docs/提示词-qlib-bin刷新.md（2026-09-14 / **2026-09-15** 实踩）：
 - 禁止 dump_update；日历末日不变（纠错/赢筹浮点）也必须 dump_all
 - 短尾巴 CSV 走 overlay，禁止按 CSV 首日截断再 concat；缺/空 winratio 忽略，不删 bin
 - 指数不得留在 instruments/all.txt（由 patch_index_data 第 4 步挪走）
+- 湖根走 OSKH_SOURCE_PARQUET_ROOT（与 1.3 同键）；默认指数日线 = resolve_index_1d_none()
 - ~/.qlib 数据只准经本编排器改动；换目录前自动备份 my_data_backup_YYYYMMDD_pre_*（同日第二次 _2）
 - 半成品 dump 目录必须先删再重灌（--wipe-new-qlib-dir）
 - CSV 里 Windows NaN（-1.#J / -1.#IND）在 merge/dump 收成 NaN；OHLC 出现则中止
@@ -43,7 +44,11 @@ SCRIPTS_DIR = Path(__file__).resolve().parent
 DEFAULT_ARCHIVE_DIR = Path.home() / ".qlib/qlib_data/my_data_20260410_archived"
 DEFAULT_CSV_DIR = Path("F:/qlibdata")
 DEFAULT_QLIB_DIR = Path.home() / ".qlib/qlib_data/my_data"
-DEFAULT_LAKE_INDEX_ROOT = Path("F:/stock_data/index/period=1d/dividend_type=none")
+if str(REPO_ROOT / "my_scripts") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "my_scripts"))
+from data_root import resolve_index_1d_none  # noqa: E402
+
+DEFAULT_LAKE_INDEX_ROOT = resolve_index_1d_none()
 DEFAULT_LAKE_SYMBOL = "000001_SH"
 DEFAULT_MAX_WORKERS = 8  # 硬约束：禁止 16
 # eng-perf P1-1 三钮：dump max_workers（本常量）≠ qlib.init(kernels=) ≠ LGB num_threads。

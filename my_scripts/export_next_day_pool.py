@@ -26,11 +26,12 @@ if str(_SCRIPTS) not in sys.path:
 
 import host_env  # noqa: E402,F401
 import pandas as pd  # noqa: E402
+from data_root import resolve_st_daily  # noqa: E402
 
 DEFAULT_REC = "8a061ea428e04bb3a199a485ade49d0e"
 DEFAULT_EXP = "alpha158_cost_kdj_lgb"
 DEFAULT_PROVIDER = os.path.expanduser("~/.qlib/qlib_data/my_data")
-DEFAULT_ST = r"E:\stock_data\vendor_wind_st_status\st_daily.parquet"
+DEFAULT_ST = str(resolve_st_daily())
 
 
 def _as_date(value) -> date:

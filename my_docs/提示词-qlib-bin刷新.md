@@ -52,7 +52,7 @@ D:/anaconda3/envs/vanna312/python.exe -u qlib_scripts/refresh_mydata.py \
   --python D:/anaconda3/envs/vanna312/python.exe
 ```
 
-常用入口：盘中刷新时 CSV/湖通常仍停在**上一交易日**（2026-09-15 上午即如此）。先核湖末日，不要空等当天 bar。
+常用入口：盘中刷新时 CSV/湖通常仍停在**上一交易日**（2026-09-15 上午即如此）。先核湖末日，不要空等当天 bar。湖根走 **`OSKH_SOURCE_PARQUET_ROOT`**（与 1.3 同键；指数日线默认 `{container}/index/period=1d/dividend_type=none`）。**不要**把 `OSKH_DATA_ROOT` 当湖。CSV/`--csv-dir` 仍以用户给的路径为准（下面 `F:\qlibdata*` 是历史批次，不是湖）。
 
 常用开关：
 

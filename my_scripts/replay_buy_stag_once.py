@@ -13,6 +13,7 @@ import qlib
 from qlib.config import REG_CN
 from qlib.contrib.evaluate import backtest_daily
 
+from data_root import resolve_st_daily
 from analysis_export import write_analysis_bundle
 from rebacktest_cost_tiers import (
     COST_TIERS,
@@ -25,7 +26,7 @@ from rebacktest_cost_tiers import (
 
 EXP = "alpha158_cost_kdj_cat_all"
 REC = "4233a65a0ae346698fc6822905950469"
-ST = r"E:\stock_data\vendor_wind_st_status\st_daily.parquet"
+ST = str(resolve_st_daily())
 OUT = Path(__file__).resolve().parents[1] / "exports/analysis/4233a65a_replay_buy_stag"
 BASE = Path(__file__).resolve().parents[1] / "exports/analysis/4233a65a0ae346698fc6822905950469"
 

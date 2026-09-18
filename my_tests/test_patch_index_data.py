@@ -1,4 +1,4 @@
-"""F 湖指数补丁：纯函数单测（clip / code 映射 / all.txt 挪移）。"""
+"""湖指数补丁：纯函数单测（clip / code 映射 / all.txt 挪移）。"""
 
 from __future__ import annotations
 
