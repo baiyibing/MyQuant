@@ -10,8 +10,8 @@ if str(ROOT) not in sys.path:
 
 from qlib_scripts.stage_1min_from_lake import (
     lake_partition_to_qlib_code,
-    load_symbol_frame,
     qlib_code_to_partition,
+    stage_stock_and_index,
     stage_symbol,
 )
 
@@ -47,3 +47,27 @@ def test_stage_writes_dump_columns(tmp_path: Path):
     assert staged["symbol"].iloc[0] == "SH600000"
     assert "vwap" in staged.columns
     assert len(staged) == 3
+
+
+def test_stage_stock_and_index(tmp_path: Path):
+    stock = tmp_path / "stock" / "symbol=000001_SZ"
+    index = tmp_path / "index" / "symbol=000300_SH"
+    stock.mkdir(parents=True)
+    index.mkdir(parents=True)
+    idx = pd.date_range("2026-09-18 09:30:00", periods=2, freq="min")
+    for part, close in ((stock, 10.0), (index, 4000.0)):
+        pd.DataFrame(
+            {
+                "time": (idx.view("int64") // 1_000_000).astype("int64"),
+                "open": close,
+                "high": close,
+                "low": close,
+                "close": close,
+                "volume": 10,
+                "amount": 100.0,
+            },
+            index=idx,
+        ).to_parquet(part / "data.parquet")
+    written = stage_stock_and_index(stock.parent, index.parent, tmp_path / "staging", max_workers=1)
+    names = sorted(p.name for p in written)
+    assert names == ["sh000300.parquet", "sz000001.parquet"]

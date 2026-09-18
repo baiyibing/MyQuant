@@ -2,19 +2,27 @@
 
 日频 `~/.qlib/qlib_data/my_data` **不动**。1min 单独放在 `~/.qlib/qlib_data/my_data_1min`（C 盘，和日频并列）。Handler 缓存仍在 D。
 
+操作手册：`my_docs/提示词-qlib-1min-bin刷新.md`。
+
 ## 数据从哪来
 
-本机分钟湖：`E:\stock_data\stock\period=1m\dividend_type=none`（不复权，约 2025-01-02～2026-09-09，满日约 241 根，缺 13:00）。
+本机分钟湖：
+
+- 股票 `E:\stock_data\stock\period=1m\dividend_type=none`（不复权，满日约 241 根，缺 13:00）
+- 指数 `E:\stock_data\index\period=1m\dividend_type=none`（覆盖短于个股；`899001_BJ` 可能空）
 
 ```
-qlib_scripts/stage_1min_from_lake.py   湖 → staging parquet（一只一个文件）
+qlib_scripts/stage_1min_from_lake.py   股票+指数湖 → staging parquet
 qlib_scripts/dump_bin.py dump_all --freq=1min
-qlib_scripts/build_mydata_1min.py      上面两步的编排
+  （日历只从 sz000001/sh000300 等锚点并集，禁止每只回传 10 万 Timestamp）
+qlib_scripts/refresh_mydata_1min.py    日常增量 / --rebuild
+qlib_scripts/build_mydata_1min.py      首次冒烟（默认 20 只 + SH000300）
 ```
 
-默认只 dump 20 只流动性票、20260801–20260909。全市场加 `--all-symbols`（写入 `my_data_1min`，不写日频 `my_data`）。
+已有 `my_data_1min` 只追加新分钟，不要对短窗口 `dump_all`（会截短日历），不要 `dump_update`。
 
 ```text
+D:\anaconda3\envs\vanna312\python.exe -u qlib_scripts/refresh_mydata_1min.py
 D:\anaconda3\envs\vanna312\python.exe qlib_scripts/build_mydata_1min.py
 ```
 

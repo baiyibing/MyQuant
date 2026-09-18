@@ -7,6 +7,7 @@
 > 以及 **2026-09-15 下午** 用 `F:\qlibdata20260915\qlibdata` 短尾巴前推到 09-15
 > （CSV 无 `winratio`，overlay 忽略该列）。
 > 指数-only 补丁仍见 `my_docs/提示词-指数数据修补.md`。
+> **1min bin 是另一套目录**（`my_data_1min`），不要用本文件去刷分钟线；见 `my_docs/提示词-qlib-1min-bin刷新.md`。
 
 ## 任务边界
 
@@ -18,7 +19,7 @@
 
 CSV 多出的列（如 `winratio`）进 `$field` bin。旧档已有同名列时 merge 日志会是 `extra_csv(0)`，属预期。短尾巴缺该列时也是 `extra_csv(0)`，靠 overlay 保住旧值。
 
-**只走编排器**，不要手工串 `merge_archive_and_csv` / `dump_bin dump_all` / `patch_index_data`。`~/.qlib` 只准经 `refresh_mydata.py` 改。
+**只走编排器**，不要手工串 `merge_archive_and_csv` / `dump_bin dump_all` / `patch_index_data`。日频 `~/.qlib/qlib_data/my_data` 只准经 `refresh_mydata.py` 改。分钟线走 `refresh_mydata_1min.py`，禁止写进 `my_data`。
 
 **明确不做**（除非用户点名）：
 
@@ -147,13 +148,15 @@ qlib 里「日历」其实有三份，只改其中一份就会看起来像「日
 | C 盘不足 | `--staging-dir F:\...`；必要时把 new 目录也放到空间更大的盘（swap 仍回 `~/.qlib`） |
 | `D.features` `invalid syntax` / `field []` | PowerShell 吞了 `$close`；改用 `read_bin_field` 或 `@' ... '@` |
 | 裸 `fromfile` 长度 = 日历天数 + 1 | 首元素是 start index，用 `read_bin_field` |
+| 用户要更新「qlib 分钟 bin」 | 本文件不管。去 `提示词-qlib-1min-bin刷新.md`，写 `my_data_1min` |
+| 1min `dump_all` `BrokenProcessPool` | 旧 `_get_all_date` 每只回传 10 万 Timestamp。已修高频路径；已有 bin 走增量，不要 `dump_update` |
 
 ## 相关文件
 
 - 编排器 `qlib_scripts/refresh_mydata.py`（单测 `my_tests/test_refresh_mydata.py`）
 - 扫描 `qlib_scripts/csv_float_scan.py`（`by_column` 汇总）
 - 拼接 `qlib_scripts/merge_archive_and_csv.py`（`overlay_csv_on_archive` / `[csv-profile]`）
-- 写入 `qlib_scripts/dump_bin.py`（禁止 dump_update；max_workers=8）
+- 写入 `qlib_scripts/dump_bin.py`（日频禁止 dump_update；max_workers=8。`--freq=1min` 日历只从锚点并集，见 1min 提示词）
 - 指数 `qlib_scripts/patch_index_data.py`
 - 当前快照 `docs/qlib-data-state-2026-09-15.md`（上一份 `docs/qlib-data-state-2026-09-14.md`）
-- 技能 `.cursor/skills/qlib-bin-refresh/SKILL.md`
+- 分钟线 `my_docs/提示词-qlib-1min-bin刷新.md` + `qlib_scripts/refresh_mydata_1min.py`

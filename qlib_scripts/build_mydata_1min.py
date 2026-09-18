@@ -1,21 +1,27 @@
 # -*- coding: utf-8 -*-
-"""Build ~/.qlib-style 1min bins from the E: minute lake.
+"""First-time / smoke dump of ~/.qlib/qlib_data/my_data_1min.
 
-Writes ~/.qlib/qlib_data/my_data_1min only. Never touches my_data / pred.pkl.
+Writes my_data_1min only. Never touches my_data / pred.pkl.
+Daily updates of an existing 1min provider: refresh_mydata_1min.py (incremental).
 """
 
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
 from pathlib import Path
 from typing import Sequence
 
-from stage_1min_from_lake import DEFAULT_LAKE, DEFAULT_STAGING, stage_lake
+from refresh_mydata_1min import clamp_workers, dump_all_1min, refuse_if_daily
+from stage_1min_from_lake import (
+    DEFAULT_INDEX_LAKE,
+    DEFAULT_LAKE,
+    DEFAULT_MAX_WORKERS,
+    DEFAULT_STAGING,
+    stage_stock_and_index,
+)
 
 DEFAULT_QLIB_DIR = Path.home() / ".qlib" / "qlib_data" / "my_data_1min"
-DUMP_BIN = Path(__file__).resolve().parent / "dump_bin.py"
 SMOKE_SYMBOLS = (
     "SZ000001",
     "SH600000",
@@ -37,19 +43,22 @@ SMOKE_SYMBOLS = (
     "SH600900",
     "SZ002714",
     "SH601888",
+    "SH000300",
 )
 
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Stage + dump qlib 1min bins (not my_data)")
     parser.add_argument("--lake-root", type=Path, default=DEFAULT_LAKE)
+    parser.add_argument("--index-lake", type=Path, default=DEFAULT_INDEX_LAKE)
+    parser.add_argument("--skip-index", action="store_true")
     parser.add_argument("--staging-dir", type=Path, default=DEFAULT_STAGING)
     parser.add_argument("--qlib-dir", type=Path, default=DEFAULT_QLIB_DIR)
-    parser.add_argument("--start", default="20260801")
-    parser.add_argument("--end", default="20260909")
+    parser.add_argument("--start")
+    parser.add_argument("--end")
     parser.add_argument("--symbols", nargs="*")
     parser.add_argument("--all-symbols", action="store_true", help="Dump every lake partition (large)")
-    parser.add_argument("--max-workers", type=int, default=4)
+    parser.add_argument("--max-workers", type=int, default=DEFAULT_MAX_WORKERS)
     parser.add_argument("--skip-stage", action="store_true")
     return parser
 
@@ -57,36 +66,25 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     qlib_dir = args.qlib_dir.expanduser()
-    if qlib_dir.resolve() == (Path.home() / ".qlib/qlib_data/my_data").resolve():
-        raise SystemExit("refusing to write daily my_data")
+    refuse_if_daily(qlib_dir)
+    workers = clamp_workers(args.max_workers)
+    if int(args.max_workers) > DEFAULT_MAX_WORKERS:
+        print(f"clamped --max-workers {args.max_workers} → {workers}", flush=True)
     symbols = None if args.all_symbols else (args.symbols or list(SMOKE_SYMBOLS))
     if not args.skip_stage:
-        written = stage_lake(
+        written = stage_stock_and_index(
             args.lake_root,
+            None if args.skip_index else args.index_lake,
             args.staging_dir,
             symbols=symbols,
             start=args.start,
             end=args.end,
-            max_workers=int(args.max_workers),
+            max_workers=workers,
         )
         if not written:
             raise SystemExit("no 1m parquet staged; check lake path / symbols / window")
         print(f"staged {len(written)} → {args.staging_dir}")
-    cmd = [
-        sys.executable,
-        str(DUMP_BIN),
-        "dump_all",
-        f"--data_path={args.staging_dir}",
-        f"--qlib_dir={qlib_dir}",
-        "--freq=1min",
-        "--file_suffix=.parquet",
-        "--date_field_name=date",
-        "--symbol_field_name=symbol",
-        "--exclude_fields=symbol",
-        f"--max_workers={int(args.max_workers)}",
-    ]
-    print("dump", " ".join(cmd))
-    subprocess.run(cmd, check=True)
+    dump_all_1min(args.staging_dir, qlib_dir, workers)
     print(f"qlib 1min dir → {qlib_dir}")
     return 0
 

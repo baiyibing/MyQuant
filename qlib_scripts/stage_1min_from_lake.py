@@ -14,7 +14,9 @@ from typing import Sequence
 import pandas as pd
 
 DEFAULT_LAKE = Path(r"E:\stock_data\stock\period=1m\dividend_type=none")
+DEFAULT_INDEX_LAKE = Path(r"E:\stock_data\index\period=1m\dividend_type=none")
 DEFAULT_STAGING = Path(r"D:\qlib_data\_staging_1min")
+DEFAULT_MAX_WORKERS = 8
 OHLCV = ("open", "high", "low", "close", "volume", "amount")
 
 
@@ -144,24 +146,63 @@ def stage_lake(
     return written
 
 
+def stage_stock_and_index(
+    stock_root: Path,
+    index_root: Path | None,
+    staging_dir: Path,
+    *,
+    symbols: Sequence[str] | None = None,
+    start: str | None = None,
+    end: str | None = None,
+    max_workers: int = DEFAULT_MAX_WORKERS,
+) -> list[Path]:
+    written = stage_lake(
+        stock_root,
+        staging_dir,
+        symbols=symbols,
+        start=start,
+        end=end,
+        max_workers=max_workers,
+    )
+    if index_root is None:
+        return written
+    written.extend(
+        stage_lake(
+            index_root,
+            staging_dir,
+            symbols=symbols,
+            start=start,
+            end=end,
+            max_workers=min(2, max(1, int(max_workers))),
+        )
+    )
+    return written
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Stage hive 1m parquet for qlib dump_bin --freq=1min")
     parser.add_argument("--lake-root", type=Path, default=DEFAULT_LAKE)
+    parser.add_argument("--index-lake", type=Path, default=DEFAULT_INDEX_LAKE)
+    parser.add_argument("--skip-index", action="store_true")
     parser.add_argument("--staging-dir", type=Path, default=DEFAULT_STAGING)
     parser.add_argument("--start")
     parser.add_argument("--end")
     parser.add_argument("--symbols", nargs="*", help="SZ000001 / 000001.SZ / 000001_SZ")
+    parser.add_argument("--max-workers", type=int, default=DEFAULT_MAX_WORKERS)
     return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    written = stage_lake(
+    workers = min(DEFAULT_MAX_WORKERS, max(1, int(args.max_workers)))
+    written = stage_stock_and_index(
         args.lake_root,
+        None if args.skip_index else args.index_lake,
         args.staging_dir,
         symbols=args.symbols,
         start=args.start,
         end=args.end,
+        max_workers=workers,
     )
     print(f"staged {len(written)} files → {args.staging_dir}")
     return 0
