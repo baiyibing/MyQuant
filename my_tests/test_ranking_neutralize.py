@@ -269,6 +269,17 @@ def test_load_industry_map_rejects_a_map_without_industries(tmp_path):
         load_industry_map(path)
 
 
+def test_load_industry_map_reads_wind_l1_schema(tmp_path):
+    path = tmp_path / "wind_l1_map.csv"
+    path.write_text(
+        "code_gildata,name,wind_sw_l1\n"
+        "600000.SH,浦发银行,银行\n"
+        "300190.SZ,美晨科技,汽车\n",
+        encoding="utf-8",
+    )
+    assert load_industry_map(path) == {"SH600000": "银行", "SZ300190": "汽车"}
+
+
 def test_report_manifest_fields_are_json_safe_ints():
     report = NeutralizeReport(
         method="both",

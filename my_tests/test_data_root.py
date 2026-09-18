@@ -64,6 +64,24 @@ def test_unset_source_env_errors_instead_of_guessing_drive(monkeypatch):
         dr.resolve_st_daily()
 
 
+def test_sw_l1_map_prefers_sw_then_wind_then_errors(monkeypatch, tmp_path):
+    lake = tmp_path / "lake"
+    root = lake / "vendor_wind_sw_l1"
+    root.mkdir(parents=True)
+    monkeypatch.setenv("OSKH_SOURCE_PARQUET_ROOT", str(lake))
+    assert dr.resolve_sw_l1_root() == root
+    with pytest.raises(dr.DataRootError, match="vendor_wind_sw_l1"):
+        dr.resolve_sw_l1_map()
+    wind = root / "wind_l1_map.csv"
+    wind.write_text("code_gildata,name,wind_sw_l1\n", encoding="utf-8")
+    assert dr.resolve_sw_l1_map() == wind
+    preferred = root / "sw_l1_map.csv"
+    preferred.write_text("code_qlib,sw_l1\n", encoding="utf-8")
+    assert dr.resolve_sw_l1_map() == preferred
+    explicit = tmp_path / "other.csv"
+    assert dr.resolve_sw_l1_map(explicit_root=explicit) == explicit
+
+
 def test_qlib_csv_env_or_explicit(monkeypatch, tmp_path):
     batch = tmp_path / "qlibdata20260918"
     monkeypatch.setenv("OSKH_QLIB_CSV_DIR", str(batch))

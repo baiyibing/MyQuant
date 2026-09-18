@@ -6,8 +6,9 @@ This module owns the middle step and nothing else — it rewrites the ``score``
 column the exporter ranks on and never touches labels, features, the infer
 chain, fills, ``--asof`` or the topk default.
 
-The industry map is a *current-snapshot* classification
-(``exports/m3d_industry/sw_l1_map.csv``).  Applying it to past windows carries
+The industry map is a *current-snapshot* classification from the 1.3 lake
+(``{OSKH_SOURCE_PARQUET_ROOT}/vendor_wind_sw_l1/sw_l1_map.csv``, else
+``wind_l1_map.csv``).  Applying it to past windows carries
 survivorship / reclassification bias: acceptable for ranking experiments, but
 every writeup has to carry that footnote.
 
@@ -31,6 +32,8 @@ from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
+
+from data_root import DataRootError, resolve_sw_l1_map
 
 SCORE_COLUMNS = ("datetime", "instrument", "score")
 METHODS = ("industry", "size", "both")
@@ -133,14 +136,16 @@ def load_industry_map(path: Path | str) -> dict[str, str]:
     mapping: dict[str, str] = {}
     with csv_path.open(encoding="utf-8", newline="") as handle:
         reader = csv.DictReader(handle)
-        if reader.fieldnames is None or "sw_l1" not in reader.fieldnames:
-            raise ValueError(f"industry map missing 'sw_l1' column: {csv_path}")
-        code_field = "code_qlib" if "code_qlib" in reader.fieldnames else None
+        fields = set(reader.fieldnames or [])
+        industry_field = "sw_l1" if "sw_l1" in fields else ("wind_sw_l1" if "wind_sw_l1" in fields else None)
+        if industry_field is None:
+            raise ValueError(f"industry map missing 'sw_l1' or 'wind_sw_l1' column: {csv_path}")
+        code_field = "code_qlib" if "code_qlib" in fields else ("code_gildata" if "code_gildata" in fields else None)
         if code_field is None:
-            raise ValueError(f"industry map missing 'code_qlib' column: {csv_path}")
+            raise ValueError(f"industry map missing 'code_qlib' or 'code_gildata' column: {csv_path}")
         for row in reader:
             code = to_qlib_code(row.get(code_field))
-            industry = (row.get("sw_l1") or "").strip()
+            industry = (row.get(industry_field) or "").strip()
             if code is None or not industry:
                 continue
             mapping[code] = industry
@@ -387,7 +392,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--pred", required=True, type=Path, help="pred CSV (datetime,instrument,score)")
     parser.add_argument("--out", required=True, type=Path, help="destination CSV")
     parser.add_argument("--method", choices=METHODS, required=True, help="neutralization method")
-    parser.add_argument("--industry-map", type=Path, default=None, help="sw_l1_map.csv path")
+    parser.add_argument(
+        "--industry-map",
+        type=Path,
+        default=None,
+        help="SW L1 CSV；缺省 {OSKH_SOURCE_PARQUET_ROOT}/vendor_wind_sw_l1/sw_l1_map.csv",
+    )
     parser.add_argument(
         "--float-cap",
         type=Path,
@@ -402,12 +412,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         scores = _read_scores(args.pred)
-        sw_l1 = load_industry_map(args.industry_map) if args.industry_map else None
+        map_path = args.industry_map
+        if args.method in {"industry", "both"} and map_path is None:
+            map_path = resolve_sw_l1_map()
+        sw_l1 = load_industry_map(map_path) if map_path is not None else None
         caps = None
         if args.float_cap is not None:
             caps = pd.read_csv(args.float_cap, dtype={"instrument": str})
         frame, report = neutralize(scores, args.method, sw_l1=sw_l1, log_float_cap=caps)
-    except (OSError, ValueError, pd.errors.ParserError) as exc:
+    except (OSError, ValueError, DataRootError, pd.errors.ParserError) as exc:
         parser.error(str(exc))
     args.out.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(args.out, index=False, lineterminator="\n")

@@ -133,3 +133,29 @@ def resolve_source_parquet(name: str) -> Path:
 
 def resolve_st_daily() -> Path:
     return resolve_parquet_container() / "vendor_wind_st_status" / "st_daily.parquet"
+
+
+def resolve_sw_l1_root() -> Path:
+    """1.3 writes this tree; this repo only consumes it."""
+    return resolve_source_parquet("vendor_wind_sw_l1")
+
+
+def resolve_sw_l1_map(*, explicit_root: str | Path | None = None) -> Path:
+    """SW L1 consume file. Prefer ``sw_l1_map.csv``, else ``wind_l1_map.csv``.
+
+    Unset ``OSKH_SOURCE_PARQUET_ROOT`` or a missing file raises. Do not fall
+    back to ``exports/m3d_industry``.
+    """
+    if explicit_root:
+        return Path(explicit_root)
+    root = resolve_sw_l1_root()
+    preferred = root / "sw_l1_map.csv"
+    wind = root / "wind_l1_map.csv"
+    if preferred.is_file():
+        return preferred
+    if wind.is_file():
+        return wind
+    raise DataRootError(
+        f"未找到行业映射 {preferred} 或 {wind}。"
+        "1.3 写湖：python -m oskh_data.vendor_wind_sw_l1；不要猜测 E:/F: 或仓库 exports。"
+    )
