@@ -28,6 +28,22 @@ from typing import Any, Callable, Mapping, Optional
 
 from run_manifest import canonical_json, config_hash
 
+
+def _call_builder(builder: Callable[[], Any]) -> Any:
+    """Run handler __init__ (Loading + processors).
+
+    qlib ProcessInf → datetime_groupby_apply(n_jobs=-1) ships a nested
+    ``process_inf`` through joblib loky. On Windows that raises PicklingError
+    after a successful Loading (~8 min wasted). Threading keeps the month
+    split without pickling. HIT path never enters here.
+    """
+    if os.name == "nt":
+        from joblib import parallel_backend
+
+        with parallel_backend("threading"):
+            return builder()
+    return builder()
+
 _CACHE_DIR_ENV = "OSKH_HANDLER_CACHE_DIR"
 _WARN_MB_ENV = "OSKH_HANDLER_CACHE_WARN_MB"
 # Win pickle-size tiers (MiB): 4096 default hosts; 8192 high-RAM (~64 GiB commit).
@@ -419,7 +435,7 @@ def load_or_build_handler(
     """
     digest = handler_cache_digest(payload)
     if not enabled:
-        handler = builder()
+        handler = _call_builder(builder)
         info = _obs(
             cache_hit=False,
             digest=digest,
@@ -452,7 +468,7 @@ def load_or_build_handler(
         return hit, True, info
 
     print(f"[handler-cache] MISS digest={digest[:16]} reason={miss_reason}", flush=True)
-    handler = builder()
+    handler = _call_builder(builder)
     written = save_handler(handler, digest, payload, cache_dir)
     info = _obs(
         cache_hit=False,
