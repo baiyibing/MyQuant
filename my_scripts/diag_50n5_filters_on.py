@@ -13,7 +13,7 @@ import host_env  # noqa: F401
 import qlib
 from qlib.config import REG_CN
 
-from data_root import resolve_source_parquet, resolve_st_daily
+from data_root import resolve_cyq_winner_ratio, resolve_st_daily
 from analysis_export import write_analysis_bundle
 from custom_utils import TimerRecorder, install_features_probe, set_global_timer_recorder
 from rebacktest_cost_tiers import (
@@ -32,7 +32,7 @@ REC = "8a061ea428e04bb3a199a485ade49d0e"
 EXP = "alpha158_cost_kdj_lgb"
 TEST = "2026-01-01:2026-09-14"
 ST_DAILY = str(resolve_st_daily())
-WINNER = str(resolve_source_parquet("cyq_winner_ratio/cyq_winner_ratio_daily_2026.parquet"))
+WINNER = str(resolve_cyq_winner_ratio(must_exist=True))
 OUT_JSON = (
     Path(__file__).resolve().parents[1]
     / "docs/reviews/2026-09-15-qlib-perf-brainstorm/runs/2026-09-15-50n5-filters-on.json"

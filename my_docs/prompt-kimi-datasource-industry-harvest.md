@@ -4,7 +4,7 @@
 
 - 行业：`OSkhQuant1.3/docs/prompts/prompt-kimi-datasource-industry-harvest.md`
 - ST：`OSkhQuant1.3/docs/prompts/prompt-kimi-datasource-st-harvest.md`
-- 本仓读：`{OSKH_SOURCE_PARQUET_ROOT}/vendor_wind_sw_l1/sw_l1_map.csv`（没有则同目录 `wind_l1_map.csv`）
+- 本仓读：`{OSKH_SOURCE_PARQUET_ROOT}/vendor_wind_sw_l1/sw_l1_map.csv`（没有则报错，不改读 `wind_l1_map.csv`）
 
 ```text
 D:\anaconda3\envs\vanna312\python.exe -m oskh_data.vendor_wind_sw_l1 --generate-questions

@@ -13,11 +13,14 @@ def test_source_env_wins_and_data_root_is_ignored(monkeypatch, tmp_path):
     ci = tmp_path / "oskh_ci_data"
     lake.mkdir()
     ci.mkdir()
+    st = lake / "vendor_wind_st_status"
+    st.mkdir()
+    (st / "st_daily.parquet").write_bytes(b"")
     monkeypatch.setenv("OSKH_SOURCE_PARQUET_ROOT", str(lake))
     monkeypatch.setenv("OSKH_DATA_ROOT", str(ci))
 
     assert dr.resolve_parquet_container() == lake
-    assert dr.resolve_st_daily() == lake / "vendor_wind_st_status" / "st_daily.parquet"
+    assert dr.resolve_st_daily() == st / "st_daily.parquet"
     assert dr.resolve_stock_1min_none() == lake / "stock" / "period=1m" / "dividend_type=none"
     assert dr.resolve_index_1d_none() == lake / "index" / "period=1d" / "dividend_type=none"
     assert dr.resolve_index_1min_none() == lake / "index" / "period=1m" / "dividend_type=none"
@@ -48,12 +51,11 @@ def test_index_resolvers_never_read_stock_period_env(monkeypatch, tmp_path):
     assert dr.resolve_index_daily_root() == lake / "index" / "period=1d"
 
 
-def test_period_legacy_container_fallback(monkeypatch, tmp_path):
+def test_period_does_not_guess_legacy_container_layout(monkeypatch, tmp_path):
     lake = tmp_path / "lake"
-    legacy = lake / "period=1m"
-    legacy.mkdir(parents=True)
+    (lake / "period=1m").mkdir(parents=True)
     monkeypatch.setenv("OSKH_SOURCE_PARQUET_ROOT", str(lake))
-    assert dr.resolve_period_root("1m") == legacy
+    assert dr.resolve_period_root("1m") == lake / "stock" / "period=1m"
 
 
 def test_unset_source_env_errors_instead_of_guessing_drive(monkeypatch):
@@ -64,22 +66,41 @@ def test_unset_source_env_errors_instead_of_guessing_drive(monkeypatch):
         dr.resolve_st_daily()
 
 
-def test_sw_l1_map_prefers_sw_then_wind_then_errors(monkeypatch, tmp_path):
+def test_sw_l1_map_only_sw_l1_map_csv(monkeypatch, tmp_path):
     lake = tmp_path / "lake"
     root = lake / "vendor_wind_sw_l1"
     root.mkdir(parents=True)
     monkeypatch.setenv("OSKH_SOURCE_PARQUET_ROOT", str(lake))
     assert dr.resolve_sw_l1_root() == root
-    with pytest.raises(dr.DataRootError, match="vendor_wind_sw_l1"):
+    with pytest.raises(dr.DataRootError, match="行业映射"):
         dr.resolve_sw_l1_map()
-    wind = root / "wind_l1_map.csv"
-    wind.write_text("code_gildata,name,wind_sw_l1\n", encoding="utf-8")
-    assert dr.resolve_sw_l1_map() == wind
+    (root / "wind_l1_map.csv").write_text(
+        "code_gildata,name,wind_sw_l1\n", encoding="utf-8"
+    )
+    with pytest.raises(dr.DataRootError, match="sw_l1_map.csv"):
+        dr.resolve_sw_l1_map()
     preferred = root / "sw_l1_map.csv"
     preferred.write_text("code_qlib,sw_l1\n", encoding="utf-8")
     assert dr.resolve_sw_l1_map() == preferred
     explicit = tmp_path / "other.csv"
+    explicit.write_text("code_qlib,sw_l1\n", encoding="utf-8")
     assert dr.resolve_sw_l1_map(explicit_root=explicit) == explicit
+
+
+def test_st_and_cyq_and_qmt_missing_files_error(monkeypatch, tmp_path):
+    lake = tmp_path / "lake"
+    lake.mkdir()
+    monkeypatch.setenv("OSKH_SOURCE_PARQUET_ROOT", str(lake))
+    with pytest.raises(dr.DataRootError, match="ST 日表"):
+        dr.resolve_st_daily()
+    with pytest.raises(dr.DataRootError, match="CYQ"):
+        dr.resolve_cyq_winner_ratio(must_exist=True)
+    with pytest.raises(dr.DataRootError, match="QMT"):
+        dr.resolve_qmt_winner_chips()
+    cyq = lake / "cyq_winner_ratio" / "cyq_winner_ratio_daily_2026.parquet"
+    assert dr.resolve_cyq_winner_ratio() == cyq
+    (lake / "cyq_winner_ratio_daily_2026.parquet").write_bytes(b"")
+    assert dr.resolve_cyq_winner_ratio() == cyq
 
 
 def test_qlib_csv_env_or_explicit(monkeypatch, tmp_path):

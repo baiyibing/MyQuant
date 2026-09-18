@@ -7,8 +7,8 @@ column the exporter ranks on and never touches labels, features, the infer
 chain, fills, ``--asof`` or the topk default.
 
 The industry map is a *current-snapshot* classification from the 1.3 lake
-(``{OSKH_SOURCE_PARQUET_ROOT}/vendor_wind_sw_l1/sw_l1_map.csv``, else
-``wind_l1_map.csv``).  Applying it to past windows carries
+(``{OSKH_SOURCE_PARQUET_ROOT}/vendor_wind_sw_l1/sw_l1_map.csv`` only).
+Applying it to past windows carries
 survivorship / reclassification bias: acceptable for ranking experiments, but
 every writeup has to carry that footnote.
 

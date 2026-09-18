@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from data_root import resolve_source_parquet
+from data_root import resolve_cyq_winner_ratio, resolve_qmt_winner_chips
 ANCHORS = {
     "SH688366": 0.0690,  # 昊海生科 rust cyqk_T 2026-09-08（流通股本）
     "SZ002007": 0.2608,  # 华兰生物
@@ -18,8 +18,8 @@ def to_qlib(code: str) -> str:
 
 
 def main() -> int:
-    cyq_path = resolve_source_parquet("cyq_winner_ratio_daily_2026.parquet")
-    qmt_path = resolve_source_parquet("vendor_qmt_winner_chips.parquet")
+    cyq_path = resolve_cyq_winner_ratio(must_exist=True)
+    qmt_path = resolve_qmt_winner_chips()
     cyq = pd.read_parquet(cyq_path)
     cyq["code"] = cyq.stock_code.astype(str).str.upper()
     cyq["d"] = pd.to_datetime(cyq.date)

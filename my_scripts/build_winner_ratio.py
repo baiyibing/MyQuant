@@ -20,7 +20,7 @@
 用法::
 
     python build_winner_ratio.py --test 2026-01-01:2026-09-14 \
-        [--out {OSKH_SOURCE_PARQUET_ROOT}/cyq_winner_ratio_daily_2026.parquet] [--workers 8]
+        [--out {OSKH_SOURCE_PARQUET_ROOT}/cyq_winner_ratio/cyq_winner_ratio_daily_2026.parquet] [--workers 8]
         [--shares free|circ] [--codes SH688366,SZ002007]
 """
 
@@ -36,7 +36,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from data_root import resolve_source_parquet
+from data_root import resolve_cyq_winner_ratio
 
 _QLIB_DIR = Path.home() / ".qlib" / "qlib_data" / "my_data"
 _MAX_GRID = 250_000  # 单股价格网格点数保护；超限则放宽 step
@@ -212,7 +212,7 @@ def main(argv=None) -> int:
     ap.add_argument(
         "--out",
         default="",
-        help="输出 parquet；缺省 {OSKH_SOURCE_PARQUET_ROOT}/cyq_winner_ratio_daily_2026.parquet",
+        help="输出 parquet；缺省 {OSKH_SOURCE_PARQUET_ROOT}/cyq_winner_ratio/cyq_winner_ratio_daily_2026.parquet",
     )
     ap.add_argument(
         "--shares",
@@ -348,7 +348,7 @@ def main(argv=None) -> int:
         return 3
     out_df = pd.concat(rows, ignore_index=True)
     out_df["stock_code"] = out_df["stock_code"].astype(str)
-    out_path = Path(args.out) if args.out else resolve_source_parquet("cyq_winner_ratio_daily_2026.parquet")
+    out_path = Path(args.out) if args.out else resolve_cyq_winner_ratio()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = out_path.with_suffix(".tmp.parquet")
     out_df.to_parquet(tmp, index=False)

@@ -9,9 +9,10 @@
   must **not** treat ``OSKH_DATA_ROOT`` as the hive (CI sets it to ``D:\\oskh_ci_data``).
 - **SQLite** — 1.3 trading DBs; unused here.
 
-Unset container / CSV env raises. Do not guess ``E:`` / ``F:``.
-Fine-grained overrides (``OSKH_PERIOD_1M_ROOT``, ``OSKH_INDEX_1M_ROOT``, …) win
-when set, matching 1.3. Index resolvers never read stock ``OSKH_PERIOD_*``.
+Unset env or a missing consume file raises. Do not guess ``E:`` / ``F:``,
+legacy ``container/period=*``, or a second filename. Fine-grained overrides
+(``OSKH_PERIOD_1M_ROOT``, ``OSKH_INDEX_1M_ROOT``, …) win when set. Index
+resolvers never read stock ``OSKH_PERIOD_*``.
 """
 
 from __future__ import annotations
@@ -65,18 +66,13 @@ def resolve_period_root(
     *,
     explicit_root: str | Path | None = None,
 ) -> Path:
-    """A-share tree: ``{container}/stock/period={period}`` (legacy ``{container}/period=*``)."""
+    """A-share tree: ``{container}/stock/period={period}``. No legacy layout guess."""
     if explicit_root:
         return Path(explicit_root)
     env = _env_path(f"OSKH_PERIOD_{period.upper()}_ROOT")
     if env is not None:
         return env
-    container = resolve_parquet_container()
-    stock_root = container / "stock" / f"period={period}"
-    legacy = container / f"period={period}"
-    if not stock_root.exists() and legacy.exists():
-        return legacy
-    return stock_root
+    return resolve_parquet_container() / "stock" / f"period={period}"
 
 
 def resolve_index_daily_root(*, explicit_root: str | Path | None = None) -> Path:
@@ -131,8 +127,30 @@ def resolve_source_parquet(name: str) -> Path:
     return resolve_parquet_container() / name
 
 
-def resolve_st_daily() -> Path:
-    return resolve_parquet_container() / "vendor_wind_st_status" / "st_daily.parquet"
+def _require_file(path: Path, *, what: str) -> Path:
+    if not path.is_file():
+        raise DataRootError(f"未找到{what} {path}。不要猜测其它盘符或备用文件名。")
+    return path
+
+
+def resolve_st_daily(*, must_exist: bool = True) -> Path:
+    path = resolve_parquet_container() / "vendor_wind_st_status" / "st_daily.parquet"
+    return _require_file(path, what="ST 日表") if must_exist else path
+
+
+def resolve_cyq_winner_ratio(*, must_exist: bool = False) -> Path:
+    """Canonical CYQ file. Write may use must_exist=False; reads should require it."""
+    path = (
+        resolve_parquet_container()
+        / "cyq_winner_ratio"
+        / "cyq_winner_ratio_daily_2026.parquet"
+    )
+    return _require_file(path, what="CYQ 盈筹率") if must_exist else path
+
+
+def resolve_qmt_winner_chips(*, must_exist: bool = True) -> Path:
+    path = resolve_source_parquet("vendor_qmt_winner_chips.parquet")
+    return _require_file(path, what="QMT 盈筹真值") if must_exist else path
 
 
 def resolve_sw_l1_root() -> Path:
@@ -141,21 +159,15 @@ def resolve_sw_l1_root() -> Path:
 
 
 def resolve_sw_l1_map(*, explicit_root: str | Path | None = None) -> Path:
-    """SW L1 consume file. Prefer ``sw_l1_map.csv``, else ``wind_l1_map.csv``.
+    """SW L1 consume file: ``vendor_wind_sw_l1/sw_l1_map.csv`` only.
 
-    Unset ``OSKH_SOURCE_PARQUET_ROOT`` or a missing file raises. Do not fall
-    back to ``exports/m3d_industry``.
+    Unset env or a missing file raises. Do not fall back to ``wind_l1_map.csv``
+    or ``exports/m3d_industry``.
     """
     if explicit_root:
-        return Path(explicit_root)
-    root = resolve_sw_l1_root()
-    preferred = root / "sw_l1_map.csv"
-    wind = root / "wind_l1_map.csv"
-    if preferred.is_file():
-        return preferred
-    if wind.is_file():
-        return wind
-    raise DataRootError(
-        f"未找到行业映射 {preferred} 或 {wind}。"
-        "1.3 写湖：python -m oskh_data.vendor_wind_sw_l1；不要猜测 E:/F: 或仓库 exports。"
+        return _require_file(Path(explicit_root), what="行业映射")
+    path = resolve_sw_l1_root() / "sw_l1_map.csv"
+    return _require_file(
+        path,
+        what="行业映射（1.3 写湖 python -m oskh_data.vendor_wind_sw_l1）",
     )
