@@ -3,12 +3,13 @@
 
 1.3 three-store SSOT (``docs/operations/data-three-stores-ssot.md``):
 
-- **Parquet lake** = ``OSKH_SOURCE_PARQUET_ROOT`` (container, e.g. ``E:\\stock_data``).
+- **Parquet lake** = ``OSKH_SOURCE_PARQUET_ROOT`` (hive container).
   Sub-trees are derived: ``stock/period=*``, ``index/period=*``, ``etf/period=1d``.
 - **DuckDB workspace** = ``{OSKH_DATA_ROOT}/stock_data`` — 1.3 only. This repo
   must **not** treat ``OSKH_DATA_ROOT`` as the hive (CI sets it to ``D:\\oskh_ci_data``).
 - **SQLite** — 1.3 trading DBs; unused here.
 
+Unset container / CSV env raises. Do not guess ``E:`` / ``F:``.
 Fine-grained overrides (``OSKH_PERIOD_1M_ROOT``, ``OSKH_INDEX_1M_ROOT``, …) win
 when set, matching 1.3. Index resolvers never read stock ``OSKH_PERIOD_*``.
 """
@@ -19,10 +20,14 @@ import os
 from pathlib import Path
 
 SOURCE_PARQUET_ENV = "OSKH_SOURCE_PARQUET_ROOT"
+QLIB_CSV_ENV = "OSKH_QLIB_CSV_DIR"
 INDEX_DAILY_ENV = "OSKH_INDEX_DAILY_ROOT"
 INDEX_MINUTE_ENV = "OSKH_INDEX_1M_ROOT"
 ETF_DAILY_ENV = "OSKH_ETF_DAILY_ROOT"
-_FALLBACKS = (Path(r"F:\stock_data"), Path(r"E:\stock_data"))
+
+
+class DataRootError(RuntimeError):
+    """Required data-path env or argument is missing."""
 
 
 def _env_path(name: str) -> Path | None:
@@ -37,10 +42,22 @@ def resolve_parquet_container(*, explicit_root: str | Path | None = None) -> Pat
     env = _env_path(SOURCE_PARQUET_ENV)
     if env is not None:
         return env
-    for candidate in _FALLBACKS:
-        if candidate.is_dir():
-            return candidate
-    return _FALLBACKS[-1]
+    raise DataRootError(
+        f"未设置 {SOURCE_PARQUET_ENV}。不要猜测 E:/F: 盘符；"
+        f"setx {SOURCE_PARQUET_ENV} <湖容器> 或传显式路径。"
+    )
+
+
+def resolve_qlib_csv_dir(*, explicit_root: str | Path | None = None) -> Path:
+    """Vendor CSV batch for refresh/merge. Never defaults to F:/qlibdata."""
+    if explicit_root:
+        return Path(explicit_root)
+    env = _env_path(QLIB_CSV_ENV)
+    if env is not None:
+        return env
+    raise DataRootError(
+        f"未设置 {QLIB_CSV_ENV} / --csv-dir。不要猜测 F:/qlibdata；把本批 CSV 目录传进来。"
+    )
 
 
 def resolve_period_root(

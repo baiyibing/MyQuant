@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+import pytest
 
 import data_root as dr
 
@@ -56,28 +56,20 @@ def test_period_legacy_container_fallback(monkeypatch, tmp_path):
     assert dr.resolve_period_root("1m") == legacy
 
 
-def test_fallback_prefers_f_when_present(monkeypatch, tmp_path):
-    f_root = tmp_path / "F" / "stock_data"
-    e_root = tmp_path / "E" / "stock_data"
-    f_root.mkdir(parents=True)
-    e_root.mkdir(parents=True)
+def test_unset_source_env_errors_instead_of_guessing_drive(monkeypatch):
     monkeypatch.delenv("OSKH_SOURCE_PARQUET_ROOT", raising=False)
-    monkeypatch.setattr(dr, "_FALLBACKS", (f_root, e_root))
-    assert dr.resolve_parquet_container() == f_root
+    with pytest.raises(dr.DataRootError, match="OSKH_SOURCE_PARQUET_ROOT"):
+        dr.resolve_parquet_container()
+    with pytest.raises(dr.DataRootError, match="OSKH_SOURCE_PARQUET_ROOT"):
+        dr.resolve_st_daily()
 
 
-def test_fallback_e_when_f_missing(monkeypatch, tmp_path):
-    f_root = tmp_path / "F" / "stock_data"
-    e_root = tmp_path / "E" / "stock_data"
-    e_root.mkdir(parents=True)
-    monkeypatch.delenv("OSKH_SOURCE_PARQUET_ROOT", raising=False)
-    monkeypatch.setattr(dr, "_FALLBACKS", (f_root, e_root))
-    assert dr.resolve_parquet_container() == e_root
-
-
-def test_fallback_e_literal_when_neither_exists(monkeypatch, tmp_path):
-    f_root = tmp_path / "F" / "stock_data"
-    e_root = tmp_path / "E" / "stock_data"
-    monkeypatch.delenv("OSKH_SOURCE_PARQUET_ROOT", raising=False)
-    monkeypatch.setattr(dr, "_FALLBACKS", (f_root, e_root))
-    assert dr.resolve_parquet_container() == e_root
+def test_qlib_csv_env_or_explicit(monkeypatch, tmp_path):
+    batch = tmp_path / "qlibdata20260918"
+    monkeypatch.setenv("OSKH_QLIB_CSV_DIR", str(batch))
+    assert dr.resolve_qlib_csv_dir() == batch
+    other = tmp_path / "other"
+    assert dr.resolve_qlib_csv_dir(explicit_root=other) == other
+    monkeypatch.delenv("OSKH_QLIB_CSV_DIR", raising=False)
+    with pytest.raises(dr.DataRootError, match="OSKH_QLIB_CSV_DIR"):
+        dr.resolve_qlib_csv_dir()

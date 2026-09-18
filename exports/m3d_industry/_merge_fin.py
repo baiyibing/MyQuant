@@ -7,9 +7,9 @@ import os
 import re
 from collections import OrderedDict, Counter
 
-BASE = r"E:\PycharmProjects\MyQuant"
-RAW_DIR = os.path.join(BASE, "exports", "m3d_industry", "raw_fin")
-OUT_DIR = os.path.join(BASE, "exports", "m3d_industry")
+_HERE = os.path.dirname(os.path.abspath(__file__))
+RAW_DIR = os.path.join(_HERE, "raw_fin")
+OUT_DIR = _HERE
 UNIVERSE = r"C:\Users\Thinkpad\.qlib\qlib_data\my_data\instruments\all.txt"
 OLD_MAP = os.path.join(OUT_DIR, "sw_l1_map_smart_selection.csv.bak")
 IND_31 = ["农林牧渔","基础化工","钢铁","有色金属","电子","家用电器","食品饮料","纺织服饰",

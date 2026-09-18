@@ -9,8 +9,9 @@ import re
 import sys
 from collections import OrderedDict, Counter
 
-RAW_DIR = r"E:\PycharmProjects\MyQuant\exports\m3d_industry\raw"
-OUT_DIR = r"E:\PycharmProjects\MyQuant\exports\m3d_industry"
+_HERE = os.path.dirname(os.path.abspath(__file__))
+RAW_DIR = os.path.join(_HERE, "raw")
+OUT_DIR = _HERE
 UNIVERSE = r"C:\Users\Thinkpad\.qlib\qlib_data\my_data\instruments\all.txt"
 
 CODE_RE = re.compile(r"^(\d{6})\.(SH|SZ|BJ)$")

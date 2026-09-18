@@ -39,7 +39,6 @@ import pandas as pd
 from data_root import resolve_source_parquet
 
 _QLIB_DIR = Path.home() / ".qlib" / "qlib_data" / "my_data"
-_DEFAULT_OUT = resolve_source_parquet("cyq_winner_ratio_daily_2026.parquet")
 _MAX_GRID = 250_000  # 单股价格网格点数保护；超限则放宽 step
 
 
@@ -210,7 +209,11 @@ def main(argv=None) -> int:
     ap.add_argument("--window", type=int, default=1000, help="衰减回看交易日数（默认 1000，对齐 Rust）")
     ap.add_argument("--step", type=float, default=0.01)
     ap.add_argument("--workers", type=int, default=8)
-    ap.add_argument("--out", default=str(_DEFAULT_OUT))
+    ap.add_argument(
+        "--out",
+        default="",
+        help="输出 parquet；缺省 {OSKH_SOURCE_PARQUET_ROOT}/cyq_winner_ratio_daily_2026.parquet",
+    )
     ap.add_argument(
         "--shares",
         choices=("free", "circ"),
@@ -345,7 +348,7 @@ def main(argv=None) -> int:
         return 3
     out_df = pd.concat(rows, ignore_index=True)
     out_df["stock_code"] = out_df["stock_code"].astype(str)
-    out_path = Path(args.out)
+    out_path = Path(args.out) if args.out else resolve_source_parquet("cyq_winner_ratio_daily_2026.parquet")
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = out_path.with_suffix(".tmp.parquet")
     out_df.to_parquet(tmp, index=False)

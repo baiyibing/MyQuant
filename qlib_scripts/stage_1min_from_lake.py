@@ -19,8 +19,6 @@ if str(_MY_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_MY_SCRIPTS))
 from data_root import resolve_index_1min_none, resolve_stock_1min_none  # noqa: E402
 
-DEFAULT_LAKE = resolve_stock_1min_none()
-DEFAULT_INDEX_LAKE = resolve_index_1min_none()
 DEFAULT_STAGING = Path(r"D:\qlib_data\_staging_1min")
 DEFAULT_MAX_WORKERS = 8
 OHLCV = ("open", "high", "low", "close", "volume", "amount")
@@ -187,8 +185,8 @@ def stage_stock_and_index(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Stage hive 1m parquet for qlib dump_bin --freq=1min")
-    parser.add_argument("--lake-root", type=Path, default=DEFAULT_LAKE)
-    parser.add_argument("--index-lake", type=Path, default=DEFAULT_INDEX_LAKE)
+    parser.add_argument("--lake-root", type=Path, default=None, help="缺省 OSKH_SOURCE_PARQUET_ROOT 股票 1m/none")
+    parser.add_argument("--index-lake", type=Path, default=None, help="缺省 OSKH_SOURCE_PARQUET_ROOT 指数 1m/none")
     parser.add_argument("--skip-index", action="store_true")
     parser.add_argument("--staging-dir", type=Path, default=DEFAULT_STAGING)
     parser.add_argument("--start")
@@ -201,9 +199,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     workers = min(DEFAULT_MAX_WORKERS, max(1, int(args.max_workers)))
+    lake_root = args.lake_root or resolve_stock_1min_none()
+    index_lake = None if args.skip_index else (args.index_lake or resolve_index_1min_none())
     written = stage_stock_and_index(
-        args.lake_root,
-        None if args.skip_index else args.index_lake,
+        lake_root,
+        index_lake,
         args.staging_dir,
         symbols=args.symbols,
         start=args.start,

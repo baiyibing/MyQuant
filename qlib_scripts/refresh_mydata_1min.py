@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Refresh ~/.qlib/qlib_data/my_data_1min from E: stock+index 1m lakes.
+"""Refresh ~/.qlib/qlib_data/my_data_1min from stock+index 1m lakes (OSKH_SOURCE_PARQUET_ROOT).
 
 Never writes daily my_data / pred.pkl. Prefer incremental append when bins exist.
 Do not call dump_update (it loads every staging parquet into one DataFrame).
@@ -21,9 +21,12 @@ from tqdm import tqdm
 
 from dump_bin import DumpDataAll
 from qlib.utils import code_to_fname
+
+_MY_SCRIPTS = Path(__file__).resolve().parents[1] / "my_scripts"
+if str(_MY_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_MY_SCRIPTS))
+from data_root import resolve_index_1min_none, resolve_stock_1min_none  # noqa: E402
 from stage_1min_from_lake import (
-    DEFAULT_INDEX_LAKE,
-    DEFAULT_LAKE,
     DEFAULT_MAX_WORKERS,
     DEFAULT_STAGING,
     stage_stock_and_index,
@@ -175,8 +178,8 @@ def append_new_1min_bars(
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Refresh qlib 1min bins (not daily my_data)")
-    parser.add_argument("--lake-root", type=Path, default=DEFAULT_LAKE)
-    parser.add_argument("--index-lake", type=Path, default=DEFAULT_INDEX_LAKE)
+    parser.add_argument("--lake-root", type=Path, default=None)
+    parser.add_argument("--index-lake", type=Path, default=None)
     parser.add_argument("--skip-index", action="store_true")
     parser.add_argument("--staging-dir", type=Path, default=DEFAULT_STAGING)
     parser.add_argument("--qlib-dir", type=Path, default=DEFAULT_QLIB_1MIN)
@@ -195,7 +198,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     refuse_if_daily(qlib_dir)
     workers = clamp_workers(args.max_workers)
     daily_fp = daily_calendar_fingerprint()
-    index_lake = None if args.skip_index else args.index_lake
+    lake_root = args.lake_root or resolve_stock_1min_none()
+    index_lake = None if args.skip_index else (args.index_lake or resolve_index_1min_none())
     staging = Path(args.staging_dir)
     symbols = args.symbols or None
 
@@ -211,7 +215,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             for path in staging.glob("*.parquet"):
                 path.unlink()
         written = stage_stock_and_index(
-            args.lake_root,
+            lake_root,
             index_lake,
             staging,
             symbols=symbols,

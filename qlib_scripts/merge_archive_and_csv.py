@@ -16,7 +16,7 @@
 全新 qlib 目录（不要 dump_update——按个股日期 append，停牌即错位）::
 
     python qlib_scripts/merge_archive_and_csv.py \\
-        --csv-dir F:/qlibdata --out-dir <staging>
+        --csv-dir <OSKH_QLIB_CSV_DIR> --out-dir <staging>
     python qlib_scripts/dump_bin.py dump_all --data-path <staging> \\
         --qlib-dir <新目录> --file-suffix .parquet --max_workers 8
 """
@@ -24,8 +24,14 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from collections.abc import Iterable, Sequence
 from pathlib import Path
+
+_MY_SCRIPTS = Path(__file__).resolve().parents[1] / "my_scripts"
+if str(_MY_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_MY_SCRIPTS))
+from data_root import resolve_qlib_csv_dir  # noqa: E402
 
 import numpy as np
 import pandas as pd
@@ -206,7 +212,11 @@ def read_bin_series(features_dir: Path, sym: str, field: str, calendar: pd.Datet
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="合并旧 bin 存档 + 最新 CSV 批 → staging parquet")
     parser.add_argument("--archive-dir", default=str(Path.home() / ".qlib/qlib_data/my_data_20260410_archived"))
-    parser.add_argument("--csv-dir", default="F:/qlibdata")
+    parser.add_argument(
+        "--csv-dir",
+        default="",
+        help="券商 CSV 批；缺省读 OSKH_QLIB_CSV_DIR，都没有则报错",
+    )
     parser.add_argument("--out-dir", required=True)
     parser.add_argument("--start", default="2020-01-02", help="保留起点（含），早于该日丢弃")
     parser.add_argument("--symbols", default="", help="逗号分隔，仅处理指定标的（调试用）")
@@ -216,7 +226,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     archive = Path(args.archive_dir).expanduser()
-    csv_dir = Path(args.csv_dir).expanduser()
+    csv_dir = resolve_qlib_csv_dir(explicit_root=args.csv_dir or None)
     out_dir = Path(args.out_dir).expanduser()
     out_dir.mkdir(parents=True, exist_ok=True)
     start = pd.Timestamp(args.start)

@@ -12,10 +12,12 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from refresh_mydata_1min import clamp_workers, dump_all_1min, refuse_if_daily
+_MY_SCRIPTS = Path(__file__).resolve().parents[1] / "my_scripts"
+if str(_MY_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_MY_SCRIPTS))
+from data_root import resolve_index_1min_none, resolve_stock_1min_none  # noqa: E402
+from refresh_mydata_1min import clamp_workers, dump_all_1min, refuse_if_daily  # noqa: E402
 from stage_1min_from_lake import (
-    DEFAULT_INDEX_LAKE,
-    DEFAULT_LAKE,
     DEFAULT_MAX_WORKERS,
     DEFAULT_STAGING,
     stage_stock_and_index,
@@ -49,8 +51,8 @@ SMOKE_SYMBOLS = (
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Stage + dump qlib 1min bins (not my_data)")
-    parser.add_argument("--lake-root", type=Path, default=DEFAULT_LAKE)
-    parser.add_argument("--index-lake", type=Path, default=DEFAULT_INDEX_LAKE)
+    parser.add_argument("--lake-root", type=Path, default=None)
+    parser.add_argument("--index-lake", type=Path, default=None)
     parser.add_argument("--skip-index", action="store_true")
     parser.add_argument("--staging-dir", type=Path, default=DEFAULT_STAGING)
     parser.add_argument("--qlib-dir", type=Path, default=DEFAULT_QLIB_DIR)
@@ -73,8 +75,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     symbols = None if args.all_symbols else (args.symbols or list(SMOKE_SYMBOLS))
     if not args.skip_stage:
         written = stage_stock_and_index(
-            args.lake_root,
-            None if args.skip_index else args.index_lake,
+            args.lake_root or resolve_stock_1min_none(),
+            None if args.skip_index else (args.index_lake or resolve_index_1min_none()),
             args.staging_dir,
             symbols=symbols,
             start=args.start,

@@ -31,7 +31,6 @@ from data_root import resolve_st_daily  # noqa: E402
 DEFAULT_REC = "8a061ea428e04bb3a199a485ade49d0e"
 DEFAULT_EXP = "alpha158_cost_kdj_lgb"
 DEFAULT_PROVIDER = os.path.expanduser("~/.qlib/qlib_data/my_data")
-DEFAULT_ST = str(resolve_st_daily())
 
 
 def _as_date(value) -> date:
@@ -303,7 +302,11 @@ def parse_cli(argv=None):
     p.add_argument("--st-filter", action=argparse.BooleanOptionalAction, default=True)
     p.add_argument("--age-filter", action=argparse.BooleanOptionalAction, default=True)
     p.add_argument("--age-days", type=int, default=60)
-    p.add_argument("--st-daily-file", default=DEFAULT_ST)
+    p.add_argument(
+        "--st-daily-file",
+        default="",
+        help="ST parquet；缺省 {OSKH_SOURCE_PARQUET_ROOT}/vendor_wind_st_status/st_daily.parquet",
+    )
     p.add_argument("--analysis-dir", default=str(_ROOT / "exports" / "analysis" / "8a061ea4_50n5_st_age"))
     p.add_argument("--out-dir", default=None)
     p.add_argument("--pred-csv", default=None, help="已有出分 CSV 时跳过 predict")
@@ -363,7 +366,7 @@ def main(argv=None) -> int:
         "age_days": args.age_days,
         "check_buy_state": False,
         "calendar": cal_elig,
-        "st_daily_file": args.st_daily_file if args.st_filter else None,
+        "st_daily_file": (args.st_daily_file or str(resolve_st_daily())) if args.st_filter else None,
     }
     filt = BuyEligibilityFilter(**filt_kwargs)
     codes = ranked["instrument"].tolist()

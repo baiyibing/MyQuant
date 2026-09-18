@@ -16,7 +16,6 @@ import pandas as pd
 from data_root import resolve_source_parquet
 
 QLIB_DIR = Path.home() / ".qlib" / "qlib_data" / "my_data"
-TRUTH_PATH = resolve_source_parquet("vendor_qmt_winner_chips.parquet")
 
 
 def main() -> int:
@@ -30,7 +29,7 @@ def main() -> int:
     print(f"[qlib] kernels={_kernels} (QLIB_KERNELS, default 1)", flush=True)
     qlib.init(provider_uri=str(QLIB_DIR), region=REG_CN, kernels=_kernels)
 
-    df = pd.read_parquet(TRUTH_PATH)
+    df = pd.read_parquet(resolve_source_parquet("vendor_qmt_winner_chips.parquet"))
     df["d"] = pd.to_datetime(df["trade_date"], format="%Y%m%d")
     df["wr"] = pd.to_numeric(df["winner_ratio"], errors="coerce")
     n_bad = int(((df.wr < 0) | (df.wr > 1)).sum())

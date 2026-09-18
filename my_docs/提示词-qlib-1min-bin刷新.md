@@ -31,7 +31,7 @@
 
 解释器钉死 **`D:\anaconda3\envs\vanna312\python.exe`**。
 
-湖根 = **`OSKH_SOURCE_PARQUET_ROOT`**（与 1.3 同键；本机常见 `E:\stock_data`。**不要**把 `OSKH_DATA_ROOT` 当湖，CI 里它是 `D:\oskh_ci_data`）。脚本默认：
+湖根 = **`OSKH_SOURCE_PARQUET_ROOT`**（与 1.3 同键）。未设则报错，不猜 E:/F:。**不要**把 `OSKH_DATA_ROOT` 当湖，CI 里它是 `D:\oskh_ci_data`。脚本默认：
 
 - 股票：`{OSKH_SOURCE_PARQUET_ROOT}/stock/period=1m/dividend_type=none`
 - 指数：`{OSKH_SOURCE_PARQUET_ROOT}/index/period=1m/dividend_type=none`（8 个分区；`899001_BJ` 可能无 parquet，跳过）
