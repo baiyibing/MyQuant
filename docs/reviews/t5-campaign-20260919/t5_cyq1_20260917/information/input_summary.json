@@ -1,0 +1,34 @@
+{
+  "cyq": {
+    "path": "E:\\stock_data\\cyq_winner_ratio\\t5_cyq1_2020_2026_20260917.parquet",
+    "size_bytes": 75083344,
+    "mtime_utc": "2026-09-17T15:48:42.418411+00:00",
+    "sha256": "d167d27916920ea7c49a3f0cb2202de2bb64b7a4425a7852de64f0b278c88a34",
+    "rows": 7839567,
+    "instruments": 5576,
+    "date_min": "2020-01-02",
+    "date_max": "2026-09-14",
+    "column": "winner_ratio"
+  },
+  "pred_2025": {
+    "source": "D:\\PycharmProjects\\MyQuant\\my_scripts\\预测结果_8a061ea4_2025valid.csv",
+    "usable_score_rows": 1290143,
+    "missing_score_rows": 0,
+    "date_min": "2025-01-02",
+    "date_max": "2025-12-31",
+    "path": "D:\\PycharmProjects\\MyQuant\\my_scripts\\预测结果_8a061ea4_2025valid.csv",
+    "size_bytes": 54261404,
+    "mtime_utc": "2026-09-15T07:47:15.412692+00:00",
+    "sha256": "83c456d25250a7ba69ff2d3e21587c0f00d9c6ada90fc8d2c936fe1133b97e8b"
+  },
+  "pred_2026": {
+    "source": "recorder:8a061ea428e04bb3a199a485ade49d0e/pred.pkl",
+    "usable_score_rows": 918193,
+    "missing_score_rows": 0,
+    "date_min": "2026-01-05",
+    "date_max": "2026-09-14",
+    "experiment": "alpha158_cost_kdj_lgb",
+    "recorder_id": "8a061ea428e04bb3a199a485ade49d0e",
+    "mlruns_dir": "D:\\PycharmProjects\\MyQuant\\my_scripts\\mlruns"
+  }
+}

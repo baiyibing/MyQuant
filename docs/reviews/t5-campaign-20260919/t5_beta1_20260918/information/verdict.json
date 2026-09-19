@@ -1,0 +1,24 @@
+{
+  "verdict": "BETA_CONDITIONAL_FLIP",
+  "gates": {
+    "S0": true,
+    "S1_means_gt0": false,
+    "S1_ci": false,
+    "S1_quarters": true,
+    "S1_pass": false
+  },
+  "means": {
+    "2025_valid": -0.0036300792515266225,
+    "2026_oos": 0.004666792181534001
+  },
+  "ci_2026": {
+    "n_days": 169,
+    "block_days": 5,
+    "reps": 10000,
+    "seed": 20260918,
+    "point_estimate": 0.004666792181534001,
+    "ci_lower": -0.029286564885777168,
+    "ci_upper": 0.04290339310814517
+  },
+  "action": "Stop per §4; do not enter B/C"
+}

@@ -1,0 +1,196 @@
+{
+  "generated_at_utc": "2026-09-18T02:40:16.717204+00:00",
+  "experiment": "alpha158_cost_kdj_lgb",
+  "recorder_id": "8a061ea428e04bb3a199a485ade49d0e",
+  "handler_pkl": "D:\\qlib_handler_cache\\handler_86d82e09280b20b8.pkl",
+  "handler_infer_rows": 7699616,
+  "window": {
+    "start": "2020-01-02",
+    "end": "2026-09-14"
+  },
+  "provider_uri": "C:\\Users\\wangc\\.qlib\\qlib_data\\my_data",
+  "provider_snapshot": {
+    "provider_uri": "C:\\Users\\wangc\\.qlib\\qlib_data\\my_data",
+    "calendar_path": "C:\\Users\\wangc\\.qlib\\qlib_data\\my_data\\calendars\\day.txt",
+    "calendar_sha256": "9e07c43e1fcb0f8031c150712f9675dadb5392dfa4b40ed1cdc162075399cdc6",
+    "calendar_size_bytes": 19512,
+    "instruments_all_sha256": "992ccfab4bd73ded887f8bf49a57a25f7e72a4ac6cfbf167d126641ab9217f12",
+    "instruments_all_path": "C:\\Users\\wangc\\.qlib\\qlib_data\\my_data\\instruments\\all.txt",
+    "calendar_first": "2020-01-02",
+    "calendar_last": "2026-09-15",
+    "calendar_days": 1626
+  },
+  "git_commit": "112faf4a67663239e1059e4974cf43b087b106f8",
+  "close_field": "$close",
+  "lookback_market_days": 20,
+  "require_complete_window": true,
+  "daily_return": "close-to-close",
+  "aggregate": "max",
+  "multiply_before_rank": -1,
+  "formula": "maxret20=max(close_d/close_{d-1}-1 for d in t-19..t); rank_pct(-maxret20) on handler-day ∩ valid maxret20",
+  "rank": "pandas.Series.rank(method=average, pct=True) on -maxret20; max first then * -1; never max(-r)",
+  "feature_name": "MAXRET20_ANTI_RANK",
+  "sidecar_path": "D:\\PycharmProjects\\wt-myquant-pr80-t5-mxr1\\exports\\analysis\\t5_mxr1_20260918\\sidecar\\MAXRET20_ANTI_RANK.parquet",
+  "sidecar_sha256": "27320f8b7f6de3854802f97325f682039732470ce387f21bc9cd6c3083b7b348",
+  "key_digest": "e2b051e973df6c23f74d06cd0d9791c91253197fe05adaaf5de2531945c6432c",
+  "n_rows": 7699616,
+  "n_instruments": 5587,
+  "n_days": 1625,
+  "n_finite_rank": 7546804,
+  "missing_reason_counts": {
+    "": 7546804,
+    "incomplete_window": 152812
+  },
+  "sample_recompute": [
+    {
+      "instrument": "SH605167",
+      "datetime": "2023-08-29",
+      "stored": 0.02668941020965576,
+      "recomputed": 0.02668941020965576,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ300034",
+      "datetime": "2021-09-29",
+      "stored": 0.0548856258392334,
+      "recomputed": 0.0548856258392334,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH601319",
+      "datetime": "2021-10-21",
+      "stored": 0.02789294719696045,
+      "recomputed": 0.02789294719696045,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ301234",
+      "datetime": "2022-12-07",
+      "stored": 0.024077892303466797,
+      "recomputed": 0.024077892303466797,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ300546",
+      "datetime": "2024-06-06",
+      "stored": 0.04080605506896973,
+      "recomputed": 0.04080605506896973,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH605179",
+      "datetime": "2026-06-22",
+      "stored": 0.023352384567260742,
+      "recomputed": 0.023352384567260742,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH603856",
+      "datetime": "2021-04-26",
+      "stored": 0.022556781768798828,
+      "recomputed": 0.022556781768798828,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ300926",
+      "datetime": "2024-07-26",
+      "stored": 0.04977142810821533,
+      "recomputed": 0.04977142810821533,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ301129",
+      "datetime": "2025-08-05",
+      "stored": 0.031026721000671387,
+      "recomputed": 0.031026721000671387,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ002913",
+      "datetime": "2022-07-15",
+      "stored": 0.029566049575805664,
+      "recomputed": 0.029566049575805664,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ300896",
+      "datetime": "2026-01-27",
+      "stored": 0.0256272554397583,
+      "recomputed": 0.0256272554397583,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH600844",
+      "datetime": "2021-03-24",
+      "stored": 0.09995102882385254,
+      "recomputed": 0.09995102882385254,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ002060",
+      "datetime": "2024-02-26",
+      "stored": 0.06418788433074951,
+      "recomputed": 0.06418788433074951,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ301191",
+      "datetime": "2025-07-04",
+      "stored": 0.06075453758239746,
+      "recomputed": 0.06075453758239746,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH600919",
+      "datetime": "2022-02-17",
+      "stored": 0.029479503631591797,
+      "recomputed": 0.029479503631591797,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ300249",
+      "datetime": "2021-05-31",
+      "stored": 0.04018378257751465,
+      "recomputed": 0.04018378257751465,
+      "match": true,
+      "reason": ""
+    }
+  ],
+  "rank_recompute": [
+    {
+      "datetime": "2026-06-12",
+      "n": 5344,
+      "max_abs_diff": 0.0
+    },
+    {
+      "datetime": "2025-09-19",
+      "n": 5315,
+      "max_abs_diff": 0.0
+    },
+    {
+      "datetime": "2020-08-27",
+      "n": 3646,
+      "max_abs_diff": 0.0
+    }
+  ],
+  "timing_ok": true,
+  "direction": "higher_MAXRET20_ANTI_RANK_higher_expected_return",
+  "no_sign_flip": true,
+  "no_amount_volume_filter": true,
+  "online_untouched": true
+}

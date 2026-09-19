@@ -1,0 +1,29 @@
+{
+  "verdict": "CYQ_CONDITIONAL_NO_EDGE",
+  "gates": {
+    "S0_coverage": true,
+    "S1_both_mean_gt0": true,
+    "S1_2026_ci_lower_gt0": false,
+    "S1_quarter_stability": true,
+    "S1_pass": false,
+    "cross_window_flip": false
+  },
+  "means": {
+    "2025_valid": 0.03236437071515043,
+    "2026_oos": 0.016444193098030725
+  },
+  "ci_2026": {
+    "method": "moving_block_bootstrap",
+    "statistic": "mean_daily_cyq_partial_rankic",
+    "n_days": 169,
+    "block_days": 5,
+    "reps": 10000,
+    "seed": 20260917,
+    "point_estimate": 0.016444193098030725,
+    "ci_level": 0.95,
+    "ci_lower": -0.005879983046312974,
+    "ci_upper": 0.03781736905659601
+  },
+  "action": "Insufficient OOS evidence; stop; do not revive with PortAna.",
+  "min_coverage": 0.98
+}

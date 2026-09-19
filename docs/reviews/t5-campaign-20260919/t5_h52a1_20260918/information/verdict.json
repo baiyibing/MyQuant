@@ -1,0 +1,28 @@
+{
+  "verdict": "H52_DATA_INVALID",
+  "gates": {
+    "S0": false,
+    "S1_means_gt0": false,
+    "S1_ci": false,
+    "S1_quarters": true,
+    "S1_pass": false
+  },
+  "means": {
+    "2025_valid": -0.024096967129926074,
+    "2026_oos": 0.0003704491284946283
+  },
+  "ci_2026": {
+    "n_days": 169,
+    "block_days": 5,
+    "reps": 10000,
+    "seed": 20260918,
+    "point_estimate": 0.0003704491284946283,
+    "ci_lower": -0.025079801762772677,
+    "ci_upper": 0.024623900148981068
+  },
+  "data_errors": [
+    "2025_valid coverage 0.910214 < 0.98",
+    "2026_oos coverage 0.883005 < 0.98"
+  ],
+  "action": "Stop per §4; do not enter B/C"
+}
