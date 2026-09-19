@@ -1,0 +1,73 @@
+{
+  "verdict": "WINRATIO_GAP_MODEL_NO_TRANSFER",
+  "b_pass": false,
+  "control_recorder": "8a061ea428e04bb3a199a485ade49d0e",
+  "candidate_recorder": "5ef339db2fdc4f56815edf78d17e3017",
+  "windows": [
+    {
+      "window": "2025_valid",
+      "start": "2025-01-03",
+      "end": "2025-12-31",
+      "n_common_rows": 1284876,
+      "n_common_days_ric": 242,
+      "rankic_control": 0.0530785480699288,
+      "rankic_candidate": 0.05334020706699423,
+      "rankic_delta": 0.00026165899706542817,
+      "top10_control": 0.022765119458079214,
+      "top10_candidate": 0.0243167597588829,
+      "top10_delta": 0.0015516403008036875,
+      "delta_rankic_ci": {
+        "point": 0.0002616589970654248,
+        "lo": -0.0009699043957921574,
+        "hi": 0.0015523896843617126
+      },
+      "quarters": {
+        "majority_negative": true,
+        "single_quarter_driven": true,
+        "quarters": {
+          "2025Q1": -0.00027826551257970506,
+          "2025Q2": 0.002550294091578157,
+          "2025Q3": -0.0010471812554134375,
+          "2025Q4": -8.332227738510501e-05
+        },
+        "mean": 0.0002616589970654248
+      },
+      "pass_rankic": true,
+      "pass_top10": true,
+      "pass_ci": true,
+      "pass_quarters": true
+    },
+    {
+      "window": "2026_oos",
+      "start": "2026-01-01",
+      "end": "2026-09-14",
+      "n_common_rows": 918193,
+      "n_common_days_ric": 169,
+      "rankic_control": 0.029972674849945907,
+      "rankic_candidate": 0.030642347567850184,
+      "rankic_delta": 0.0006696727179042773,
+      "top10_control": 0.014869470021152902,
+      "top10_candidate": 0.014529362635014679,
+      "top10_delta": -0.00034010738613822304,
+      "delta_rankic_ci": {
+        "point": 0.0006696727179042805,
+        "lo": -0.00064472672697206,
+        "hi": 0.0021847408549700497
+      },
+      "quarters": {
+        "majority_negative": false,
+        "single_quarter_driven": false,
+        "quarters": {
+          "2026Q1": 0.00020232409469903137,
+          "2026Q2": -0.00043776015343943757,
+          "2026Q3": 0.002417172626963092
+        },
+        "mean": 0.0006696727179042805
+      },
+      "pass_rankic": true,
+      "pass_top10": false,
+      "pass_ci": false,
+      "pass_quarters": true
+    }
+  ]
+}

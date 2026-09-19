@@ -1,0 +1,410 @@
+{
+  "generated": "2026-09-19",
+  "online_pred": "8a061ea4",
+  "online_recorder": "8a061ea428e04bb3a199a485ade49d0e",
+  "constraint": "online pred and 10/3 untouched across campaign",
+  "worktrees": [
+    {
+      "worktree": "D:\\PycharmProjects\\wt-myquant-pr78-t5-wrd1",
+      "analysis_dir": "D:\\PycharmProjects\\wt-myquant-pr78-t5-wrd1\\exports\\analysis\\t5_wrd1_20260918",
+      "sidecar_sha256": {
+        "BROKER_WR_GAP.parquet": "34453f4679ded0ba8233c16eee33c916e87d5eecca16fee15c7e5173424a6d65"
+      },
+      "followups": {
+        "b_diag_20260919": {
+          "has_report": true,
+          "has_summary": true,
+          "summary_head": {}
+        },
+        "pseudo1_bottom10_freeze_20260919": {
+          "has_report": true,
+          "has_summary": true,
+          "summary_head": {
+            "decision": {
+              "verdict": "部分支持",
+              "reason": "2026 ΔSpread_freeze 均值翻非负且好于冻结 ΔSpread_cand，但 CI 下沿≤0",
+              "flipped_nonneg_2026": 1,
+              "better_than_cand_2026": 1,
+              "y2025_ok": 1,
+              "ci_lo_positive_2026": 0,
+              "still_significantly_negative_2026": 0,
+              "limited_improvement": 0,
+              "cannot_overturn": "WINRATIO_GAP_MODEL_NO_TRANSFER"
+            }
+          }
+        },
+        "pseudo2_residual_blend_20260919": {
+          "has_report": true,
+          "has_summary": true,
+          "summary_head": {
+            "verdict": "削弱",
+            "hypothesis_tag": "WEAKEN",
+            "decision": {
+              "hypothesis_tag": "WEAKEN",
+              "verdict": "削弱",
+              "why": "主档 λ=0.5：2026 mean(ΔRankIC)=4.059557e-03，2025 mean(ΔTop10Spread)=-2.150134e-04 < 0。",
+              "cannot_overturn": "WINRATIO_GAP_MODEL_NO_TRANSFER",
+              "primary_lambda": 0.5,
+              "d_rankic_2026": 0.004059557472964878,
+              "d_rankic_2026_ci_lo": -0.004245852320417678,
+              "d_top10_2025": -0.00021501339910444154
+            },
+            "cannot_overturn": "WINRATIO_GAP_MODEL_NO_TRANSFER",
+            "primary_lambda": 0.5
+          }
+        }
+      },
+      "verdicts": {
+        "information\\verdict.json": {
+          "verdict": "A_GATE_PASS",
+          "gates": {
+            "S0": true,
+            "S1_means_gt0": true,
+            "S1_ci": true,
+            "S1_quarters": true,
+            "S1_pass": true
+          },
+          "means": {
+            "2025_valid": 0.017518829760563518,
+            "2026_oos": 0.01724187938897852
+          },
+          "ci_2026": {
+            "n_days": 169,
+            "block_days": 5,
+            "reps": 10000,
+            "seed": 20260918,
+            "point_estimate": 0.01724187938897852,
+            "ci_lower": 0.0031464268748165676,
+            "ci_upper": 0.031242693526731022
+          },
+          "action": "A passed; may proceed to B"
+        },
+        "pred_pair\\verdict.json": {
+          "verdict": "WINRATIO_GAP_MODEL_NO_TRANSFER",
+          "b_pass": false,
+          "windows": [
+            {
+              "window": "2025_valid",
+              "rankic_control": 0.0530785480699288,
+              "rankic_candidate": 0.05334020706699423,
+              "rankic_delta": 0.00026165899706542817,
+              "top10_control": 0.022765119458079214,
+              "top10_candidate": 0.0243167597588829,
+              "top10_delta": 0.0015516403008036875,
+              "delta_rankic_ci": {
+                "point": 0.0002616589970654248,
+                "lo": -0.0009699043957921574,
+                "hi": 0.0015523896843617126
+              },
+              "pass_rankic": true,
+              "pass_top10": true,
+              "pass_ci": true
+            },
+            {
+              "window": "2026_oos",
+              "rankic_control": 0.029972674849945907,
+              "rankic_candidate": 0.030642347567850184,
+              "rankic_delta": 0.0006696727179042773,
+              "top10_control": 0.014869470021152902,
+              "top10_candidate": 0.014529362635014679,
+              "top10_delta": -0.00034010738613822304,
+              "delta_rankic_ci": {
+                "point": 0.0006696727179042805,
+                "lo": -0.00064472672697206,
+                "hi": 0.0021847408549700497
+              },
+              "pass_rankic": true,
+              "pass_top10": false,
+              "pass_ci": false
+            }
+          ]
+        }
+      },
+      "verdict_md_excerpt": "﻿# T5-WRD1 Verdict\n\n- **最终标签**: `WINRATIO_GAP_MODEL_NO_TRANSFER`\n- **停在**: B 门（模型信号门）；**未跑 C / PortAna / BT**\n- **线上**: 未改 pred `8a061ea4`，未改 10/3\n\n## 冻结输入\n\n| 项 | 值 |\n|---|---|\n| 刀法 tip | `397c904`（PR #78 docs） |\n| 实现 worktree | `D:\\PycharmProjects\\wt-myquant-pr78-t5-wrd1` @ `397c904` |\n| CYQ parquet | `E:\\stock_data\\cyq_winner_ratio\\t5_cyq1_2020_2026_20260917.parquet` |\n| CYQ SHA-256 | `d167d27916920ea7c49a3f0cb2202de2bb64b7a4425a7852de64f0b278c88a34`（校验 OK，未重算） |\n| sidecar | `...\\exports\\analysis\\t5_wrd1_20260918\\sidecar\\BROKER_WR_GAP.parquet` |\n| sidecar SHA-256 | `34453f4679ded0ba8233c16eee33c916e87d5eecca16fee15c7e5173424a6d65` |\n| 控制 recorder | `8a061ea428e04bb3a199a485ade49d0e`（只读） |\n| 候选 recorder | `5ef339db2fdc4f56815edf78d17e3017`（exp `alpha158_cost_kdj_lgb__t5_wrd1`，early-stop 233） |\n\n## A 门（过）\n\n| 窗 | mean WR-gap partial RankIC | 2026 CI |\n|---|---:|---|\n| 2025 valid | +0.017519 | — |\n| 2026 OOS | +0.017242 | [+0.003146, +0.031243] |\n\n覆盖与数据门通过；`A_GATE_PASS`。\n\n## B 门（不过 → 终态）\n\n共同样本上相对 `8a061ea4`：\n\n| 窗 | RankIC ctrl→cand | Top10Spread ctrl→cand | ΔRankIC 95% CI |\n|---|---|---|---|\n| 2025 | 0.053079 → **0.053340**（胜） | 0.022765 → **0.024317**（胜） | — |\n| 2026 | 0.029973 → **"
+    },
+    {
+      "worktree": "D:\\PycharmProjects\\wt-myquant-pr79-t5-ami1",
+      "analysis_dir": "D:\\PycharmProjects\\wt-myquant-pr79-t5-ami1\\exports\\analysis\\t5_ami1_20260918",
+      "sidecar_sha256": {
+        "AMIHUD20_RANK.parquet": "e5ec2bc7cba8e580cbc33e1253605f00166119f740542c699fdc6c4b4822746d"
+      },
+      "followups": {},
+      "verdicts": {
+        "information\\verdict.json": {
+          "verdict": "AMIHUD_CONDITIONAL_NO_EDGE",
+          "gates": {
+            "S0": true,
+            "S1_means_gt0": true,
+            "S1_ci": false,
+            "S1_quarters": true,
+            "S1_pass": false
+          },
+          "means": {
+            "2025_valid": 0.018829194003947756,
+            "2026_oos": 0.01592188154819158
+          },
+          "ci_2026": {
+            "n_days": 169,
+            "block_days": 5,
+            "reps": 10000,
+            "seed": 20260918,
+            "point_estimate": 0.01592188154819158,
+            "ci_lower": -0.007202234111503954,
+            "ci_upper": 0.04279090837809987
+          },
+          "action": "Stop per §4; do not enter B/C"
+        }
+      },
+      "verdict_md_excerpt": "# T5-AMI1 Verdict\n\n- **最终标签**: `AMIHUD_CONDITIONAL_NO_EDGE`\n- **停在**: A 门（跨窗条件信息门）；**未跑 B 重训 / C PortAna / BT**\n- **线上**: 未改 pred `8a061ea4`，未改 10/3\n\n## 冻结输入\n\n| 项 | 值 |\n|---|---|\n| 刀法 tip | `b2b675c`（PR #79 docs；full `b2b675cf2be5411704bd46b45aaf3f3f9cf21cd0`） |\n| 实现 worktree | `D:\\PycharmProjects\\wt-myquant-pr79-t5-ami1` @ `b2b675c` + 本刀脚本 |\n| sidecar | `exports\\analysis\\t5_ami1_20260918\\sidecar\\AMIHUD20_RANK.parquet` |\n| sidecar SHA-256 | `e5ec2bc7cba8e580cbc33e1253605f00166119f740542c699fdc6c4b4822746d` |\n| key digest | `e2b051e973df6c23f74d06cd0d9791c91253197fe05adaaf5de2531945c6432c` |\n| provider | `C:\\Users\\wangc\\.qlib\\qlib_data\\my_data` |\n| calendar SHA-256 | `9e07c43e1fcb0f8031c150712f9675dadb5392dfa4b40ed1cdc162075399cdc6`（`2020-01-02`～`2026-09-15`，1626 日） |\n| 控制 recorder | `8a061ea428e04bb3a199a485ade49d0e`（只读） |\n| 标签 | `Ref($close,-2)/Ref($close,-1)-1`（未改） |\n| 唯一特征 | `AMIHUD20_RANK` = 20 个市场交易日 `mean(abs(close_d/close_{d-1}-1)/$amount)` 后，在冻结 handler 当日 ∩ 有效 impact20 上 `rank(method=\"average\", pct=True)`；未乘 `-1` |\n\n## 数据门（过）\n\n- sidecar 7,699,616 行 / 5,587 票 / 1,625 日；有限秩 7,546,750。\n- 抽样 16 行独立复算 impact20 通过；3 日截面秩复算 `max_abs_diff=0`；时点检查通过。\n- 缺失以 `incomplete_window` 为主（15"
+    },
+    {
+      "worktree": "D:\\PycharmProjects\\wt-myquant-pr80-t5-mxr1",
+      "analysis_dir": "D:\\PycharmProjects\\wt-myquant-pr80-t5-mxr1\\exports\\analysis\\t5_mxr1_20260918",
+      "sidecar_sha256": {
+        "MAXRET20_ANTI_RANK.parquet": "27320f8b7f6de3854802f97325f682039732470ce387f21bc9cd6c3083b7b348"
+      },
+      "followups": {
+        "b_diag_20260919": {
+          "has_report": true,
+          "has_summary": true,
+          "summary_head": {}
+        },
+        "pseudo1_top10_constrain_20260919": {
+          "has_report": true,
+          "has_summary": true,
+          "summary_head": {
+            "hypothesis_supported": true,
+            "cannot_overturn": "MAXRET_MODEL_NO_TRANSFER"
+          }
+        },
+        "pseudo2_residual_blend_20260919": {
+          "has_report": true,
+          "has_summary": true,
+          "summary_head": {
+            "verdict": "削弱",
+            "hypothesis_tag": "WEAKEN",
+            "decision": {
+              "hypothesis_tag": "WEAKEN",
+              "verdict": "削弱",
+              "why": "主档 λ=0.5：2026 mean(ΔRankIC)=1.405023e-02，2025 mean(ΔTop10Spread)=-5.372940e-04 < 0。",
+              "cannot_overturn": "MAXRET_MODEL_NO_TRANSFER",
+              "primary_lambda": 0.5,
+              "d_rankic_2026": 0.014050230142645477,
+              "d_rankic_2026_ci_lo": -0.0035159157527491942,
+              "d_top10_2025": -0.0005372940310378816
+            },
+            "cannot_overturn": "MAXRET_MODEL_NO_TRANSFER",
+            "primary_lambda": 0.5
+          }
+        }
+      },
+      "verdicts": {
+        "information\\verdict.json": {
+          "verdict": "A_GATE_PASS",
+          "gates": {
+            "S0": true,
+            "S1_means_gt0": true,
+            "S1_ci": true,
+            "S1_quarters": true,
+            "S1_pass": true
+          },
+          "means": {
+            "2025_valid": 0.044092005053138,
+            "2026_oos": 0.038541790010131145
+          },
+          "ci_2026": {
+            "n_days": 169,
+            "block_days": 5,
+            "reps": 10000,
+            "seed": 20260918,
+            "point_estimate": 0.038541790010131145,
+            "ci_lower": 0.004455550658482764,
+            "ci_upper": 0.07334131619820311
+          },
+          "action": "A passed; may proceed to B"
+        },
+        "pred_pair\\verdict.json": {
+          "verdict": "MAXRET_MODEL_NO_TRANSFER",
+          "b_pass": false,
+          "windows": [
+            {
+              "window": "2025_valid",
+              "rankic_control": 0.0530785480699288,
+              "rankic_candidate": 0.05312931648057082,
+              "rankic_delta": 5.0768410642020034e-05,
+              "top10_control": 0.005374208280541511,
+              "top10_candidate": 0.005321605632770498,
+              "top10_delta": -5.260264777101273e-05,
+              "delta_rankic_ci": {
+                "point": 5.0768410642022616e-05,
+                "lo": -0.0007852464464264625,
+                "hi": 0.0006653853971938491
+              },
+              "pass_rankic": true,
+              "pass_top10": false,
+              "pass_ci": true
+            },
+            {
+              "window": "2026_oos",
+              "rankic_control": 0.029972674849945907,
+              "rankic_candidate": 0.03043549219646676,
+              "rankic_delta": 0.00046281734652085446,
+              "top10_control": 0.0004734034490215002,
+              "top10_candidate": 0.0009655067814271567,
+              "top10_delta": 0.0004921033324056564,
+              "delta_rankic_ci": {
+                "point": 0.0004628173465208575,
+                "lo": -0.0005562195993456413,
+                "hi": 0.0014590946571083482
+              },
+              "pass_rankic": true,
+              "pass_top10": true,
+              "pass_ci": false
+            }
+          ]
+        }
+      },
+      "verdict_md_excerpt": "# T5-MXR1 Verdict\n\n- **最终标签**: `MAXRET_MODEL_NO_TRANSFER`\n- **停在**: B 门（模型信号门）；**未跑 C PortAna / BT**\n- **线上**: 未改 pred `8a061ea4`，未改 10/3\n\n## 冻结输入\n\n| 项 | 值 |\n|---|---|\n| 刀法 tip | `112faf4`（PR #80 docs；full `112faf4a67663239e1059e4974cf43b087b106f8`） |\n| 实现 worktree | `D:\\PycharmProjects\\wt-myquant-pr80-t5-mxr1` @ `feat/t5-mxr1-impl` on tip `112faf4` + 本刀脚本 |\n| sidecar | `exports\\analysis\\t5_mxr1_20260918\\sidecar\\MAXRET20_ANTI_RANK.parquet` |\n| sidecar SHA-256 | `27320f8b7f6de3854802f97325f682039732470ce387f21bc9cd6c3083b7b348` |\n| key digest | `e2b051e973df6c23f74d06cd0d9791c91253197fe05adaaf5de2531945c6432c` |\n| provider | `C:\\Users\\wangc\\.qlib\\qlib_data\\my_data` |\n| calendar SHA-256 | `9e07c43e1fcb0f8031c150712f9675dadb5392dfa4b40ed1cdc162075399cdc6`（`2020-01-02`～`2026-09-15`，1626 日） |\n| 控制 recorder | `8a061ea428e04bb3a199a485ade49d0e`（只读） |\n| 候选 recorder | `d03e8ffcb6d14668b4d6fc2b192bc8c7`（实验 `alpha158_cost_kdj_lgb__t5_mxr1`；新实验，未回写 `8a061ea4`） |\n| 标签 | `Ref($close,-2)/Ref($close,-1)-1`（未改） |\n| 唯一特征 | `MAXRET20_ANTI_RANK` = 20 个市场交易日 close-to-close 简单收益 `r=close_d/close_{d-1}-1` 的 `maxret20=max(r)`，再对 **`-maxret20`** 在冻结 handler 当日 ∩ 有效 maxret20 上 `rank(method=\"average\", pct=Tr"
+    },
+    {
+      "worktree": "D:\\PycharmProjects\\wt-myquant-pr81-t5-beta1",
+      "analysis_dir": "D:\\PycharmProjects\\wt-myquant-pr81-t5-beta1\\exports\\analysis\\t5_beta1_20260918",
+      "sidecar_sha256": {
+        "BETA60_ANTI_RANK.parquet": "2021a4393a5ddd8d2dff3cae82f127130d459a376d7a9c0610c0f07043dfd5c3"
+      },
+      "followups": {},
+      "verdicts": {
+        "information\\verdict.json": {
+          "verdict": "BETA_CONDITIONAL_FLIP",
+          "gates": {
+            "S0": true,
+            "S1_means_gt0": false,
+            "S1_ci": false,
+            "S1_quarters": true,
+            "S1_pass": false
+          },
+          "means": {
+            "2025_valid": -0.0036300792515266225,
+            "2026_oos": 0.004666792181534001
+          },
+          "ci_2026": {
+            "n_days": 169,
+            "block_days": 5,
+            "reps": 10000,
+            "seed": 20260918,
+            "point_estimate": 0.004666792181534001,
+            "ci_lower": -0.029286564885777168,
+            "ci_upper": 0.04290339310814517
+          },
+          "action": "Stop per §4; do not enter B/C"
+        }
+      },
+      "verdict_md_excerpt": "# T5-BETA1 Verdict\n\n- **最终标签**: `BETA_CONDITIONAL_FLIP`\n- **停在**: A 门（跨窗条件信息门）；**未跑 B 重训 / C PortAna / BT**\n- **线上**: 未改 pred `8a061ea4`，未改 10/3\n\n## 冻结输入\n\n| 项 | 值 |\n|---|---|\n| 刀法 tip | `f75022e`（PR #81 docs；full `f75022e08b6a1b51ccc8b6d56629dcd6f6106d48`） |\n| 实现 worktree | `D:\\PycharmProjects\\wt-myquant-pr81-t5-beta1` @ `feat/t5-beta1-impl` on tip `f75022e` + 本刀脚本 |\n| sidecar | `exports\\analysis\\t5_beta1_20260918\\sidecar\\BETA60_ANTI_RANK.parquet` |\n| sidecar SHA-256 | `2021a4393a5ddd8d2dff3cae82f127130d459a376d7a9c0610c0f07043dfd5c3` |\n| key digest | `e2b051e973df6c23f74d06cd0d9791c91253197fe05adaaf5de2531945c6432c` |\n| benchmark | 冻结快照 `SH000300`（未换 000300.SH / 510300 / 等权市场 / 截面均值） |\n| benchmark digest | `874055a39bc479fd5228bb85149e6b0c9bb7ef010d372b5f25ecbaf9a44ec9bf`（A 门复算一致） |\n| provider | `C:\\Users\\wangc\\.qlib\\qlib_data\\my_data` |\n| calendar SHA-256 | `9e07c43e1fcb0f8031c150712f9675dadb5392dfa4b40ed1cdc162075399cdc6`（`2020-01-02`～`2026-09-15`，1626 日） |\n| 控制 recorder | `8a061ea428e04bb3a199a485ade49d0e`（只读；未回写） |\n| 标签 | `Ref($close,-2)/Ref($close,-1)-1`（未改） |\n| 唯一特征 | `BETA60_ANTI_RANK` = 固定 60 个市场交易日、股与 `SH000300` 同一冻结 `$close` 的 close-to-close 简单收益，带截距 OLS 斜率 `beta60`（窗内有效"
+    },
+    {
+      "worktree": "D:\\PycharmProjects\\wt-myquant-pr82-t5-dsv1",
+      "analysis_dir": "D:\\PycharmProjects\\wt-myquant-pr82-t5-dsv1\\exports\\analysis\\t5_dsv1_20260918",
+      "sidecar_sha256": {
+        "DSEM20_ANTI_RANK.parquet": "dc9fe981bba49c3e61910bd155bb3d674d56919a902b13244e351b06e26498d1"
+      },
+      "followups": {},
+      "verdicts": {
+        "information\\verdict.json": {
+          "verdict": "DSEM_CONDITIONAL_NO_EDGE",
+          "gates": {
+            "S0": true,
+            "S1_means_gt0": true,
+            "S1_ci": false,
+            "S1_quarters": true,
+            "S1_pass": false
+          },
+          "means": {
+            "2025_valid": 0.020675282035367417,
+            "2026_oos": 0.03042501448600329
+          },
+          "ci_2026": {
+            "n_days": 169,
+            "block_days": 5,
+            "reps": 10000,
+            "seed": 20260918,
+            "point_estimate": 0.03042501448600329,
+            "ci_lower": -0.008750922930890623,
+            "ci_upper": 0.07078142271601973
+          },
+          "action": "Stop per §4; do not enter B/C"
+        }
+      },
+      "verdict_md_excerpt": "# T5-DSV1 Verdict\n\n- **最终标签**: `DSEM_CONDITIONAL_NO_EDGE`\n- **停在**: A 门（跨窗条件信息门）；**未跑 B 重训 / C PortAna / BT**\n- **线上**: 未改 pred `8a061ea4`，未改 10/3\n\n## 冻结输入\n\n| 项 | 值 |\n|---|---|\n| 刀法 tip | `2e64556`（PR #82 docs；full `2e64556a22a623b13826d4664f88b6ea35f715cb`） |\n| 实现 worktree | `D:\\PycharmProjects\\wt-myquant-pr82-t5-dsv1` @ `feat/t5-dsv1-impl` on tip `2e64556` + 本刀脚本 |\n| sidecar | `exports\\analysis\\t5_dsv1_20260918\\sidecar\\DSEM20_ANTI_RANK.parquet` |\n| sidecar SHA-256 | `dc9fe981bba49c3e61910bd155bb3d674d56919a902b13244e351b06e26498d1` |\n| key digest | `e2b051e973df6c23f74d06cd0d9791c91253197fe05adaaf5de2531945c6432c` |\n| provider | `C:\\Users\\wangc\\.qlib\\qlib_data\\my_data` |\n| calendar SHA-256 | `9e07c43e1fcb0f8031c150712f9675dadb5392dfa4b40ed1cdc162075399cdc6`（`2020-01-02`～`2026-09-15`，1626 日） |\n| 控制 recorder | `8a061ea428e04bb3a199a485ade49d0e`（只读；未回写） |\n| 标签 | `Ref($close,-2)/Ref($close,-1)-1`（未改） |\n| 唯一特征 | `DSEM20_ANTI_RANK`：冻结 `$close` close-to-close 简单收益 `r=close/close_prev-1`，`down=min(r,0)`，固定 20 个市场日 `t-19..t`（21 个 close 全部有限且 `>0`），`dsem20=sqrt(mean(down^2))` 分母固定 20（正收益日 down=0 并进均方；全窗无负收益时 `dsem20=0` 为有效值）。再对 **`-dsem20`** 在冻结 handler 当日 ∩ 有效 dsem20 上 `rank(method=\"avera"
+    },
+    {
+      "worktree": "D:\\PycharmProjects\\wt-myquant-pr83-t5-h52a1",
+      "analysis_dir": "D:\\PycharmProjects\\wt-myquant-pr83-t5-h52a1\\exports\\analysis\\t5_h52a1_20260918",
+      "sidecar_sha256": {
+        "HIGH252_PROX_RANK.parquet": "215c78b34c936457354f926ab46958666d874946ef9b13258d0ae745898a8acb"
+      },
+      "followups": {},
+      "verdicts": {
+        "information\\verdict.json": {
+          "verdict": "H52_DATA_INVALID",
+          "gates": {
+            "S0": false,
+            "S1_means_gt0": false,
+            "S1_ci": false,
+            "S1_quarters": true,
+            "S1_pass": false
+          },
+          "means": {
+            "2025_valid": -0.024096967129926074,
+            "2026_oos": 0.0003704491284946283
+          },
+          "ci_2026": {
+            "n_days": 169,
+            "block_days": 5,
+            "reps": 10000,
+            "seed": 20260918,
+            "point_estimate": 0.0003704491284946283,
+            "ci_lower": -0.025079801762772677,
+            "ci_upper": 0.024623900148981068
+          },
+          "action": "Stop per §4; do not enter B/C"
+        }
+      },
+      "verdict_md_excerpt": "# T5-H52A1 Verdict\n\n- **最终标签**: `H52_DATA_INVALID`\n- **停在**: A 门数据覆盖（跨窗条件信息门）；**未跑 B 重训 / C PortAna / BT**\n- **线上**: 未改 pred `8a061ea4`，未改 10/3\n\n## 冻结输入\n\n| 项 | 值 |\n|---|---|\n| 刀法 tip | `6d6593f`（PR #83 docs；full `6d6593f393cf4e62ee38f33db121a3ca5c3eabbf`） |\n| 实现 worktree | `D:\\PycharmProjects\\wt-myquant-pr83-t5-h52a1` @ `feat/t5-h52a1-impl` on tip `6d6593f` + 本刀脚本 |\n| sidecar | `exports\\analysis\\t5_h52a1_20260918\\sidecar\\HIGH252_PROX_RANK.parquet` |\n| sidecar SHA-256 | `215c78b34c936457354f926ab46958666d874946ef9b13258d0ae745898a8acb` |\n| key digest | `e2b051e973df6c23f74d06cd0d9791c91253197fe05adaaf5de2531945c6432c` |\n| provider | `C:\\Users\\wangc\\.qlib\\qlib_data\\my_data` |\n| calendar SHA-256 | `9e07c43e1fcb0f8031c150712f9675dadb5392dfa4b40ed1cdc162075399cdc6`（`2020-01-02`～`2026-09-15`，1626 日） |\n| 控制 recorder | `8a061ea428e04bb3a199a485ade49d0e`（只读；未回写） |\n| 标签 | `Ref($close,-2)/Ref($close,-1)-1`（未改） |\n| 唯一特征 | `HIGH252_PROX_RANK`：冻结 `$close`，`high_close_252=max(close[d], d=t-251..t)` 共 252 个市场交易日（含 `t`），全部有限且 `>0`；`high252_prox=close[t]/high_close_252`（合法 `0<prox<=1`，越界不截断）；再对 **high252_prox 本身** 在冻结 handler 当日 ∩ 有效 prox 上 `rank(method=\"average\", pct=True)`。**不乘 −1**。最高收盘价并列只为审计保留最"
+    },
+    {
+      "worktree": "D:\\PycharmProjects\\wt-myquant-pr87-t5-dstr1",
+      "analysis_dir": "D:\\PycharmProjects\\wt-myquant-pr87-t5-dstr1\\exports\\analysis\\t5_dstr1_20260918",
+      "sidecar_sha256": {
+        "DOWNSTREAK5_RANK.parquet": "1a116595502b897bc1eddeead5d2b3c6d0ec3f390511c3b02427526aae75a706"
+      },
+      "followups": {},
+      "verdicts": {
+        "information\\verdict.json": {
+          "verdict": "DSTR_CONDITIONAL_NO_EDGE",
+          "gates": {
+            "S0": true,
+            "S1_means_gt0": false,
+            "S1_ci": false,
+            "S1_quarters": true,
+            "S1_pass": false
+          },
+          "means": {
+            "2025_valid": -0.002029412775406366,
+            "2026_oos": -0.00550280463831853
+          },
+          "ci_2026": {
+            "n_days": 169,
+            "block_days": 5,
+            "reps": 10000,
+            "seed": 20260918,
+            "point_estimate": -0.00550280463831853,
+            "ci_lower": -0.02025279691183407,
+            "ci_upper": 0.008338109436972848
+          },
+          "action": "Stop per §4; do not enter B/C"
+        }
+      },
+      "verdict_md_excerpt": "# T5-DSTR1 verdict\n\n**唯一终态标签：`DSTR_CONDITIONAL_NO_EDGE`（优先级 3）**\n\nA 数据门通过；两窗 mean DSTR partial RankIC 均为负且 2026 CI 下界 ≤ 0。未命中反号/多数季度为负，因此不是 `DSTR_CONDITIONAL_FLIP`。按 §4 停止，**未进入 B/C**。未改上限、收益符号、变换、阈值，未翻成追跌势或上涨 streak，未缩成 3 日。\n\n线上仍为 **10/3 LGB**；默认 pred 仍为 **`8a061ea4`**（recorder `8a061ea428e04bb3a199a485ade49d0e`）。全程只读，未回写 recorder，未碰 `55c5bf77`。\n\n## Freeze / provenance\n\n| 项 | 值 |\n|---|---|\n| 文档 tip commit | `9df060fbf02e634139401137047835c501601727`（PR #87） |\n| 实现分支 | `feat/t5-dstr1-impl` |\n| 实验 | `alpha158_cost_kdj_lgb` |\n| 对照 recorder | `8a061ea428e04bb3a199a485ade49d0e`（只读） |\n| handler pickle | `D:\\qlib_handler_cache\\handler_86d82e09280b20b8.pkl`（只读） |\n| provider | `C:\\Users\\wangc\\.qlib\\qlib_data\\my_data` |\n| calendar SHA-256 | `9e07c43e1fcb0f8031c150712f9675dadb5392dfa4b40ed1cdc162075399cdc6`（2020-01-02～2026-09-15，1626 个市场日） |\n| 标签 | `Ref($close,-2)/Ref($close,-1)-1` |\n| 唯一特征 | `DOWNSTREAK5_RANK`（对 **downstreak5 本身** `rank(method=\"average\", pct=True)`，不乘 −1） |\n| 方向（预注册，未现场翻转） | `DOWNSTREAK5_RANK` 越高 → 下一持有期反转收益越高 |\n\n## Sidecar（只建一次）\n\n| 项 | 值 |\n|---|---|\n| 路径 | `exports/analysis/t5_dstr1_20260918/sidecar/DOWNSTREAK5_RANK.parquet` |\n| SHA-256 | `1a116595502b897bc1eddeead5d2b3c6d"
+    }
+  ]
+}

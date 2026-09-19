@@ -1,0 +1,194 @@
+{
+  "generated_at_utc": "2026-09-18T00:19:16.848957+00:00",
+  "experiment": "alpha158_cost_kdj_lgb",
+  "recorder_id": "8a061ea428e04bb3a199a485ade49d0e",
+  "handler_pkl": "D:\\qlib_handler_cache\\handler_86d82e09280b20b8.pkl",
+  "handler_infer_rows": 7699616,
+  "window": {
+    "start": "2020-01-02",
+    "end": "2026-09-14"
+  },
+  "provider_uri": "C:\\Users\\wangc\\.qlib\\qlib_data\\my_data",
+  "provider_snapshot": {
+    "provider_uri": "C:\\Users\\wangc\\.qlib\\qlib_data\\my_data",
+    "calendar_path": "C:\\Users\\wangc\\.qlib\\qlib_data\\my_data\\calendars\\day.txt",
+    "calendar_sha256": "9e07c43e1fcb0f8031c150712f9675dadb5392dfa4b40ed1cdc162075399cdc6",
+    "calendar_size_bytes": 19512,
+    "instruments_all_sha256": "992ccfab4bd73ded887f8bf49a57a25f7e72a4ac6cfbf167d126641ab9217f12",
+    "instruments_all_path": "C:\\Users\\wangc\\.qlib\\qlib_data\\my_data\\instruments\\all.txt",
+    "calendar_first": "2020-01-02",
+    "calendar_last": "2026-09-15",
+    "calendar_days": 1626
+  },
+  "git_commit": "b2b675cf2be5411704bd46b45aaf3f3f9cf21cd0",
+  "close_field": "$close",
+  "amount_field": "$amount",
+  "lookback_market_days": 20,
+  "require_complete_window": true,
+  "impact": "abs-return-over-amount",
+  "rank": "pandas.Series.rank(method=average, pct=True) on handler-day ∩ valid impact20",
+  "feature_name": "AMIHUD20_RANK",
+  "sidecar_path": "D:\\PycharmProjects\\wt-myquant-pr79-t5-ami1\\exports\\analysis\\t5_ami1_20260918\\sidecar\\AMIHUD20_RANK.parquet",
+  "sidecar_sha256": "e5ec2bc7cba8e580cbc33e1253605f00166119f740542c699fdc6c4b4822746d",
+  "key_digest": "e2b051e973df6c23f74d06cd0d9791c91253197fe05adaaf5de2531945c6432c",
+  "n_rows": 7699616,
+  "n_instruments": 5587,
+  "n_days": 1625,
+  "n_finite_rank": 7546750,
+  "missing_reason_counts": {
+    "": 7546750,
+    "incomplete_window": 152830,
+    "amount_invalid|incomplete_window": 36
+  },
+  "sample_recompute": [
+    {
+      "instrument": "SH600558",
+      "datetime": "2021-01-06",
+      "stored": 3.1578690822827223e-10,
+      "recomputed": 3.1578689663191994e-10,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH601588",
+      "datetime": "2024-08-23",
+      "stored": 3.6583031494475315e-10,
+      "recomputed": 3.6583031048920134e-10,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ000089",
+      "datetime": "2022-07-15",
+      "stored": 1.2775716798249714e-10,
+      "recomputed": 1.277571659574761e-10,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH600568",
+      "datetime": "2022-06-21",
+      "stored": 1.0009443177842334e-09,
+      "recomputed": 1.0009443274228147e-09,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ300902",
+      "datetime": "2021-10-15",
+      "stored": 5.905959948342456e-10,
+      "recomputed": 5.905959610252864e-10,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH603797",
+      "datetime": "2026-01-28",
+      "stored": 2.3432161632327503e-10,
+      "recomputed": 2.3432161766479e-10,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ000797",
+      "datetime": "2025-08-18",
+      "stored": 1.28275012877151e-10,
+      "recomputed": 1.282750156095247e-10,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH688682",
+      "datetime": "2025-03-19",
+      "stored": 4.0436239858559723e-10,
+      "recomputed": 4.043624046712324e-10,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ002758",
+      "datetime": "2020-10-09",
+      "stored": 5.751051658674231e-10,
+      "recomputed": 5.751051856961453e-10,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH603833",
+      "datetime": "2025-03-03",
+      "stored": 9.122001087632267e-11,
+      "recomputed": 9.122001765060617e-11,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ002366",
+      "datetime": "2020-03-12",
+      "stored": 1.821020349202498e-10,
+      "recomputed": 1.821020279013652e-10,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH600386",
+      "datetime": "2025-06-30",
+      "stored": 1.9085844363470847e-10,
+      "recomputed": 1.9085846791888628e-10,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH600761",
+      "datetime": "2023-03-23",
+      "stored": 6.276118689621641e-11,
+      "recomputed": 6.276118513781626e-11,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH688798",
+      "datetime": "2022-05-17",
+      "stored": 3.8622423575410627e-10,
+      "recomputed": 3.8622421927314576e-10,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH688160",
+      "datetime": "2022-06-21",
+      "stored": 2.9393832488397456e-09,
+      "recomputed": 2.939382959254999e-09,
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH600350",
+      "datetime": "2026-06-25",
+      "stored": 1.408877415228018e-10,
+      "recomputed": 1.408877320363544e-10,
+      "match": true,
+      "reason": ""
+    }
+  ],
+  "rank_recompute": [
+    {
+      "datetime": "2026-06-12",
+      "n": 5344,
+      "max_abs_diff": 0.0
+    },
+    {
+      "datetime": "2025-09-19",
+      "n": 5315,
+      "max_abs_diff": 0.0
+    },
+    {
+      "datetime": "2020-08-27",
+      "n": 3646,
+      "max_abs_diff": 0.0
+    }
+  ],
+  "timing_ok": true,
+  "direction": "higher_impact_higher_expected_return",
+  "no_sign_flip": true,
+  "online_untouched": true
+}

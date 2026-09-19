@@ -1,0 +1,24 @@
+{
+  "verdict": "AMIHUD_CONDITIONAL_NO_EDGE",
+  "gates": {
+    "S0": true,
+    "S1_means_gt0": true,
+    "S1_ci": false,
+    "S1_quarters": true,
+    "S1_pass": false
+  },
+  "means": {
+    "2025_valid": 0.018829194003947756,
+    "2026_oos": 0.01592188154819158
+  },
+  "ci_2026": {
+    "n_days": 169,
+    "block_days": 5,
+    "reps": 10000,
+    "seed": 20260918,
+    "point_estimate": 0.01592188154819158,
+    "ci_lower": -0.007202234111503954,
+    "ci_upper": 0.04279090837809987
+  },
+  "action": "Stop per §4; do not enter B/C"
+}

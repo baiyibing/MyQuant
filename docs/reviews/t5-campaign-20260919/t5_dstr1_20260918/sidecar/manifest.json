@@ -1,0 +1,367 @@
+{
+  "generated_at_utc": "2026-09-18T10:53:18.268518+00:00",
+  "experiment": "alpha158_cost_kdj_lgb",
+  "recorder_id": "8a061ea428e04bb3a199a485ade49d0e",
+  "handler_pkl": "D:\\qlib_handler_cache\\handler_86d82e09280b20b8.pkl",
+  "handler_infer_rows": 7699616,
+  "window": {
+    "start": "2020-01-02",
+    "end": "2026-09-14"
+  },
+  "provider_uri": "C:\\Users\\wangc\\.qlib\\qlib_data\\my_data",
+  "provider_snapshot": {
+    "provider_uri": "C:\\Users\\wangc\\.qlib\\qlib_data\\my_data",
+    "calendar_path": "C:\\Users\\wangc\\.qlib\\qlib_data\\my_data\\calendars\\day.txt",
+    "calendar_sha256": "9e07c43e1fcb0f8031c150712f9675dadb5392dfa4b40ed1cdc162075399cdc6",
+    "calendar_size_bytes": 19512,
+    "instruments_all_sha256": "992ccfab4bd73ded887f8bf49a57a25f7e72a4ac6cfbf167d126641ab9217f12",
+    "instruments_all_path": "C:\\Users\\wangc\\.qlib\\qlib_data\\my_data\\instruments\\all.txt",
+    "calendar_first": "2020-01-02",
+    "calendar_last": "2026-09-15",
+    "calendar_days": 1626
+  },
+  "git_commit": "9df060fbf02e634139401137047835c501601727",
+  "close_field": "$close",
+  "streak_side": "down",
+  "max_market_days": 5,
+  "n_close_required": 6,
+  "warmup_preceding_market_days": 5,
+  "lookback_available": 0,
+  "raw_start": "2020-01-02",
+  "require_complete_window": true,
+  "no_window_extension": true,
+  "no_close_imputation": true,
+  "exclude_zero_return": true,
+  "multiply_before_rank": 1,
+  "no_sign_flip": true,
+  "not_cntn5": true,
+  "not_roc5": true,
+  "not_sumn5": true,
+  "formula": "r=close[d]/close[prev_market_day(d)]-1; downstreak5=sum(k=1..5, product(j=0..k-1, 1[r[t-j]<0])); empty product is not 1; r==0 breaks the run; requires t-5..t (6 closes) all finite and >0 else missing; DOWNSTREAK5_RANK = rank_pct(downstreak5) on handler-day ∩ finite downstreak5; no multiply by -1; ties use average; neg_bitmap is 5 bits from t backward",
+  "rank": "pandas.Series.rank(method=average, pct=True) on downstreak5 itself; never 1-rank(x); never rank(-x)",
+  "feature_name": "DOWNSTREAK5_RANK",
+  "sidecar_path": "D:\\PycharmProjects\\wt-myquant-pr87-t5-dstr1\\exports\\analysis\\t5_dstr1_20260918\\sidecar\\DOWNSTREAK5_RANK.parquet",
+  "sidecar_sha256": "1a116595502b897bc1eddeead5d2b3c6d0ec3f390511c3b02427526aae75a706",
+  "key_digest": "e2b051e973df6c23f74d06cd0d9791c91253197fe05adaaf5de2531945c6432c",
+  "n_rows": 7699616,
+  "n_instruments": 5587,
+  "n_days": 1625,
+  "n_finite_rank": 7662438,
+  "downstreak5_value_counts": {
+    "0": 3821401,
+    "1": 1967345,
+    "2": 964736,
+    "3": 481710,
+    "4": 229321,
+    "5": 197925
+  },
+  "missing_reason_counts": {
+    "": 7662438,
+    "close_invalid|incomplete_window": 19762,
+    "not_enough_history": 17416
+  },
+  "sample_recompute": [
+    {
+      "instrument": "SZ300849",
+      "datetime": "2023-01-13",
+      "stored_downstreak5": 0,
+      "recomputed_downstreak5": 0,
+      "stored_neg_bitmap": "00011",
+      "recomputed_neg_bitmap": "00011",
+      "recomputed_rets": [
+        0.004005279255697047,
+        0.0024089976209196173,
+        0.0,
+        -0.0032016791182064575,
+        -0.003986221674758483
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ002745",
+      "datetime": "2023-02-20",
+      "stored_downstreak5": 0,
+      "recomputed_downstreak5": 0,
+      "stored_neg_bitmap": "01100",
+      "recomputed_neg_bitmap": "01100",
+      "recomputed_rets": [
+        0.010062425461204949,
+        -0.0020084813613082675,
+        -0.03301613337585885,
+        0.021829754468136287,
+        0.003984853698684843
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ002452",
+      "datetime": "2021-01-13",
+      "stored_downstreak5": 1,
+      "recomputed_downstreak5": 1,
+      "stored_neg_bitmap": "10101",
+      "recomputed_neg_bitmap": "10101",
+      "recomputed_rets": [
+        -0.014866712922358416,
+        0.020868314729087567,
+        -0.04872629169023768,
+        0.005443444233049322,
+        -0.0564956730176297
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH600559",
+      "datetime": "2023-09-25",
+      "stored_downstreak5": 1,
+      "recomputed_downstreak5": 1,
+      "stored_neg_bitmap": "10111",
+      "recomputed_neg_bitmap": "10111",
+      "recomputed_rets": [
+        -0.015760689794576788,
+        0.01936136207618433,
+        -0.017007146653474248,
+        -0.004835613366738545,
+        -0.009183597901745277
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ300348",
+      "datetime": "2025-02-20",
+      "stored_downstreak5": 0,
+      "recomputed_downstreak5": 0,
+      "stored_neg_bitmap": "00100",
+      "recomputed_neg_bitmap": "00100",
+      "recomputed_rets": [
+        0.001235033335011293,
+        0.04788639209392276,
+        -0.09594436850272814,
+        0.1340124059732597,
+        0.044342082610679734
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH600764",
+      "datetime": "2021-01-13",
+      "stored_downstreak5": 1,
+      "recomputed_downstreak5": 1,
+      "stored_neg_bitmap": "10111",
+      "recomputed_neg_bitmap": "10111",
+      "recomputed_rets": [
+        -0.030115137593455077,
+        0.06347709906669863,
+        -0.02749876482775604,
+        -0.0325749848660738,
+        -0.004593313854552972
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH600989",
+      "datetime": "2022-06-10",
+      "stored_downstreak5": 0,
+      "recomputed_downstreak5": 0,
+      "stored_neg_bitmap": "00010",
+      "recomputed_neg_bitmap": "00010",
+      "recomputed_rets": [
+        0.017795606462955638,
+        0.030159682642450614,
+        0.015006002538399343,
+        -0.0023952642934073065,
+        0.00420935692756963
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ301205",
+      "datetime": "2022-12-22",
+      "stored_downstreak5": 2,
+      "recomputed_downstreak5": 2,
+      "stored_neg_bitmap": "11011",
+      "recomputed_neg_bitmap": "11011",
+      "recomputed_rets": [
+        -0.0172237007033752,
+        -0.023839322073227254,
+        0.006059021965953093,
+        -0.01955447736855398,
+        -0.030942603581752937
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH600987",
+      "datetime": "2026-09-11",
+      "stored_downstreak5": 3,
+      "recomputed_downstreak5": 3,
+      "stored_neg_bitmap": "11100",
+      "recomputed_neg_bitmap": "11100",
+      "recomputed_rets": [
+        -0.019686398029110985,
+        -0.009102464505171937,
+        -0.0038882077105452106,
+        0.005209106148580389,
+        0.001305551613385525
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ301016",
+      "datetime": "2022-08-05",
+      "stored_downstreak5": 0,
+      "recomputed_downstreak5": 0,
+      "stored_neg_bitmap": "00011",
+      "recomputed_neg_bitmap": "00011",
+      "recomputed_rets": [
+        0.0005000114440918413,
+        0.01163376514470471,
+        0.008159094463650929,
+        -0.058569338349638844,
+        -0.025724941938717327
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ000910",
+      "datetime": "2020-04-20",
+      "stored_downstreak5": 0,
+      "recomputed_downstreak5": 0,
+      "stored_neg_bitmap": "00100",
+      "recomputed_neg_bitmap": "00100",
+      "recomputed_rets": [
+        0.05763806271494665,
+        0.008044854467405438,
+        -0.013230692453523152,
+        0.004429715679707957,
+        0.020800810423221794
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ002558",
+      "datetime": "2026-06-16",
+      "stored_downstreak5": 1,
+      "recomputed_downstreak5": 1,
+      "stored_neg_bitmap": "10111",
+      "recomputed_neg_bitmap": "10111",
+      "recomputed_rets": [
+        -0.001201535329436454,
+        0.03610092516170593,
+        -0.008638705799042024,
+        -0.02212471682920003,
+        -0.021260576090582628
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ002106",
+      "datetime": "2025-02-28",
+      "stored_downstreak5": 2,
+      "recomputed_downstreak5": 2,
+      "stored_neg_bitmap": "11010",
+      "recomputed_neg_bitmap": "11010",
+      "recomputed_rets": [
+        -0.05178328995654413,
+        -0.01258843353336947,
+        0.005537020880670873,
+        -0.0007889225394326349,
+        0.000789545429618066
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ002393",
+      "datetime": "2020-01-21",
+      "stored_downstreak5": 0,
+      "recomputed_downstreak5": 0,
+      "stored_neg_bitmap": "00111",
+      "recomputed_neg_bitmap": "00111",
+      "recomputed_rets": [
+        0.00997888824009685,
+        0.026062679631350782,
+        -0.005553850849220332,
+        -0.007654623428291596,
+        -0.0009176745352434956
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SH603119",
+      "datetime": "2026-08-05",
+      "stored_downstreak5": 0,
+      "recomputed_downstreak5": 0,
+      "stored_neg_bitmap": "00001",
+      "recomputed_neg_bitmap": "00001",
+      "recomputed_rets": [
+        0.03088426497180996,
+        0.06735324591360836,
+        0.06547578032812806,
+        0.07355011927594468,
+        -0.039352501653650895
+      ],
+      "match": true,
+      "reason": ""
+    },
+    {
+      "instrument": "SZ000949",
+      "datetime": "2023-07-13",
+      "stored_downstreak5": 0,
+      "recomputed_downstreak5": 0,
+      "stored_neg_bitmap": "01000",
+      "recomputed_neg_bitmap": "01000",
+      "recomputed_rets": [
+        0.005765758821046685,
+        -0.005732705424178697,
+        0.011598391168281763,
+        0.0,
+        0.002908063179233311
+      ],
+      "match": true,
+      "reason": ""
+    }
+  ],
+  "rank_recompute": [
+    {
+      "datetime": "2026-06-12",
+      "n": 5378,
+      "max_abs_diff": 0.0
+    },
+    {
+      "datetime": "2025-09-17",
+      "n": 5343,
+      "max_abs_diff": 0.0
+    },
+    {
+      "datetime": "2020-08-10",
+      "n": 3626,
+      "max_abs_diff": 0.0
+    }
+  ],
+  "timing_ok": true,
+  "direction": "higher_DOWNSTREAK5_RANK_higher_expected_reversal_return",
+  "online_untouched": true,
+  "handler_feature_names_sample": [
+    "KMID",
+    "KLEN",
+    "KMID2",
+    "KUP",
+    "KUP2",
+    "KLOW",
+    "KLOW2",
+    "KSFT"
+  ]
+}

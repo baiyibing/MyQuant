@@ -1,0 +1,24 @@
+{
+  "verdict": "DSTR_CONDITIONAL_NO_EDGE",
+  "gates": {
+    "S0": true,
+    "S1_means_gt0": false,
+    "S1_ci": false,
+    "S1_quarters": true,
+    "S1_pass": false
+  },
+  "means": {
+    "2025_valid": -0.002029412775406366,
+    "2026_oos": -0.00550280463831853
+  },
+  "ci_2026": {
+    "n_days": 169,
+    "block_days": 5,
+    "reps": 10000,
+    "seed": 20260918,
+    "point_estimate": -0.00550280463831853,
+    "ci_lower": -0.02025279691183407,
+    "ci_upper": 0.008338109436972848
+  },
+  "action": "Stop per §4; do not enter B/C"
+}

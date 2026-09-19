@@ -1,0 +1,76 @@
+{
+  "verdict": "MAXRET_MODEL_NO_TRANSFER",
+  "b_pass": false,
+  "control_recorder": "8a061ea428e04bb3a199a485ade49d0e",
+  "candidate_recorder": "d03e8ffcb6d14668b4d6fc2b192bc8c7",
+  "windows": [
+    {
+      "window": "2025_valid",
+      "start": "2025-01-03",
+      "end": "2025-12-31",
+      "n_common_rows": 1284876,
+      "n_common_days_ric": 242,
+      "rankic_control": 0.0530785480699288,
+      "rankic_candidate": 0.05312931648057082,
+      "rankic_delta": 5.0768410642020034e-05,
+      "top10_control": 0.005374208280541511,
+      "top10_candidate": 0.005321605632770498,
+      "top10_delta": -5.260264777101273e-05,
+      "top10_spread_vs": "common-universe-equal-weight",
+      "delta_rankic_ci": {
+        "point": 5.0768410642022616e-05,
+        "lo": -0.0007852464464264625,
+        "hi": 0.0006653853971938491
+      },
+      "quarters": {
+        "majority_negative": false,
+        "single_quarter_driven": false,
+        "quarters": {
+          "2025Q1": 0.0010540053306529362,
+          "2025Q2": 0.0006855550826158132,
+          "2025Q3": -0.0006944821944736087,
+          "2025Q4": -0.0007005970543814258
+        },
+        "mean": 5.0768410642022616e-05
+      },
+      "pass_rankic": true,
+      "pass_top10": false,
+      "pass_ci": true,
+      "pass_quarters": true
+    },
+    {
+      "window": "2026_oos",
+      "start": "2026-01-01",
+      "end": "2026-09-14",
+      "n_common_rows": 918193,
+      "n_common_days_ric": 169,
+      "rankic_control": 0.029972674849945907,
+      "rankic_candidate": 0.03043549219646676,
+      "rankic_delta": 0.00046281734652085446,
+      "top10_control": 0.0004734034490215002,
+      "top10_candidate": 0.0009655067814271567,
+      "top10_delta": 0.0004921033324056564,
+      "top10_spread_vs": "common-universe-equal-weight",
+      "delta_rankic_ci": {
+        "point": 0.0004628173465208575,
+        "lo": -0.0005562195993456413,
+        "hi": 0.0014590946571083482
+      },
+      "quarters": {
+        "majority_negative": false,
+        "single_quarter_driven": false,
+        "quarters": {
+          "2026Q1": -0.00012238769005850958,
+          "2026Q2": 0.0006073530365197587,
+          "2026Q3": 0.0009175218870587911
+        },
+        "mean": 0.0004628173465208575
+      },
+      "pass_rankic": true,
+      "pass_top10": true,
+      "pass_ci": false,
+      "pass_quarters": true
+    }
+  ],
+  "online_untouched": true
+}

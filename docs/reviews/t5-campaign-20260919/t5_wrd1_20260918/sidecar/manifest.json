@@ -1,0 +1,27 @@
+{
+  "generated_at_utc": "2026-09-17T17:11:47.451986+00:00",
+  "experiment": "alpha158_cost_kdj_lgb",
+  "recorder_id": "8a061ea428e04bb3a199a485ade49d0e",
+  "handler_pkl": "D:\\qlib_handler_cache\\handler_86d82e09280b20b8.pkl",
+  "handler_infer_rows": 7699616,
+  "window": {
+    "start": "2020-01-02",
+    "end": "2026-09-14"
+  },
+  "cyq_file": "E:\\stock_data\\cyq_winner_ratio\\t5_cyq1_2020_2026_20260917.parquet",
+  "cyq_sha256": "d167d27916920ea7c49a3f0cb2202de2bb64b7a4425a7852de64f0b278c88a34",
+  "broker_field": "$winratio",
+  "provider_uri": "C:\\Users\\wangc\\.qlib\\qlib_data\\my_data",
+  "feature_name": "BROKER_WR_GAP",
+  "sidecar_path": "D:\\PycharmProjects\\wt-myquant-pr78-t5-wrd1\\exports\\analysis\\t5_wrd1_20260918\\sidecar\\BROKER_WR_GAP.parquet",
+  "sidecar_sha256": "34453f4679ded0ba8233c16eee33c916e87d5eecca16fee15c7e5173424a6d65",
+  "key_digest": "e2b051e973df6c23f74d06cd0d9791c91253197fe05adaaf5de2531945c6432c",
+  "n_rows": 7699616,
+  "n_instruments": 5587,
+  "n_days": 1625,
+  "degenerate_day_counts": {},
+  "corr_g_q_finite": -5.3707320678111457e-17,
+  "min_ols_n": 3,
+  "fit_once": true,
+  "rank": "pandas.Series.rank(method=average, pct=True) on -levels"
+}
