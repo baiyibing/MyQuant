@@ -5,6 +5,46 @@
   "constraint": "online pred and 10/3 untouched across campaign",
   "worktrees": [
     {
+      "worktree": "D:\\PycharmProjects\\MyQuant",
+      "analysis_dir": "D:\\PycharmProjects\\MyQuant\\exports\\analysis\\t5_cyq1_information_20260917",
+      "sidecar_sha256": {
+        "t5_cyq1_2020_2026_20260917.parquet": "d167d27916920ea7c49a3f0cb2202de2bb64b7a4425a7852de64f0b278c88a34"
+      },
+      "followups": {},
+      "verdicts": {
+        "information/verdict.json": {
+          "verdict": "CYQ_CONDITIONAL_NO_EDGE",
+          "gates": {
+            "S0_coverage": true,
+            "S1_both_mean_gt0": true,
+            "S1_2026_ci_lower_gt0": false,
+            "S1_quarter_stability": true,
+            "S1_pass": false,
+            "cross_window_flip": false
+          },
+          "means": {
+            "2025_valid": 0.03236437071515043,
+            "2026_oos": 0.016444193098030725
+          },
+          "ci_2026": {
+            "method": "moving_block_bootstrap",
+            "statistic": "mean_daily_cyq_partial_rankic",
+            "n_days": 169,
+            "block_days": 5,
+            "reps": 10000,
+            "seed": 20260917,
+            "point_estimate": 0.016444193098030725,
+            "ci_level": 0.95,
+            "ci_lower": -0.005879983046312974,
+            "ci_upper": 0.03781736905659601
+          },
+          "action": "Insufficient OOS evidence; stop; do not revive with PortAna."
+        }
+      },
+      "verdict_md_excerpt": "﻿# T5-CYQ1 verdict\n\n**最终标签**: `CYQ_CONDITIONAL_NO_EDGE`\n\n**停在**: A 段条件信息门（未进入 B/C）\n\n## 关键数字\n\n| 窗 | mean CYQ partial RankIC | 95% CI (5日 block bootstrap, 10000, seed 20260917) | 行覆盖率 | 有效日 |\n|---|---:|---|---:|---:|\n| 2025 valid | +0.032364 | [0.018986, 0.043564] | 99.92% | 242 |\n| 2026 OOS | +0.016444 | **[-0.005880, 0.037817]** | 99.31% | 169 |\n\n- 两窗 mean 均为正，但 **2026 CI 下界 ≤ 0** → 按刀法 §5.2 记 `CYQ_CONDITIONAL_NO_EDGE`，停手。\n- 不得进入加列训练 / PortAna，不得改 CYQ 口径复活。\n\n## 输入\n\n- CYQ parquet: `E:\\stock_data\\cyq_winner_ratio\\t5_cyq1_2020_2026_20260917.parquet`\n- SHA-256: `d167d27916920ea7c49a3f0cb2202de2bb64b7a4425a7852de64f0b278c88a34`\n- 路径说明: 刀法写 F:，本机无 F:，经 qmt 确认改用 E:\n- 基线 pred: `8a061ea428e04bb3a199a485ade49d0e`（只读）\n- 刀法 tip: `f6be68c` (`docs/annual-lift-t5-remnant-after-sx0-flip`)\n- A 脚本: `my_scripts/diag_cyq_increment.py`\n- 产出目录: `D:\\PycharmProjects\\MyQuant\\exports\\analysis\\t5_cyq1_information_20260917`\n\n## 动作\n\n按刀法：整把 T5-CYQ1 收工；不扫变体、不跑 BT、不改线上 10/3。\n",
+      "bundle_dir": "docs/reviews/t5-campaign-20260919/t5_cyq1_20260917"
+    },
+    {
       "worktree": "D:\\PycharmProjects\\wt-myquant-pr78-t5-wrd1",
       "analysis_dir": "D:\\PycharmProjects\\wt-myquant-pr78-t5-wrd1\\exports\\analysis\\t5_wrd1_20260918",
       "sidecar_sha256": {
@@ -406,5 +446,6 @@
       },
       "verdict_md_excerpt": "# T5-DSTR1 verdict\n\n**唯一终态标签：`DSTR_CONDITIONAL_NO_EDGE`（优先级 3）**\n\nA 数据门通过；两窗 mean DSTR partial RankIC 均为负且 2026 CI 下界 ≤ 0。未命中反号/多数季度为负，因此不是 `DSTR_CONDITIONAL_FLIP`。按 §4 停止，**未进入 B/C**。未改上限、收益符号、变换、阈值，未翻成追跌势或上涨 streak，未缩成 3 日。\n\n线上仍为 **10/3 LGB**；默认 pred 仍为 **`8a061ea4`**（recorder `8a061ea428e04bb3a199a485ade49d0e`）。全程只读，未回写 recorder，未碰 `55c5bf77`。\n\n## Freeze / provenance\n\n| 项 | 值 |\n|---|---|\n| 文档 tip commit | `9df060fbf02e634139401137047835c501601727`（PR #87） |\n| 实现分支 | `feat/t5-dstr1-impl` |\n| 实验 | `alpha158_cost_kdj_lgb` |\n| 对照 recorder | `8a061ea428e04bb3a199a485ade49d0e`（只读） |\n| handler pickle | `D:\\qlib_handler_cache\\handler_86d82e09280b20b8.pkl`（只读） |\n| provider | `C:\\Users\\wangc\\.qlib\\qlib_data\\my_data` |\n| calendar SHA-256 | `9e07c43e1fcb0f8031c150712f9675dadb5392dfa4b40ed1cdc162075399cdc6`（2020-01-02～2026-09-15，1626 个市场日） |\n| 标签 | `Ref($close,-2)/Ref($close,-1)-1` |\n| 唯一特征 | `DOWNSTREAK5_RANK`（对 **downstreak5 本身** `rank(method=\"average\", pct=True)`，不乘 −1） |\n| 方向（预注册，未现场翻转） | `DOWNSTREAK5_RANK` 越高 → 下一持有期反转收益越高 |\n\n## Sidecar（只建一次）\n\n| 项 | 值 |\n|---|---|\n| 路径 | `exports/analysis/t5_dstr1_20260918/sidecar/DOWNSTREAK5_RANK.parquet` |\n| SHA-256 | `1a116595502b897bc1eddeead5d2b3c6d"
     }
-  ]
+  ],
+  "note_cyq": "CYQ1 lived under main MyQuant exports/analysis (no separate wt-myquant-pr*-t5-cyq1 worktree on disk)."
 }

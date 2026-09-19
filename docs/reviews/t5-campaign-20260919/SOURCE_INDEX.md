@@ -1,5 +1,10 @@
 # T5 campaign source index (lightweight only)
 
+## t5_cyq1_20260917
+- worktree: `D:\PycharmProjects\MyQuant` (main repo exports)
+- bundle: `docs/reviews/t5-campaign-20260919/t5_cyq1_20260917/`
+- label: see information/verdict.json + t5_cyq1_verdict.md
+
 - Online pred: 8a061ea4 / recorder 8a061ea428e04bb3a199a485ade49d0e (untouched across campaign)
 - Bundle: FACTS.json + per-knife verdict/REPORT/summary only
 - Excluded: sidecar parquet, pred csv, mlruns
