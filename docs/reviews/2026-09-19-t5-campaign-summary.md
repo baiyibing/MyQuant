@@ -6,7 +6,7 @@
 
 - **线上冻结：online pred `8a061ea4` / 10/3 全程未改。**（来源：[FACTS.json](t5-campaign-20260919/FACTS.json) 的 `online_pred`、`constraint`。）
 - **最终无 FEATURE_CANDIDATE**：各刀终态均为数据无效、条件信息未过门或模型未迁移；没有进入 C / PortAna / BT。（来源：[FACTS.json](t5-campaign-20260919/FACTS.json) 及下表逐刀 verdict。）
-- **本次汇总使用的 campaign tip SHA：`ecde0f7`**，分支 `docs/t5-campaign-20260919`。这是任务指定并经本地 HEAD 核验的写作基点，不是各刀原始实验 tip，也不是实验统计量。
+- **本次汇总使用的事实包 tip SHA：`ecde0f7`**，分支 `docs/t5-campaign-20260919`。该 SHA 固定标识本文采用的事实包版本；本文初次提交为 `2d33d68`。事实包 tip 不是各刀原始实验 tip，也不是实验统计量。
 - 本次交付仅为本文；不修改事实包、非文档代码、线上配置或 MyQuant-backtrader。
 
 以下来源标签均为**相对事实包根目录**的路径，链接从本文所在目录解析。表格“来源”列覆盖该行全部数字与判决；正文数字紧随来源。数字保留所引 JSON 原值或原报告已有精度，不另行换算收益单位、估算或加工舍入。
@@ -71,7 +71,7 @@ MAXRET 的冻结 Top10Spread 是**等权 Top10 减共同宇宙等权**；WRD1 �
 | 2025 valid | 0.0008404026302215687 | [-0.0003723261174108986, 0.002038561176656296] | [t5_wrd1_20260918/pseudo1_bottom10_freeze_20260919/summary.json](t5-campaign-20260919/t5_wrd1_20260918/pseudo1_bottom10_freeze_20260919/summary.json) |
 | 2026 OOS | 5.9027014336047265e-05 | [-0.0016901782803940407, 0.0018420541322667456] | [t5_wrd1_20260918/pseudo1_bottom10_freeze_20260919/summary.json](t5-campaign-20260919/t5_wrd1_20260918/pseudo1_bottom10_freeze_20260919/summary.json) |
 
-样本外底部收益增量为 **0.0003991343295229213**，与头部增量共同解释冻结价差为何转负；替换底部后点估计翻为非负，但 CI 仍跨零，正式判决仅为**部分支持**，`WINRATIO_GAP_MODEL_NO_TRANSFER` 不变。（来源：[t5_wrd1_20260918/pseudo1_bottom10_freeze_20260919/summary.json](t5-campaign-20260919/t5_wrd1_20260918/pseudo1_bottom10_freeze_20260919/summary.json) 的 `windows.2026_oos.d_bot_mean`、`decision`。）
+样本外底部收益增量为 **0.0003991343295229213**，与头部增量共同解释冻结价差为何转负；替换底部后点估计翻为非负，但 CI 仍跨零，正式判决仅为**部分支持**，`WINRATIO_GAP_MODEL_NO_TRANSFER` 不变。（来源：[t5_wrd1_20260918/pseudo1_bottom10_freeze_20260919/summary.json](t5-campaign-20260919/t5_wrd1_20260918/pseudo1_bottom10_freeze_20260919/summary.json) 的 `windows.2026_oos.d_bot_mean.mean`、`decision`。）
 
 ### 残差直接叠回：均判“削弱”
 

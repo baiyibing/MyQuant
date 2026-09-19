@@ -153,3 +153,9 @@ AMI1 与 CYQ1 用 ASCII 连字符 `-`，BETA1 / DSTR1 / DSV1 用 Unicode 减号 
 主文可以按现状交付。它做对的三件最关键的事：**一是**所有 B 门数字取自冻结 `pred_pair/verdict.json` 而非诊断重算，**二是**全程把 MAXRET 的 univ-EW 与 WRD1 的 Top−Bottom 两套口径分开陈述并声明绝对水平不可比，**三是**把包内 `summary.json` 与 `REPORT.md` 的不一致如实写进正文而不是悄悄选一边。四条 nit 中只有 N1 涉及主文措辞且属一行改动，N3 / 附带记录应回到事实包去修。
 
 最终判定：**`PASS_WITH_NITS`**。
+
+## Nits follow-up
+
+- **N1 已关闭（作者自检）**：主文明确定义事实包 tip 为 `ecde0f7`，并与本文初次提交 `2d33d68` 区分，移除「经本地 HEAD 核验」的时效性措辞。
+- **N4 已修正（作者自检）**：来源字段路径补全为 `windows.2026_oos.d_bot_mean.mean`，原数值保持不变。
+- **核对方式**：通过 `git show` 核对上述固定提交及其父子关系；只读解析 WRD1 底部冻结伪实验的 `summary.json`，确认补全路径对应正文原值；检查 diff，确认仅修改主文上述两处并追加本节，未改实验数字、事实包（含 N3 相关 `summary.json`）、非 docs 文件、线上 pred 或 10/3。
