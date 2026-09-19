@@ -43,7 +43,7 @@
 
 ## 4. 硬约束索引（实踩验证，全量清单见中期计划 §0 十五条）
 
-数据管道：dump_all 8 worker / 禁 dump_update / all.txt 污染 / UTC 毫秒 / 不拷 cn_data / 半成品 dump 先删再灌 / MSVC NaN coerce。刷新 SSOT：`my_docs/提示词-qlib-bin刷新.md`
+数据管道：dump_all 8 worker / 禁 dump_update / all.txt 污染 / UTC 毫秒 / 不拷 cn_data / 半成品 dump 先删再灌 / MSVC NaN coerce。日频刷新 SSOT：`my_docs/提示词-qlib-bin刷新.md`。分钟线 `my_data_1min`：`my_docs/提示词-qlib-1min-bin刷新.md`（禁写日频目录；高频日历只从锚点并集）。
 运行：18 分钟合批 / mlflow 逃生口集中 host_env / **多进程入口必须 main guard** / as-of 与字节契约锁定
 流程：中文提交 `commit -F` / 全量测试门槛 / 训练中途不切分支 / 每片回写
 

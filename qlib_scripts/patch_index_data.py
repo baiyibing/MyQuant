@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""F 湖指数日线 → qlib bin 增量补丁。
+"""湖指数日线 → qlib bin 增量补丁（湖根 = OSKH_SOURCE_PARQUET_ROOT）。
 
 固化 2026-09-12 的手工修补流程（当天为修 PortAna benchmark 缺 SH000300 实跑过一遍）：
 my_data 是纯个股数据，无任何指数行情，Qlib 回测的 benchmark 会因数据不存在直接抛
@@ -40,7 +40,10 @@ from pathlib import Path
 import pandas as pd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_LAKE_ROOT = Path("F:/stock_data/index/period=1d/dividend_type=none")
+if str(REPO_ROOT / "my_scripts") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "my_scripts"))
+from data_root import resolve_index_1d_none  # noqa: E402
+
 DEFAULT_QLIB_DIR = Path.home() / ".qlib" / "qlib_data" / "my_data"
 DEFAULT_SYMBOLS = "000300_SH,000001_SH"
 FIELDS = ["open", "high", "low", "close", "volume", "amount"]
@@ -156,9 +159,13 @@ def upsert_index_txt_dates(
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="F 湖指数日线 → qlib bin 增量补丁")
+    parser = argparse.ArgumentParser(description="湖指数日线 → qlib bin 增量补丁")
     parser.add_argument("--symbols", default=DEFAULT_SYMBOLS, help="湖分区名，逗号分隔，如 000300_SH,000001_SH")
-    parser.add_argument("--lake-root", default=str(DEFAULT_LAKE_ROOT), help="湖指数树根")
+    parser.add_argument(
+        "--lake-root",
+        default="",
+        help="湖指数树根；缺省 {OSKH_SOURCE_PARQUET_ROOT}/index/period=1d/dividend_type=none",
+    )
     parser.add_argument("--qlib-dir", default=str(DEFAULT_QLIB_DIR), help="qlib 数据目录")
     parser.add_argument("--no-backup", action="store_true", help="跳过备份（首次运行不要用）")
     parser.add_argument("--skip-verify", action="store_true", help="跳过末尾的 qlib 读回验证")
@@ -168,7 +175,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def run_patch(args: argparse.Namespace) -> int:
     qlib_dir = Path(args.qlib_dir).expanduser()
-    lake_root = Path(args.lake_root).expanduser()
+    lake_root = Path(args.lake_root).expanduser() if args.lake_root else resolve_index_1d_none()
     calendar = load_calendar(qlib_dir)
     print(f"[1/5] 日历: {calendar.min().date()} .. {calendar.max().date()} ({len(calendar)} 天)")
 

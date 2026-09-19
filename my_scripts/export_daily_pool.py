@@ -46,6 +46,7 @@ from float_cap_gate import (  # noqa: E402
     derive_log_float_cap,
     verify_float_cap,
 )
+from data_root import DataRootError, resolve_sw_l1_map  # noqa: E402
 from ranking_neutralize import METHODS, load_industry_map, neutralize  # noqa: E402
 from run_manifest import md5_file, write_export_manifest  # noqa: E402
 
@@ -102,7 +103,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--industry-map",
         type=Path,
         default=None,
-        help="SW L1 map CSV (code_qlib,sw_l1) for --neutralize industry/both",
+        help="SW L1 map CSV；缺省湖 {OSKH_SOURCE_PARQUET_ROOT}/vendor_wind_sw_l1/",
     )
     parser.add_argument(
         "--float-cap",
@@ -322,11 +323,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         predictions = load_predictions(pred_path)
         pred_rows = int(len(predictions))
+        industry_map = args.industry_map
+        if args.neutralize in {"industry", "both"} and industry_map is None:
+            industry_map = resolve_sw_l1_map()
         # M3-D: 中性化只改排序用的 score，必须在 TopN 截取之前。
         predictions, neutralize_config = apply_neutralization(
             predictions,
             method=args.neutralize,
-            industry_map=args.industry_map,
+            industry_map=industry_map,
             float_cap=args.float_cap,
         )
         written, scores_written, illegal_count = export_daily_pool(
@@ -337,7 +341,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             write_topk=write_topk,
             write_scores=write_scores,
         )
-    except (OSError, ValueError, pd.errors.ParserError) as exc:
+    except (OSError, ValueError, DataRootError, pd.errors.ParserError) as exc:
         parser.error(str(exc))
     if illegal_count:
         print(f"dropped {illegal_count} illegal instrument(s)", file=sys.stderr)

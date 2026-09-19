@@ -8,7 +8,7 @@
 
     python build_tradable_university.py                # 默认 ST 剔除 + 60 交易日年龄顺延
     python build_tradable_universe.py --age-days 60 --extra-exclude-file st_full.txt
-    python build_tradable_universe.py --st-daily-file F:/stock_data/vendor_wind_st_status/st_daily.parquet
+    python build_tradable_universe.py --st-daily-file {OSKH_SOURCE_PARQUET_ROOT}/vendor_wind_st_status/st_daily.parquet
 
 注意：数据起始日=2020-01-02 的老股顺延后首日为 2020-03-30，但实验窗在 2025+，
 全部老股不受影响；仅 2020 后真实上市的新股被顺延——这正是语义要求。

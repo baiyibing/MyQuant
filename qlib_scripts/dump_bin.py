@@ -16,6 +16,15 @@ from tqdm import tqdm
 from loguru import logger
 from qlib.utils import fname_to_code, code_to_fname
 
+# 1min 日历几乎全市场共用。禁止对每只回传 set(Timestamp)——Windows 进程池
+# pickle 5588×~10 万根会 OOM（2026-09-18 实踩 BrokenProcessPool）。
+HIGHFREQ_CALENDAR_STEMS = ("sz000001", "sh000300", "sh000001", "sz399001")
+DUMP_MAX_WORKERS_CAP = 8
+
+
+def is_highfreq(freq: str) -> bool:
+    return str(freq).lower() not in {"day", "1d", "d"}
+
 
 def read_as_df(file_path: Union[str, Path], **kwargs) -> pd.DataFrame:
     """
@@ -126,7 +135,15 @@ class DumpDataBase:
         self.freq = freq
         self.calendar_format = self.DAILY_FORMAT if self.freq == "day" else self.HIGH_FREQ_FORMAT
 
-        self.works = max_workers
+        works = 16 if max_workers is None else int(max_workers)
+        if is_highfreq(freq) and works > DUMP_MAX_WORKERS_CAP:
+            logger.warning(
+                "highfreq dump clamps max_workers {} → {} (Windows process pool)",
+                works,
+                DUMP_MAX_WORKERS_CAP,
+            )
+            works = DUMP_MAX_WORKERS_CAP
+        self.works = works
         self.date_field_name = date_field_name
 
         self._calendars_dir = self.qlib_dir.joinpath(self.CALENDARS_DIR_NAME)
@@ -149,7 +166,16 @@ class DumpDataBase:
         self, file_or_df: [Path, pd.DataFrame], *, is_begin_end: bool = False, as_set: bool = False
     ) -> Iterable[pd.Timestamp]:
         if not isinstance(file_or_df, pd.DataFrame):
-            df = self._get_source_data(file_or_df)
+            path = Path(file_or_df)
+            if is_begin_end and not as_set and path.suffix.lower() == ".parquet":
+                try:
+                    df = read_as_df(path, columns=[self.date_field_name])
+                    if self.date_field_name in df.columns:
+                        df[self.date_field_name] = pd.to_datetime(df[self.date_field_name])
+                except Exception:
+                    df = self._get_source_data(path)
+            else:
+                df = self._get_source_data(path)
         else:
             df = file_or_df
         if df.empty or self.date_field_name not in df.columns.tolist():
@@ -305,7 +331,51 @@ class DumpDataBase:
 
 
 class DumpDataAll(DumpDataBase):
+    def _pick_calendar_ref_files(self) -> List[Path]:
+        by_stem = {p.stem.lower(): p for p in self.df_files}
+        picked = [by_stem[stem] for stem in HIGHFREQ_CALENDAR_STEMS if stem in by_stem]
+        return picked if picked else list(self.df_files[:1])
+
+    def _get_all_date_highfreq(self):
+        """Calendar from a few refs; per-file only min/max (do not pickle 1min sets)."""
+        logger.info("start get all date (highfreq: calendar from refs, range-only per file)......")
+        refs = self._pick_calendar_ref_files()
+        if not refs:
+            raise ValueError("no source files for highfreq calendar")
+        all_datetime = set()
+        for path in refs:
+            df = self._get_source_data(path)
+            if df.empty or self.date_field_name not in df.columns:
+                continue
+            all_datetime.update(pd.to_datetime(df[self.date_field_name]).tolist())
+        if not all_datetime:
+            raise ValueError(f"highfreq calendar refs empty: {[p.name for p in refs]}")
+        logger.info(f"highfreq calendar refs={[p.name for p in refs]} bars={len(all_datetime)}")
+        date_range_list = []
+        _fun = partial(self._get_date, as_set=False, is_begin_end=True)
+        with tqdm(total=len(self.df_files)) as p_bar:
+            if self.works <= 1 or len(self.df_files) <= 1:
+                pairs = [(path, _fun(path)) for path in self.df_files]
+            else:
+                with ProcessPoolExecutor(max_workers=self.works) as executor:
+                    pairs = list(zip(self.df_files, executor.map(_fun, self.df_files)))
+            for file_path, (_begin_time, _end_time) in pairs:
+                if isinstance(_begin_time, pd.Timestamp) and isinstance(_end_time, pd.Timestamp):
+                    symbol = self.get_symbol_from_file(file_path)
+                    date_range_list.append(
+                        self.INSTRUMENTS_SEP.join(
+                            [symbol.upper(), self._format_datetime(_begin_time), self._format_datetime(_end_time)]
+                        )
+                    )
+                p_bar.update()
+        self._kwargs["all_datetime_set"] = all_datetime
+        self._kwargs["date_range_list"] = date_range_list
+        logger.info("end of get all date.\n")
+
     def _get_all_date(self):
+        if is_highfreq(self.freq):
+            self._get_all_date_highfreq()
+            return
         logger.info("start get all date......")
         all_datetime = set()
         date_range_list = []

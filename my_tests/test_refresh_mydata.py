@@ -36,6 +36,7 @@ def _cfg(**kwargs) -> RefreshConfig:
         archive_dir=Path("/tmp/archive"),
         csv_dir=Path("/tmp/csv"),
         qlib_dir=Path("/tmp/qlib_parent/my_data"),
+        lake_index_root=Path("/tmp/lake_index"),
         staging_dir=Path("/tmp/qlib_parent/staging"),
         new_qlib_dir=Path("/tmp/qlib_parent/new"),
         today=date(2026, 9, 13),
@@ -126,8 +127,41 @@ def test_cli_dry_run_exits_zero(tmp_path):
     assert code == 0
 
 
+def test_config_from_args_missing_lake_errors(monkeypatch):
+    monkeypatch.delenv("OSKH_SOURCE_PARQUET_ROOT", raising=False)
+    monkeypatch.delenv("OSKH_INDEX_DAILY_ROOT", raising=False)
+    args = build_parser().parse_args(
+        ["--dry-run", "--max-workers", "8", "--csv-dir", "/tmp/csv"]
+    )
+    from data_root import DataRootError
+
+    with pytest.raises(DataRootError, match="OSKH_SOURCE_PARQUET_ROOT"):
+        config_from_args(args, today=date(2026, 9, 13))
+
+
+def test_config_from_args_missing_csv_errors(monkeypatch):
+    monkeypatch.delenv("OSKH_QLIB_CSV_DIR", raising=False)
+    args = build_parser().parse_args(
+        ["--dry-run", "--max-workers", "8", "--lake-index-root", "/tmp/lake"]
+    )
+    from data_root import DataRootError
+
+    with pytest.raises(DataRootError, match="OSKH_QLIB_CSV_DIR"):
+        config_from_args(args, today=date(2026, 9, 13))
+
+
 def test_config_from_args_resolves_defaults():
-    args = build_parser().parse_args(["--dry-run", "--max-workers", "8"])
+    args = build_parser().parse_args(
+        [
+            "--dry-run",
+            "--max-workers",
+            "8",
+            "--csv-dir",
+            "/tmp/csv",
+            "--lake-index-root",
+            "/tmp/lake_index",
+        ]
+    )
     cfg = config_from_args(args, today=date(2026, 9, 13))
     assert cfg.staging_dir.name.startswith("my_data_staging_20260913")
     assert cfg.new_qlib_dir.name.startswith("my_data_new_20260913")

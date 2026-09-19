@@ -17,6 +17,7 @@ import qlib
 from qlib.config import REG_CN
 from qlib.contrib.evaluate import backtest_daily
 
+from data_root import resolve_st_daily
 from analysis_export import write_analysis_bundle
 from rebacktest_cost_tiers import (
     COST_TIERS,
@@ -26,7 +27,7 @@ from rebacktest_cost_tiers import (
     metrics,
 )
 
-ST = r"E:\stock_data\vendor_wind_st_status\st_daily.parquet"
+ST = str(resolve_st_daily())
 ROOT = Path(__file__).resolve().parents[1]
 PRED_CSV = ROOT / "my_scripts" / "预测结果_8a061ea4_2025valid.csv"
 OUT_ROOT = ROOT / "exports" / "analysis" / "replay_2025_st_age_vs_15"

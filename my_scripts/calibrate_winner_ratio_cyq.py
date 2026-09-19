@@ -1,12 +1,9 @@
 """校准 CYQ parquet vs QMT 真值，并打印 Rust 锚点残差。"""
 from __future__ import annotations
 
-from pathlib import Path
-
 import pandas as pd
 
-CYQ_PATH = Path("F:/stock_data/cyq_winner_ratio_daily_2026.parquet")
-QMT_PATH = Path("F:/stock_data/vendor_qmt_winner_chips.parquet")
+from data_root import resolve_cyq_winner_ratio, resolve_qmt_winner_chips
 ANCHORS = {
     "SH688366": 0.0690,  # 昊海生科 rust cyqk_T 2026-09-08（流通股本）
     "SZ002007": 0.2608,  # 华兰生物
@@ -21,7 +18,9 @@ def to_qlib(code: str) -> str:
 
 
 def main() -> int:
-    cyq = pd.read_parquet(CYQ_PATH)
+    cyq_path = resolve_cyq_winner_ratio(must_exist=True)
+    qmt_path = resolve_qmt_winner_chips()
+    cyq = pd.read_parquet(cyq_path)
     cyq["code"] = cyq.stock_code.astype(str).str.upper()
     cyq["d"] = pd.to_datetime(cyq.date)
     print(f"CYQ: rows={len(cyq)} stocks={cyq.code.nunique()} {cyq.d.min().date()}~{cyq.d.max().date()}")
@@ -33,7 +32,7 @@ def main() -> int:
         ours = float(row.winner_ratio.iloc[0]) if len(row) else float("nan")
         print(f"  {inst} ours={ours:.4f} rust={rust_v:.4f} diff={ours - rust_v:+.4f}")
 
-    qmt = pd.read_parquet(QMT_PATH)
+    qmt = pd.read_parquet(qmt_path)
     qmt["d"] = pd.to_datetime(qmt["trade_date"], format="%Y%m%d")
     qmt["wr"] = pd.to_numeric(qmt["winner_ratio"], errors="coerce")
     n_bad = int(((qmt.wr < 0) | (qmt.wr > 1)).sum())

@@ -20,7 +20,7 @@
 用法::
 
     python build_winner_ratio.py --test 2026-01-01:2026-09-14 \
-        [--out F:/stock_data/cyq_winner_ratio_daily_2026.parquet] [--workers 8]
+        [--out {OSKH_SOURCE_PARQUET_ROOT}/cyq_winner_ratio/cyq_winner_ratio_daily_2026.parquet] [--workers 8]
         [--shares free|circ] [--codes SH688366,SZ002007]
 """
 
@@ -36,8 +36,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
+from data_root import resolve_cyq_winner_ratio
+
 _QLIB_DIR = Path.home() / ".qlib" / "qlib_data" / "my_data"
-_DEFAULT_OUT = Path("F:/stock_data/cyq_winner_ratio_daily_2026.parquet")
 _MAX_GRID = 250_000  # 单股价格网格点数保护；超限则放宽 step
 
 
@@ -208,7 +209,11 @@ def main(argv=None) -> int:
     ap.add_argument("--window", type=int, default=1000, help="衰减回看交易日数（默认 1000，对齐 Rust）")
     ap.add_argument("--step", type=float, default=0.01)
     ap.add_argument("--workers", type=int, default=8)
-    ap.add_argument("--out", default=str(_DEFAULT_OUT))
+    ap.add_argument(
+        "--out",
+        default="",
+        help="输出 parquet；缺省 {OSKH_SOURCE_PARQUET_ROOT}/cyq_winner_ratio/cyq_winner_ratio_daily_2026.parquet",
+    )
     ap.add_argument(
         "--shares",
         choices=("free", "circ"),
@@ -343,7 +348,7 @@ def main(argv=None) -> int:
         return 3
     out_df = pd.concat(rows, ignore_index=True)
     out_df["stock_code"] = out_df["stock_code"].astype(str)
-    out_path = Path(args.out)
+    out_path = Path(args.out) if args.out else resolve_cyq_winner_ratio()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = out_path.with_suffix(".tmp.parquet")
     out_df.to_parquet(tmp, index=False)

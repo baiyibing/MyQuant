@@ -9,6 +9,8 @@ my_docs/提示词-qlib-bin刷新.md（2026-09-14 / **2026-09-15** 实踩）：
 - 禁止 dump_update；日历末日不变（纠错/赢筹浮点）也必须 dump_all
 - 短尾巴 CSV 走 overlay，禁止按 CSV 首日截断再 concat；缺/空 winratio 忽略，不删 bin
 - 指数不得留在 instruments/all.txt（由 patch_index_data 第 4 步挪走）
+- 湖根走 OSKH_SOURCE_PARQUET_ROOT（与 1.3 同键）；未设则报错，不猜 E:/F:
+- CSV 批走 --csv-dir 或 OSKH_QLIB_CSV_DIR；未设则报错，不猜 F:/qlibdata
 - ~/.qlib 数据只准经本编排器改动；换目录前自动备份 my_data_backup_YYYYMMDD_pre_*（同日第二次 _2）
 - 半成品 dump 目录必须先删再重灌（--wipe-new-qlib-dir）
 - CSV 里 Windows NaN（-1.#J / -1.#IND）在 merge/dump 收成 NaN；OHLC 出现则中止
@@ -41,15 +43,16 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS_DIR = Path(__file__).resolve().parent
 
 DEFAULT_ARCHIVE_DIR = Path.home() / ".qlib/qlib_data/my_data_20260410_archived"
-DEFAULT_CSV_DIR = Path("F:/qlibdata")
 DEFAULT_QLIB_DIR = Path.home() / ".qlib/qlib_data/my_data"
-DEFAULT_LAKE_INDEX_ROOT = Path("F:/stock_data/index/period=1d/dividend_type=none")
+if str(REPO_ROOT / "my_scripts") not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT / "my_scripts"))
+from data_root import resolve_index_1d_none, resolve_qlib_csv_dir  # noqa: E402
+
 DEFAULT_LAKE_SYMBOL = "000001_SH"
 DEFAULT_MAX_WORKERS = 8  # 硬约束：禁止 16
 # eng-perf P1-1 三钮：dump max_workers（本常量）≠ qlib.init(kernels=) ≠ LGB num_threads。
 # 勿把 dump workers 写入 qlib.init(kernels=)；统一解析见 my_scripts/handler_frame_cache.resolve_dump_max_workers。
 DEFAULT_EXPECTED_DELIST_MAX = 50
-DEFAULT_OFFSITE_DIRS = ("F:/", "G:/")
 WIN_7Z = Path(r"C:\Program Files\7-Zip\7z.exe")
 MIN_DUMP_FREE_GB = 3.0
 MIN_STAGING_FREE_GB = 2.0
@@ -65,9 +68,9 @@ class RefreshError(RuntimeError):
 @dataclass
 class RefreshConfig:
     archive_dir: Path = DEFAULT_ARCHIVE_DIR
-    csv_dir: Path = DEFAULT_CSV_DIR
+    csv_dir: Path | None = None
     qlib_dir: Path = DEFAULT_QLIB_DIR
-    lake_index_root: Path = DEFAULT_LAKE_INDEX_ROOT
+    lake_index_root: Path | None = None
     lake_symbol: str = DEFAULT_LAKE_SYMBOL
     staging_dir: Path | None = None
     new_qlib_dir: Path | None = None
@@ -81,9 +84,7 @@ class RefreshConfig:
     skip_swap: bool = False
     archive: bool = False
     offsite: bool = False
-    offsite_dirs: tuple[Path, ...] = field(
-        default_factory=lambda: tuple(Path(p) for p in DEFAULT_OFFSITE_DIRS)
-    )
+    offsite_dirs: tuple[Path, ...] = field(default_factory=tuple)
     seven_zip: Path | None = None
     python: Path = field(default_factory=lambda: Path(sys.executable))
     sample_symbols: tuple[str, ...] = ()
@@ -103,9 +104,11 @@ class RefreshConfig:
         if self.new_qlib_dir is None:
             self.new_qlib_dir = parent / f"my_data_new_{stamp}"
         self.archive_dir = self.archive_dir.expanduser()
-        self.csv_dir = self.csv_dir.expanduser()
+        if self.csv_dir is not None:
+            self.csv_dir = self.csv_dir.expanduser()
         self.qlib_dir = self.qlib_dir.expanduser()
-        self.lake_index_root = self.lake_index_root.expanduser()
+        if self.lake_index_root is not None:
+            self.lake_index_root = self.lake_index_root.expanduser()
         self.staging_dir = self.staging_dir.expanduser()
         self.new_qlib_dir = self.new_qlib_dir.expanduser()
         self.offsite_dirs = tuple(Path(p).expanduser() for p in self.offsite_dirs)
@@ -124,8 +127,8 @@ def validate_params(cfg: RefreshConfig) -> list[str]:
         errors.append(f"expected_delist_max 不能为负: {cfg.expected_delist_max}")
     if not cfg.lake_symbol or "_" not in cfg.lake_symbol:
         errors.append(f"lake_symbol 应形如 000001_SH，收到: {cfg.lake_symbol!r}")
-    if cfg.archive and cfg.offsite and not cfg.offsite_dirs:
-        errors.append("--offsite 需要至少一个 offsite 目录")
+    if cfg.offsite and not cfg.offsite_dirs:
+        errors.append("--offsite 需要至少一个 --offsite-dir（不猜 F:/G:）")
     if cfg.python and not str(cfg.python).strip():
         errors.append("python 解释器路径不能为空")
     return errors
@@ -964,7 +967,7 @@ def offsite_copy_and_verify(
 ) -> dict:
     """拷贝归档到各异地根目录，三方（源+各地）MD5 一致才算过。
 
-    目录不存在时跳过并记入 missing（本 VM 无 F:/G: 属预期）；若全部缺失则报错。
+    目录不存在时跳过并记入 missing；若全部缺失则报错。
     """
     archive_path = Path(archive_path)
     if not archive_path.is_file():
@@ -991,7 +994,7 @@ def offsite_copy_and_verify(
             print(f"offsite ok: {dest} md5={dest_md5}")
     if not results["copies"] and results["missing"]:
         raise RefreshError(
-            "所有 offsite 根目录都不存在（本机无 F:/G: 时请传 --offsite-dir 指向可写目录）: "
+            "所有 offsite 根目录都不存在（请传 --offsite-dir 指向可写目录）: "
             + ", ".join(results["missing"])
         )
     if results["mismatched"]:
@@ -1015,11 +1018,19 @@ def paths_ready_for_real_run(cfg: RefreshConfig) -> list[str]:
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="my_data 全量刷新编排器（merge→dump_all(8)→patch）")
     p.add_argument("--archive-dir", default=str(DEFAULT_ARCHIVE_DIR))
-    p.add_argument("--csv-dir", default=str(DEFAULT_CSV_DIR))
+    p.add_argument(
+        "--csv-dir",
+        default="",
+        help="券商 CSV 批；缺省读 OSKH_QLIB_CSV_DIR，都没有则报错（不猜 F:/qlibdata）",
+    )
     p.add_argument("--qlib-dir", default=str(DEFAULT_QLIB_DIR), help="线上目标目录（swap 终点）")
     p.add_argument("--staging-dir", default="", help="merge 输出；默认 my_data_staging_YYYYMMDD")
     p.add_argument("--new-qlib-dir", default="", help="dump_all 输出；默认 my_data_new_YYYYMMDD")
-    p.add_argument("--lake-index-root", default=str(DEFAULT_LAKE_INDEX_ROOT))
+    p.add_argument(
+        "--lake-index-root",
+        default="",
+        help="湖指数日线树；缺省 {OSKH_SOURCE_PARQUET_ROOT}/index/period=1d/dividend_type=none",
+    )
     p.add_argument("--lake-symbol", default=DEFAULT_LAKE_SYMBOL, help="日历门禁用的湖指数分区")
     p.add_argument(
         "--max-workers",
@@ -1045,7 +1056,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--offsite-dir",
         action="append",
         default=None,
-        help="异地根目录，可重复；默认 F:/ 与 G:/",
+        help="异地根目录，可重复；--offsite 时必填，不猜 F:/G:",
     )
     p.add_argument("--seven-zip", default="", help="7z 可执行文件路径；空则自动发现")
     p.add_argument("--python", default=sys.executable, help="调用子脚本的解释器")
@@ -1071,15 +1082,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def config_from_args(args: argparse.Namespace, *, today: date | None = None) -> RefreshConfig:
-    offsite = tuple(Path(p) for p in args.offsite_dir) if args.offsite_dir else tuple(
-        Path(p) for p in DEFAULT_OFFSITE_DIRS
-    )
+    offsite = tuple(Path(p) for p in args.offsite_dir) if args.offsite_dir else ()
     samples = tuple(s.strip().upper() for s in (args.sample_symbol or []) if s.strip())
     cfg = RefreshConfig(
         archive_dir=Path(args.archive_dir),
-        csv_dir=Path(args.csv_dir),
+        csv_dir=resolve_qlib_csv_dir(explicit_root=args.csv_dir or None),
         qlib_dir=Path(args.qlib_dir),
-        lake_index_root=Path(args.lake_index_root),
+        lake_index_root=Path(args.lake_index_root) if args.lake_index_root else resolve_index_1d_none(),
         lake_symbol=args.lake_symbol.strip(),
         staging_dir=Path(args.staging_dir) if args.staging_dir else None,
         new_qlib_dir=Path(args.new_qlib_dir) if args.new_qlib_dir else None,
