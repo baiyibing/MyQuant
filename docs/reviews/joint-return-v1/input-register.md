@@ -33,3 +33,5 @@
 P1–P7 在本刀的落实：P1 已由用户令明确只做 R0/MQ R1；P2 采用显式原计划+独立状态 hash、不重建规则；P3 只允许原 anti-chase 的记录式放宽，无 R2/R3 参数；P4 生命周期枚举钉合同、具体真实时间仍缺；P5 合成冻结 share/100 股新买/旧 lot 退出/commission-only，真实费用与公司行动仍缺；P6 不判断收益；P7 只做 GrokBot 合成，无宿主授权包。
 
 后续补输入必须记录 URI、原字节 hash、规范内容 hash、覆盖日期/证券/行数/缺失原因、版本、发布时间、价域与数量单位、核验人及核验时点。不能仅把状态改成绿色，不能用新规则悄悄替换缺失的原始意图。
+
+2026-09-20 MQ 显式拼装入口与 recorder READY 回执的适用边界见 [4090 frozen snapshot 宿主清单](host-frozen-snapshot-checklist.md)；原始 10/3、PIT/ε/τ 与 BT Mode B 缺口仍逐项阻塞。

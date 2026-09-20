@@ -64,3 +64,5 @@ PATH=/workspace/vanna312/bin:$PATH python -m pytest tests/test_joint_return_port
 ## 发布审计
 
 提交前检查 baseline→HEAD、暂存、未暂存、未跟踪范围及 UTF-8/BOM/NUL/whitespace。已有 `.sibling-MyQuant-backtrader` symlink 保持未跟踪且不加入提交。仅 add 六个白名单路径，中文 commit，推送 `feat/joint-return-r0-r1`，PR base master；PR 说明 MQ/BT 基线、BT R1 下一刀与不跑 4090。无数值真实产物入库。
+
+2026-09-20 后续 MQ 拼装器的双文件 data-free 验收命令、输入锁与仍阻塞项见 [4090 frozen snapshot 宿主清单](host-frozen-snapshot-checklist.md)。该刀按用户令仅本地提交，不 push、不开 PR、不评论，不继承上一刀发布动作。
