@@ -13,10 +13,11 @@ import re
 from statistics import mean, median
 
 from my_scripts.joint_return_contract import (
-    ARMS, CONSTRAINT_FIELDS, INTENT_FIELDS, ORDER_POLICY, PJSON_HASH, SCHEMA_VERSION,
+    ARMS, CANDIDATE_RECORDER, CONSTRAINT_FIELDS, INTENT_FIELDS, ORDER_POLICY, PJSON_HASH,
+    RECORDER, SCHEMA_VERSION,
     ContractError, canonical_bytes, content_hash, contract_hash, csv_bytes, date_string,
     fields, load_snapshot, number, raw_hash, require, sort_intents, timestamp,
-    validate_intents, validate_snapshot,
+    validate_intents, validate_plan_source, validate_snapshot,
 )
 
 PREF_ATOL = 1e-8
@@ -51,6 +52,8 @@ def score_days(rows):
         require(bool(row["source_version"]) and row["candidate_present"] is True,
                 "P-REF requires the frozen common universe; candidate scores are not inputs")
         require("candidate_score" not in row, "candidate score is forbidden")
+        require(row.get("recorder_id", RECORDER) == RECORDER
+                and CANDIDATE_RECORDER not in str(row["source_version"]), "candidate score source is forbidden")
         if row["label"] is not None:
             number(row["label"], "label")
         grouped[row["date"]].append(deepcopy(row))
@@ -230,12 +233,12 @@ def check_pref(grouped, spec, *, synthetic):
             "semantics": "equal-weight Top10 minus common-universe equal-weight label; not PnL"}
 
 
-def validate_state(state):
+def validate_state(state, *, topk):
     fields(state, ("cash", "positions", "quantity_unit", "native_stop"), "reference state")
     number(state["cash"], "cash", minimum=0)
     require(state["quantity_unit"] == "share" and state["native_stop"] == "N/A", "state unit/stop drift")
     positions = state["positions"]
-    require(isinstance(positions, dict) and len(positions) <= 10, "invalid position count")
+    require(isinstance(positions, dict) and len(positions) <= topk, "invalid position count")
     lots = set()
     for instrument, position in positions.items():
         require(isinstance(instrument, str) and bool(instrument), "empty position instrument")
@@ -271,7 +274,10 @@ def _step(arm, state, plan, ranked, metadata):
     fields(plan, ("date", "arm_id", "pre_state_hash", "decision_at", "available_at", "effective_at",
                   "expires_at", "source", "marks", "mark_at", "sells", "buys", "buy_candidates",
                   "corporate_actions"), "frozen plan")
-    require(plan["source"] == "frozen_original_intents", "cannot reconstruct intent from filled positions")
+    validate_plan_source(plan, metadata["strategy"])
+    if "rule_trace" in plan:
+        require(plan["rule_trace"]["scores_hash"] == content_hash(ranked), "rule scores drift", "PAIR_INVALID")
+    topk, n_drop = (metadata["strategy"][k] for k in ("topk", "n_drop"))
     require(plan["corporate_actions"] == [], "company-action mapping not implemented in MQ R1", "SEMANTICS_BLOCKED")
     require(plan["pre_state_hash"] == content_hash(state), f"{arm}/{plan['date']}: reference state discontinuity",
             "PAIR_INVALID")
@@ -291,6 +297,10 @@ def _step(arm, state, plan, ranked, metadata):
         audit.append(dict(date=plan["date"], arm_id=arm, instrument=inst, status=status, reason=reason,
                           score=source.get("score"), anti_rank=source.get("anti_rank"), t0_median=threshold,
                           reference_state_hash=plan["pre_state_hash"]))
+
+    for rejected in plan.get("rule_trace", {}).get("rejected_buys", []):
+        fields(rejected, ("instrument", "reason"), "rule rejection")
+        record(rejected["instrument"], "RULE_BUY_BLOCKED", rejected["reason"])
 
     positions = state["positions"]
     marks = plan["marks"]
@@ -317,12 +327,11 @@ def _step(arm, state, plan, ranked, metadata):
     buys = plan["buys"]
     require(len(buys) == len(set(buys)), "duplicate original buy")
     require(all(i in options and options[i]["eligible"] for i in buys), "original buy has missing/rejected eligibility")
-    require(len(buys) <= (10 if not positions else 3), "original buy count exceeds frozen 10/3")
     selected_sells, sell_seen = [], set()
     for order in plan["sells"]:
         fields(order, ("approved", "approval_reason"), "sell approval")
         require(type(order["approved"]) is bool and bool(order["approval_reason"]), "unknown sell approval")
-        row = _intent(arm, plan, order, "SELL", "ORIGINAL_10_3_SELL")
+        row = _intent(arm, plan, order, "SELL", "TOPK_DROPOUT_SELL")
         inst = row["instrument"]
         require(inst in positions and inst not in sell_seen, "sell absent/duplicated in reference state", "PAIR_INVALID")
         sell_seen.add(inst)
@@ -334,16 +343,16 @@ def _step(arm, state, plan, ranked, metadata):
             selected_sells.append(row)
         else:
             record(inst, "KEEP_UNAPPROVED_SELL", order["approval_reason"])
-    require(len(selected_sells) <= 3, "original sell count exceeds three")
-    require(len(positions) - len(selected_sells) + len(buys) <= 10, "original plan expands topk")
-    choices = [(i, "ORIGINAL_10_3_BUY") for i in buys]
+    require(len(plan["sells"]) <= n_drop, "rule sell count exceeds n_drop")
+    require(len(positions) - len(selected_sells) + len(buys) <= topk, "rule plan expands topk")
+    choices = [(i, "TOPK_DROPOUT_BUY") for i in buys]
     if arm == "P-CHASE":
         choices = []
         for inst in buys:
             if by_name[inst]["anti_rank"] < threshold:
                 record(inst, "SKIP_BELOW_MEDIAN", "strictly below daily T0 median")
             else:
-                choices.append((inst, "ORIGINAL_10_3_BUY"))
+                choices.append((inst, "TOPK_DROPOUT_BUY"))
         selected = {i for i, _ in choices}
         remaining = [r for r in ranked if r["instrument"] in options
                      and options[r["instrument"]]["eligible"] and r["instrument"] not in selected]
@@ -392,7 +401,7 @@ def _step(arm, state, plan, ranked, metadata):
     sold = {r["instrument"] for r in selected_sells}
     for inst in sorted(set(positions) - sold - sell_seen):
         record(inst, "KEEP_OLD_POSITION", "no approved original sell")
-    validate_state(next_state)
+    validate_state(next_state, topk=topk)
     turnover = 0.5 * sum(abs(target.get(i, 0) - drift.get(i, 0)) for i in set(target) | set(drift))
     state_record = dict(date=plan["date"], arm_id=arm, before=deepcopy(state), after=deepcopy(next_state),
                         before_hash=content_hash(state), after_hash=content_hash(next_state),
@@ -408,7 +417,7 @@ def build_portfolio(snapshot):
     pref = check_pref(grouped, snapshot["pref"], synthetic=snapshot["kind"] == "synthetic")
     require(pref["status"] != "PREF_MISMATCH", "P-REF numeric recheck failed", "PAIR_INVALID")
     metadata = snapshot["metadata"]
-    validate_state(snapshot["initial_state"])
+    validate_state(snapshot["initial_state"], topk=metadata["strategy"]["topk"])
     states = {arm: deepcopy(snapshot["initial_state"]) for arm in ARMS}
     plans = {}
     for plan in snapshot["plans"]:

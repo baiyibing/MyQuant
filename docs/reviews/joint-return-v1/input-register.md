@@ -1,12 +1,12 @@
 # Joint return v1 输入登记
 
-本刀只在 GrokBot 做 R0 + MQ R1 data-free。以下“已核实”指固定仓库文本存在，不表示原始数据在本机或 4090 可读。未知 URI/hash/覆盖逐项标 `INPUT_BLOCKED`，不搜索湖、不新预测、不由已成交持仓补造失败订单。
+本刀只在 GrokBot 做 R0 + MQ R1 data-free。以下“已核实”指固定仓库文本存在，不表示原始数据在本机或 4090 可读。用户已澄清原始 10/3 未上线、从未实盘，仅有回测；不存在线上原始意图包，不再要求 live frozen_original intents。未知 URI/hash/覆盖逐项标 `INPUT_BLOCKED`，不搜索湖、不新预测、不由已成交持仓补造失败订单。
 
-代码基线、白名单与 serialization 见 [contract](contract.md)；派工 SSOT 为 [联合计划](../2026-09-19-joint-return-implementation-plan.md)。新 MQ 实施基线 `4e4368b274ada2e27da5902f7420aa5a8ae5950c`，BT `1049b904bdd818dbb79f51f1830a008c8f83b141`；旧计划 MQ 基线仅溯源，不替换用户令。生产/特征/pred/10/3/Mode A/B、δ1/δ2 既有实现及 sibling 均只读。
+代码基线、白名单与 serialization 见 [contract](contract.md)；旧派工记录为 [联合计划](../2026-09-19-joint-return-implementation-plan.md)，本次用户澄清及修订合同优先。新 MQ 实施基线 `4e4368b274ada2e27da5902f7420aa5a8ae5950c`，BT `1049b904bdd818dbb79f51f1830a008c8f83b141`；旧计划 MQ 基线仅溯源，不替换用户令。生产/特征/pred/线上 10/3 配置/Mode A/B、δ1/δ2 既有实现及 sibling 均只读。研究默认 50/5（仓内实验积累最多），20/3、10/3 可切换；不据此声称有线上程序在运行。
 
 | 输入 / 证据 | 已知来源与值 | 状态 / 影响 / 后续责任 |
 |---|---|---|
-| MQ-EXP、F-R* | [实验计划](../2026-09-19-next-portfolio-execution-plan.md)、联合计划 §6 | 文本已核实；继承所有冻结项，本刀授权扩到六个白名单文件 |
+| MQ-EXP、F-R* | [实验计划](../2026-09-19-next-portfolio-execution-plan.md)、联合计划 §6 | 文本已核实；旧研究 10/3 硬锁和索取 live 原始包已由用户澄清替代；本次白名单见修订 contract §1 |
 | MQ-PREF | [REPORT](../t5-campaign-20260919/t5_mxr1_20260918/pseudo1_top10_constrain_20260919/REPORT.md) | 文本已核实；T0/T1 排序、中位数等号、回填/放宽、Top10Spread；不是成交 PnL |
 | MQ-PJSON | [summary](../t5-campaign-20260919/t5_mxr1_20260918/pseudo1_top10_constrain_20260919/summary.json) | 文本及 raw/canonical hashes 已核实（见 contract §1）；窗口、统计设置与 recorder 来源 |
 | 原始 control pred | recorder `8a061ea428e04bb3a199a485ade49d0e`，原始 URI/文件 hash/覆盖包未找到 | INPUT_BLOCKED：P-REF 与真实组合；后续 MQ 输入负责人只读定位 |
@@ -14,10 +14,11 @@
 | 原 anti-rank sidecar | 预期 hash `27320f8b7f6de3854802f97325f682039732470ce387f21bc9cd6c3083b7b348` | INPUT_BLOCKED：文件/时点/覆盖未核验；不新造 sidecar，不 residual 叠回 |
 | label / 真实完整日历 | 原式与两窗见 MQ-PJSON；原始逐行数据未找到 | INPUT_BLOCKED：真实 P-REF；日历 242/170、可用 Top10 242/169 来自旧文本，不能替代本次核验 |
 | 原 P-REF bootstrap 生成源码 / 全统计口径 | 原报告记录 block=5/reps=10000/seed=20260919；新入口覆盖横截面、RankIC、bootstrap、月季度表并明确规范 | INPUT_BLOCKED：真实复核须数值与原生成/缺失语义对齐；不得反写旧值或调容差凑绿 |
-| 冻结原始 10/3 调仓意图 | 原始卖买计划、审批拒绝、失败订单、各臂参考数量包未找到 | INPUT_BLOCKED：真实 R1；禁止由 PortAna 最终仓位倒推；若原包不存在需另刀冻结规则适配 |
-| 资格闸门 / 10/3 配置 | `my_scripts/replay_10n3_two_year.py` 仅证明 10/3 与多个资格实验；不证明当前冻结资格 | INPUT_BLOCKED：真实 ST/年龄/涨幅/PIT 参数须原快照，不推断默认 |
+| 回测规则意图（替代不存在的 live 原始包） | `joint_return_rule_intents.py`，source=backtest_rule_intents，rule_version=topk-dropout-reference-v1 | 适配已实现；50/5 默认，20/3、10/3 可配，双臂独立参考递推。**不存在 live 原包不是 blocker**；真实运行仅待下列规则输入/来源齐备，不用 PortAna 倒推。 |
+| TopkDropout 配置及逐日资格 | 仓内 replay_2025_st_age_vs_15.py（50/5）、replay_10n3_two_year.py（10/3）；基础 Qlib top/bottom 核心已按固定 commit 核对 | 输入模式已定义：topk/n_drop 可配；hold_thresh/risk_degree/资格规则、逐只布尔判定/原因/可得时点仍须显式提供。缺列 INPUT_BLOCKED，不猜 ST/年龄/涨幅。 |
+| scores 合并 | `joint_return_merge_scores.py` 以显式共同宇宙逐键核验 control/anti/label | 已实现；缺列/缺共同键 INPUT_BLOCKED，不 inner join、不换 candidate score、不重新预测；额外键完整留账。真实导出 URI/hash/时点待核验。 |
 | 旧导出入口 | `my_scripts/export_positions_trades.py` 持仓；`my_scripts/export_next_day_pool.py` 默认 50/5，可预测 | 只读来源线索；不是本链输入，不调用 |
-| 初始现金/持仓、参考 marks | 真实账户量级/估值/数量转换来源未给 | INPUT_BLOCKED：P2/P5；不继承旧 1 亿/11 亿现金池，不把测试 5000 元当真实参数 |
+| 研究初始现金/持仓、holding_days、参考 marks | 允许显式研究现金空仓起点；非空初态须数量/lot/instance/持有交易日数 | INPUT_BLOCKED：研究资金/价格/时点来源未给；不要求线上账户，不继承旧现金池，不把合成金额当真实参数。 |
 | score/anti 发布时点、证券映射 | 原始可用时间、映射版本未给 | INPUT_BLOCKED：因果 M-LAG 与数量转换；后续 MQ/BT 联合核验 |
 | 研究费用 / 生效到期时间 | P4/P5真实费率、最低费、订单时点来源未给 | INPUT_BLOCKED：真实订单/净额；合同已固定有限生命周期枚举，合成显式零费/最低费不作真实推荐 |
 | none 日线/分钟、session、交易日历 | 旧 BT 缓存名/业务窗只有历史出处 | INPUT_BLOCKED：BT R1/R6；不证明新码集覆盖，不按旧窗自动截取 |
@@ -30,8 +31,8 @@
 
 真实窗口不能从旧脚本继承：P-REF 原窗 2025-01-03～2025-12-31、2026-01-01～2026-09-14；旧 BT 2025-10-23～2026-09-09 仅覆盖线索。新链交集须新码集 metadata 证明，超范围保留“不可测”，不删失败日凑配对。当前新链真实状态统一 `NOT_RUN`。
 
-P1–P7 在本刀的落实：P1 已由用户令明确只做 R0/MQ R1；P2 采用显式原计划+独立状态 hash、不重建规则；P3 只允许原 anti-chase 的记录式放宽，无 R2/R3 参数；P4 生命周期枚举钉合同、具体真实时间仍缺；P5 合成冻结 share/100 股新买/旧 lot 退出/commission-only，真实费用与公司行动仍缺；P6 不判断收益；P7 只做 GrokBot 合成，无宿主授权包。
+P1–P7 在本刀的落实：P1 已由用户令明确只做 R0/MQ R1；P2 已按用户澄清改为确定性回测规则生成+独立状态 hash；规则默认 50/5，支持 20/3、10/3；P3 只允许原 anti-chase 的记录式放宽，无 R2/R3 参数；P4 生命周期枚举钉合同、具体真实时间仍缺；P5 合成冻结 share/100 股新买/旧 lot 退出/commission-only，真实费用与公司行动仍缺；P6 不判断收益；P7 只做 GrokBot 合成，无宿主授权包。
 
-后续补输入必须记录 URI、原字节 hash、规范内容 hash、覆盖日期/证券/行数/缺失原因、版本、发布时间、价域与数量单位、核验人及核验时点。不能仅把状态改成绿色，不能用新规则悄悄替换缺失的原始意图。
+后续补输入必须记录 URI、原字节 hash、规范内容 hash、覆盖日期/证券/行数/缺失原因、版本、发布时间、价域与数量单位、核验人及核验时点。不能仅把状态改成绿色，本次已明确登记回测规则适配版本和与 Qlib 的参考约束差异；不得称为线上原始意图，不再索取不存在的 live 包。
 
-2026-09-20 MQ 显式拼装入口与 recorder READY 回执的适用边界见 [4090 frozen snapshot 宿主清单](host-frozen-snapshot-checklist.md)；原始 10/3、PIT/ε/τ 与 BT Mode B 缺口仍逐项阻塞。
+2026-09-20 MQ 显式拼装入口与 recorder READY 回执的适用边界见 [回测规则 freeze 交接清单](host-frozen-snapshot-checklist.md)；真实 scores/资格/研究初态/参考价/可得时点、PIT/ε/τ 与 BT Mode B 缺口仍逐项阻塞；旧“缺原始 10/3 live 包”条目已撤销。

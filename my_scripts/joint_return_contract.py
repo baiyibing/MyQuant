@@ -18,6 +18,10 @@ CANDIDATE_RECORDER = "d03e8ffcb6d14668b4d6fc2b192bc8c7"
 SIDECAR_SHA256 = "27320f8b7f6de3854802f97325f682039732470ce387f21bc9cd6c3083b7b348"
 PJSON_HASH = "d9b503fa40937c6b870fc4b0bf9285e2ca53f0465af223f529f2e854712ae6f8"
 ARMS = ("P-BASE", "P-CHASE")
+RULE_SOURCE = "backtest_rule_intents"
+RULE_VERSION = "topk-dropout-reference-v1"
+DEFAULT_TOPK = 50
+DEFAULT_N_DROP = 5
 INTENT_FIELDS = (
     "arm_id", "intent_id", "instance_id", "lot_id", "instrument", "execution_symbol",
     "decision_at", "available_at", "side", "target_weight", "original_target_quantity",
@@ -54,6 +58,44 @@ class ContractError(ValueError):
 def require(condition, detail, status="INPUT_BLOCKED"):
     if not condition:
         raise ContractError(status, detail)
+
+
+def validate_topk(topk, n_drop):
+    require(type(topk) is int and topk > 0, "topk must be a positive integer")
+    require(type(n_drop) is int and 0 <= n_drop <= topk,
+            "n_drop must be an integer in [0, topk]")
+
+
+def validate_rule_strategy(strategy):
+    fields(strategy, ("topk", "n_drop", "source", "rule_version", "rule_parameters",
+                      "eligibility_version", "eligibility_rules", "native_stop"), "strategy")
+    validate_topk(strategy["topk"], strategy["n_drop"])
+    require(strategy["source"] == RULE_SOURCE and strategy["native_stop"] == "N/A",
+            "backtest rule intents required; no live/PortAna intents or added stops")
+    require(strategy["rule_version"] == RULE_VERSION, "unsupported rule version")
+    rules = strategy["rule_parameters"]
+    fields(rules, ("method_buy", "method_sell", "only_tradable", "hold_thresh", "risk_degree"), "rule parameters")
+    require(set(rules) == {"method_buy", "method_sell", "only_tradable", "hold_thresh", "risk_degree"},
+            "unknown rule parameters")
+    require(rules["method_buy"] == "top" and rules["method_sell"] == "bottom"
+            and rules["only_tradable"] is False, "unsupported TopkDropout variant")
+    require(type(rules["hold_thresh"]) is int and rules["hold_thresh"] >= 0, "invalid hold_thresh")
+    require(0 <= number(rules["risk_degree"], "risk_degree") <= 1, "risk_degree outside [0,1]")
+    require(bool(strategy["eligibility_version"]), "eligibility provenance missing")
+    require(isinstance(strategy["eligibility_rules"], dict) and bool(strategy["eligibility_rules"]),
+            "explicit frozen eligibility rules missing")
+
+
+def validate_plan_source(plan, strategy):
+    require(plan["source"] == RULE_SOURCE, "cannot reconstruct intent from filled positions / PortAna")
+    if any(key in plan for key in ("strategy_hash", "rule_version", "rule_trace")):
+        fields(plan, ("strategy_hash", "rule_version", "rule_trace"), "generated rule plan")
+        require(plan["strategy_hash"] == content_hash(strategy) and plan["rule_version"] == RULE_VERSION,
+                "rule strategy drift", "PAIR_INVALID")
+        fields(plan["rule_trace"], ("session_hash", "scores_hash", "holding_days", "ranked_sells", "today",
+                                   "rejected_buys"), "rule trace")
+        for key in ("session_hash", "scores_hash"):
+            sha(plan["rule_trace"][key])
 
 
 def fields(value, names, context):
@@ -174,13 +216,7 @@ def validate_snapshot(snapshot):
     require(isinstance(calendar, list) and calendar and calendar == sorted(set(calendar)), "calendar order/duplicates")
     require(all(start <= date_string(d) <= end for d in calendar), "calendar outside window")
     strategy = m["strategy"]
-    fields(strategy, ("topk", "n_drop", "source", "eligibility_version", "eligibility_rules", "native_stop"), "strategy")
-    require(strategy["topk"] == 10 and strategy["n_drop"] == 3, "10/3 is frozen")
-    require(strategy["source"] == "frozen_original_intents" and strategy["native_stop"] == "N/A",
-            "original intent snapshot required; no added stops")
-    require(bool(strategy["eligibility_version"]), "eligibility provenance missing")
-    require(isinstance(strategy["eligibility_rules"], dict) and bool(strategy["eligibility_rules"]),
-            "explicit frozen eligibility rules missing")
+    validate_rule_strategy(strategy)
     require(m["order_policy"] == ORDER_POLICY, "lifecycle policy drift")
     require(m["quantity_policy"] == {"unit": "share", "buy_lot": 100, "sell": "FULL_LOT_EXIT",
                                      "corporate_actions": "EXPLICIT_ONLY"}, "quantity policy drift")
@@ -202,7 +238,7 @@ def validate_snapshot(snapshot):
         require(bool(source["uri"]) and bool(source["coverage"]) and bool(source["version"]), f"empty source: {name}")
         sha(source["raw_sha256"])
         require(source["content_sha256"] == content_hash(snapshot[name]), f"{name} content drift", "PAIR_INVALID")
-    require(isinstance(snapshot["plans"], list) and snapshot["plans"], "original 10/3 intent snapshot missing")
+    require(isinstance(snapshot["plans"], list) and snapshot["plans"], "backtest rule plans missing")
 
 
 def validate_intents(rows):

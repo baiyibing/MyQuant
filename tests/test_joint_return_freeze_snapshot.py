@@ -127,9 +127,9 @@ def test_declared_hash_drift_is_not_silently_resealed(bundle, capsys, hash_key):
     (lambda m: m.update(pred_recorder_id="8a061ea4"), "full recorder mismatch"),
     (lambda m: m.update(candidate_recorder_id="0" * 32), "full recorder mismatch"),
     (lambda m: m.update(pred_recorder_id=CANDIDATE_RECORDER), "full recorder mismatch"),
-    (lambda m: m["strategy"].update(topk=50), "10/3 is frozen"),
-    (lambda m: m["strategy"].update(n_drop=5), "10/3 is frozen"),
-    (lambda m: m["strategy"].update(source="PortAna_positions"), "original intent snapshot required"),
+    (lambda m: m["strategy"].update(topk=0), "topk must be a positive integer"),
+    (lambda m: m["strategy"].update(n_drop=11), "n_drop must be an integer"),
+    (lambda m: m["strategy"].update(source="PortAna_positions"), "backtest rule intents required"),
     (lambda m: m["strategy"].update(eligibility_rules={}), "eligibility rules missing"),
     (lambda m: m["inputs"]["scores"].update(recorder_id=CANDIDATE_RECORDER), "control recorder"),
     (lambda m: m["inputs"]["scores"].update(version=CANDIDATE_RECORDER), "candidate score source"),
@@ -140,7 +140,7 @@ def test_metadata_drift_is_rejected(bundle, capsys, change, match):
 
 
 @pytest.mark.parametrize("section,change,match", [
-    ("plans", lambda p: p.clear(), "original 10/3 intent snapshot missing"),
+    ("plans", lambda p: p.clear(), "backtest rule plans missing"),
     ("plans", lambda p: p.pop(), "missing/extra arm-days"),
     ("plans", lambda p: p.append(p[0]), "duplicate daily arm plan"),
     ("plans", lambda p: p[0].update(source="PortAna_positions"), "cannot reconstruct intent"),

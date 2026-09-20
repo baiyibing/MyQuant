@@ -51,7 +51,7 @@ def snapshot():
         first = {"date": days[0], "arm_id": arm, "pre_state_hash": content_hash(initial),
                  "decision_at": f"{days[0]}T15:02:00+08:00", "available_at": f"{days[0]}T15:03:00+08:00",
                  "effective_at": f"{days[0]}T15:03:00+08:00", "expires_at": f"{days[1]}T15:00:00+08:00",
-                 "source": "frozen_original_intents", "marks": {chr(i): 10 for i in range(65, 90)},
+                 "source": "backtest_rule_intents", "marks": {chr(i): 10 for i in range(65, 90)},
                  "mark_at": f"{days[0]}T15:00:00+08:00", "corporate_actions": [],
                  "sells": [{**frozen_order(i, weight=0), "approved": i != "R",
                             "approval_reason": "allowed" if i != "R" else "holding gate"} for i in "PQR"],
@@ -96,7 +96,10 @@ def snapshot():
                               "generated_at": "2026-09-12T10:00:00+08:00",
                               "window": {"start": days[0], "end": days[1]}, "calendar": days[:2],
                               "timezone": "Asia/Shanghai", "price_domain": "none",
-                              "strategy": {"topk": 10, "n_drop": 3, "source": "frozen_original_intents",
+                              "strategy": {"topk": 10, "n_drop": 3, "source": "backtest_rule_intents",
+                                           "rule_version": "topk-dropout-reference-v1",
+                                           "rule_parameters": {"method_buy": "top", "method_sell": "bottom",
+                                                               "only_tradable": False, "hold_thresh": 1, "risk_degree": 0.95},
                                            "eligibility_version": "synthetic-v1",
                                            "eligibility_rules": {"synthetic_only": "explicit per-order decisions"},
                                            "native_stop": "N/A"},
@@ -187,7 +190,7 @@ def test_chase_retains_original_equal_median_buy_and_backfills_score(snapshot):
         plan["buys"] = ["A", "F"]
     out = build_portfolio(seal(snapshot))
     chosen = {r["instrument"]: r["reason"] for r in out["intents"] if r["arm_id"] == "P-CHASE" and r["side"] == "BUY"}
-    assert chosen == {"C": "BACKFILL_SCORE", "F": "ORIGINAL_10_3_BUY"}
+    assert chosen == {"C": "BACKFILL_SCORE", "F": "TOPK_DROPOUT_BUY"}
 
 
 def test_chase_relaxation_does_not_bypass_eligibility(snapshot):
@@ -211,7 +214,7 @@ def test_state_reset_to_control_is_rejected(snapshot):
 
 
 @pytest.mark.parametrize("mutation,match", [
-    (lambda s: s.update(plans=[]), "original 10/3 intent snapshot missing"),
+    (lambda s: s.update(plans=[]), "backtest rule plans missing"),
     (lambda s: s["plans"].pop(), "missing/extra arm-days"),
     (lambda s: s["plans"].append(deepcopy(s["plans"][0])), "duplicate daily arm plan"),
     (lambda s: s["scores"].append(deepcopy(s["scores"][0])), "duplicate score key"),
@@ -231,13 +234,13 @@ def test_state_reset_to_control_is_rejected(snapshot):
     (lambda s: s["plans"][0]["buy_candidates"][0].update(eligible=False), "original buy"),
     (lambda s: s["plans"][0]["buy_candidates"][0].update(original_target_quantity=150), "whole 100-share"),
     (lambda s: s["plans"][0]["buy_candidates"][0].update(quantity_unit="lot"), "SEMANTICS_BLOCKED"),
-    (lambda s: s["metadata"]["strategy"].update(topk=50), "10/3 is frozen"),
+    (lambda s: s["metadata"]["strategy"].update(topk=0), "topk must be a positive integer"),
     (lambda s: s["metadata"]["strategy"].update(eligibility_rules={}), "eligibility rules missing"),
     (lambda s: s["metadata"].update(pred_recorder_id="8a061ea4"), "full recorder mismatch"),
     (lambda s: s["metadata"].update(sidecar_sha256="0" * 64), "sidecar hash mismatch"),
     (lambda s: s["metadata"].update(price_domain="front"), "domain drift"),
     (lambda s: s["metadata"].update(contract_hash="0" * 64), "contract hash drift"),
-    (lambda s: s["metadata"]["strategy"].update(native_stop="r2"), "no added stops"),
+    (lambda s: s["metadata"]["strategy"].update(native_stop="r2"), "added stops"),
     (lambda s: s["metadata"]["order_policy"].update(retry_policy="SAME_BAR"), "policy drift"),
     (lambda s: s["pref"]["expected"]["windows"]["hand"].update(top10_t0=0), "numeric recheck failed"),
     (lambda s: s["pref"].update(calendar=s["pref"]["calendar"][:-1]), "missing/extra calendar"),
@@ -296,7 +299,7 @@ def test_more_than_three_approved_sells_or_eleven_holdings_rejected(snapshot):
     for order in plan["sells"]:
         order["approved"] = True
     plan["sells"].append({**frozen_order("S", weight=0), "approved": True, "approval_reason": "allowed"})
-    with pytest.raises(ContractError, match="sell count exceeds three"):
+    with pytest.raises(ContractError, match="sell count exceeds n_drop"):
         build_portfolio(seal(snapshot))
     plan["sells"] = []
     with pytest.raises(ContractError, match="expands topk"):
