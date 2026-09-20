@@ -10,9 +10,10 @@ import argparse
 from pathlib import Path
 
 from my_scripts.joint_return_contract import (
-    ARMS, CANDIDATE_RECORDER, RECORDER, SCHEMA_VERSION, ContractError, canonical_bytes,
+    CANDIDATE_RECORDER, RECORDER, SCHEMA_VERSION, ContractError, canonical_bytes,
     content_hash, date_string, fields, load_json_bytes, load_snapshot, raw_hash,
     require, sha, timestamp, validate_plan_source, validate_snapshot,
+    input_sections, scores_mode, portfolio_arms, scope_status,
 )
 from my_scripts.joint_return_portfolio import score_days, validate_state
 
@@ -42,12 +43,13 @@ def _read_json(path):
 def _validate_sections(snapshot):
     """Check source/shape at the boundary; portfolio retains numerical/causal gates."""
     metadata = snapshot["metadata"]
+    arms = portfolio_arms(metadata)
     scores_source = metadata["inputs"]["scores"]
     require(scores_source.get("recorder_id", metadata["pred_recorder_id"]) == RECORDER,
             "scores must come from the control recorder, not candidate scores")
     require(CANDIDATE_RECORDER not in str(scores_source["version"]),
             "candidate score source is forbidden")
-    grouped = score_days(snapshot["scores"])
+    grouped = score_days(snapshot["scores"], mode=scores_mode(metadata))
     for row in snapshot["scores"]:
         require(row.get("recorder_id", RECORDER) == RECORDER
                 and CANDIDATE_RECORDER not in str(row["source_version"]),
@@ -59,7 +61,7 @@ def _validate_sections(snapshot):
         fields(plan, PLAN_FIELDS, "frozen plan")
         validate_plan_source(plan, metadata["strategy"])
         date_string(plan["date"])
-        require(plan["arm_id"] in ARMS, "unknown plan arm")
+        require(plan["arm_id"] in arms, "unknown plan arm / requested arm INPUT_BLOCKED for scores_mode")
         key = (plan["date"], plan["arm_id"])
         require(key not in seen, "duplicate daily arm plan")
         seen.add(key)
@@ -82,8 +84,10 @@ def _validate_sections(snapshot):
                 fields(order, (*QUANTITY_FIELDS, flag, reason), f"frozen {name} quantity")
                 require(type(order[flag]) is bool and bool(order[reason]),
                         f"explicit {flag}/{reason} required")
-    require(seen == {(day, arm) for day in metadata["calendar"] for arm in ARMS},
+    require(seen == {(day, arm) for day in metadata["calendar"] for arm in arms},
             "missing/extra arm-days; explicit empty plans also required")
+    if scores_mode(metadata) == "control_only":
+        return
     pref = snapshot["pref"]
     fields(pref, ("calendar", "windows", "expected", "label", "bootstrap"), "pref")
     fields(pref["expected"], ("windows",), "P-REF expected")
@@ -93,17 +97,20 @@ def _validate_sections(snapshot):
     # by joint_return_portfolio with kind=frozen, unchanged by this assembler.
 
 
-def freeze_snapshot(*, scores, initial_state, plans, pref, metadata, output):
-    paths = {name: Path(path).resolve() for name, path in (
-        ("scores", scores), ("initial_state", initial_state), ("plans", plans), ("pref", pref))}
+def freeze_snapshot(*, scores, initial_state, plans, metadata, output, pref=None):
     metadata_path = Path(metadata).resolve()
+    m, metadata_source = _read_json(metadata_path)
+    sections = input_sections(m)
+    require(pref is not None if "pref" in sections else pref is None,
+            "full mode: --pref required; control_only must omit --pref (P-REF-anti NOT_RUN)")
+    paths = {name: Path(path).resolve() for name, path in (
+        ("scores", scores), ("initial_state", initial_state), ("plans", plans), ("pref", pref)) if name in sections}
     output = Path(output).absolute()
     require(output.resolve() not in {*paths.values(), metadata_path},
             "output must not replace a declared input")
-    m, metadata_source = _read_json(metadata_path)
     fields(m, ("inputs",), "metadata")
-    fields(m["inputs"], SECTIONS, "input sources")
-    require(set(m["inputs"]) == set(SECTIONS), "only four declared input sections are supported")
+    fields(m["inputs"], sections, "input sources")
+    require(set(m["inputs"]) == set(sections), "declared input sections must match scores_mode")
     snapshot = {"schema_version": SCHEMA_VERSION, "kind": "frozen", "metadata": m}
     sources = {}
     for name, path in paths.items():
@@ -138,13 +145,16 @@ def freeze_snapshot(*, scores, initial_state, plans, pref, metadata, output):
         "schema_version": SCHEMA_VERSION, "kind": "frozen",
         "status": "FROZEN_SNAPSHOT_ASSEMBLED", "input_status": "INPUT_BLOCKED",
         "execution_status": "NOT_RUN", "return_status": "待实测",
+        "scores_mode": scores_mode(m), "scope_status": scope_status(m, "FROZEN_SNAPSHOT_ASSEMBLED"),
         "snapshot": source, "metadata_source": metadata_source, "inputs": sources,
         "input_raw_hashes_verified": True,
-        "verification_scope": "only the four explicitly supplied JSON section files",
+        "verification_scope": "only the explicitly supplied JSON section files",
         "portfolio_status": "NOT_RUN",
         "real_input_blockers": [
-            "upstream control scores/common universe/sidecar provenance and PIT/coverage require host verification",
-            "backtest rule provenance, reference state recursion and frozen P-REF checks require portfolio/host verification",
+            "upstream control provenance and PIT/coverage require host verification",
+            "backtest rule provenance and reference state recursion require portfolio/host verification",
+            *([] if scores_mode(m) == "control_only" else
+               ["common universe/sidecar/labels provenance and frozen P-REF checks require verification"]),
         ],
     }
 
@@ -157,7 +167,7 @@ class _Parser(argparse.ArgumentParser):
 def main(argv=None):
     parser = _Parser(description=__doc__)
     for name in SECTIONS:
-        parser.add_argument(f"--{name.replace('_', '-')}", required=True, type=Path,
+        parser.add_argument(f"--{name.replace('_', '-')}", required=name != "pref", type=Path,
                             help=f"explicit {name} JSON file; no lookup or fallback")
     parser.add_argument("--metadata", required=True, type=Path,
                         help="full metadata JSON with expected source uri/raw/content hashes")

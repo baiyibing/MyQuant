@@ -1,6 +1,6 @@
 # Joint return v1：R0 合同 / R1 MQ 快照接口
 
-状态：本刀交付 R0 与 MQ R1 data-free；BT R1 下一刀。真实输入 `INPUT_BLOCKED`，分钟链 `NOT_RUN`，新收益、成交率、滑点与 Sharpe 均待实测。
+状态：2026-09-20 开放显式 `control_only` 瘦合同，P-BASE 组合约束可独立生成 frozen / portfolio 入口；anti、共同宇宙、labels、P-REF 后置。宿主真实来源仍待核验，分钟链 `NOT_RUN`，新收益、成交率、滑点与 Sharpe 均待实测。缺 anti 不再阻塞 P-BASE 的本地组合约束验证。
 
 SSOT：[联合实施计划](../2026-09-19-joint-return-implementation-plan.md) §3、R0/R1、F-R2–F-R12；来源与缺口见 [input-register](input-register.md)，门禁见 [acceptance](acceptance.md)。本次用户澄清优先于旧计划：原始 10/3 从未实盘、程序未上线，只有回测，不存在线上原始意图包。禁止要求 live `frozen_original_intents`；来源改为显式回测规则生成。研究默认 50/5（仓内实验积累最多），20/3、10/3 可切换；这是研究默认，不改线上 10/3 配置，也不表示线上已经运行。旧计划中硬锁研究 10/3、等待原始意图包的要求作废，其余生产隔离边界继承。
 
@@ -31,6 +31,7 @@ SSOT：[联合实施计划](../2026-09-19-joint-return-implementation-plan.md) �
 - `my_scripts/joint_return_merge_scores.py`
 - `tests/test_joint_return_freeze_snapshot.py`
 - `tests/test_joint_return_rule_intents.py`
+- `tests/test_joint_return_control_only.py`
 - `docs/reviews/joint-return-v1/host-frozen-snapshot-checklist.md`
 
 BT 下一刀拟白名单：`backtest/research/joint_return_replay.py`、`scripts/research/run_joint_return_replay.py`、`tests/test_joint_return_replay.py`。本刀不写 BT 文件。sibling 工作区 HEAD `41f3d11a34c665cc8a21b3e1d351b9e06b0466b5` 仅作差异登记，事实按固定 BT 对象读取；不 checkout/pull。后续 R2–R6 另行派工，不在此白名单。
@@ -53,23 +54,38 @@ intents 按 `(arm_id, decision_at, side_order, instrument, intent_id)`，SELL �
 
 唯一输入为调用者给出的 JSON 文件。入口：`python -m my_scripts.joint_return_portfolio --snapshot PATH --run-id ID [--output-root ROOT]`；不搜索 recorder、湖、缓存或旧机器目录，无最近版本回落。纯函数 `build_portfolio(snapshot)` 使用同一校验路径。
 
-顶层必需 `schema_version="joint-return-v1"`、`kind="synthetic"|"frozen"`、`metadata`、`scores`、`initial_state`、`plans`、`pref`。所有业务时点为固定秒精度 ISO8601 `YYYY-MM-DDTHH:MM:SS+08:00`，时区 Asia/Shanghai；日期 `YYYY-MM-DD`。无时区、未来已知值、重复或缺失键、缺必需快照均报 `INPUT_BLOCKED` 或下述更具体状态，不读取真实数据补齐。
+顶层必需 `schema_version="joint-return-v1"`、`kind="synthetic"|"frozen"`、`metadata`、`scores`、`initial_state`、`plans`；默认 full 另需 `pref`，control_only 必须省略 pref。所有业务时点为固定秒精度 ISO8601 `YYYY-MM-DDTHH:MM:SS+08:00`，时区 Asia/Shanghai；日期 `YYYY-MM-DD`。无时区、未来已知值、重复或缺失键、缺必需快照均报 `INPUT_BLOCKED` 或下述更具体状态，不读取真实数据补齐。
 
 | metadata 必需字段 | 单位 / 语义与缺失处理 |
 |---|---|
 | `code_shas, implementation_bases, contract_hash` | 完整 SHA、合同字节锁；漂移停止 |
-| `pred_recorder_id, candidate_recorder_id, sidecar_sha256` | 必须等于 §1；候选只作共同宇宙对齐 |
+| `scores_mode, arms` | 缺省 full / [P-BASE,P-CHASE]；瘦模式必须显式 scores_mode=control_only，arms 缺省 [P-BASE]，如声明必须恰为 [P-BASE]；请求其他臂 INPUT_BLOCKED |
+| `pred_recorder_id, candidate_recorder_id, sidecar_sha256` | pred 始终固定 §1 control；full 的 candidate/sidecar 必须等于 §1，control_only 必须省略或 null，不能声称已消费后置源 |
 | `generated_at, window{start,end}, calendar, timezone` | 生成时点、显式窗口、已排序无重复的市场交易日期；不按自然日补日期 |
 | `price_domain, valuation_version, benchmark_version` | none 价格域、估值版本、同 fill 的 P-BASE 基准版本；无默认指数 |
 | `strategy{topk,n_drop,source,rule_version,rule_parameters,eligibility_version,eligibility_rules,native_stop}` | 正整数 topk、0≤n_drop≤topk 整数；默认研究 50/5，覆盖 20/3、10/3；`backtest_rule_intents`、`topk-dropout-reference-v1`、下述规则参数、资格版本与非空闸门定义、`N/A`。bool/浮点数不当整数，不得猜 ST/年龄/涨幅资格 |
 | `fees{model,buy_rate,sell_rate,minimum,granularity,source}` | commission_only、费率为成交金额比例、最低费 CNY、per_order、证据来源；必须显式给值，无生产政策 import |
 | `risk_budget` | 股票目标权重上限 [0,1]；无来源的真实数值仍阻塞 |
 | `order_policy, quantity_policy` | §5/§6 固定枚举，无任意阈值网格 |
-| `inputs` | scores / initial_state / plans / pref 每项给 `uri,raw_sha256,content_sha256,coverage,version`；规范内容 hash 必须匹配内嵌段 |
+| `inputs` | full 为 scores / initial_state / plans / pref；control_only 恰为 scores / initial_state / plans 三段。每项给 `uri,raw_sha256,content_sha256,coverage,version`；规范内容 hash 必须匹配内嵌段 |
 
 `load_snapshot` 只校验指定快照自身原字节及规范内容，并校验内嵌段内容 hash；来源 URI 是声明，不自动解引用。manifest 明确 `snapshot.raw_verified=true`、`input_raw_hashes_verified=false`。源文件 raw hashes、共同宇宙与 PIT 来源须由后续宿主只读核验；这些声明本身不能证明真实输入齐全或可交易性。
 
-## 4. scores 与 P-REF
+### 3.1 control_only 瘦入口与后置范围
+
+本修订基于 `origin/master=7e94891a9b5b79010cbe2f293515ac3f1e5bb08f`（含 #94）。全量输入默认及 P-REF 原门禁保持；只有显式瘦模式才能跳过后置项，不能对缺列 full 自动降级。
+
+瘦 scores 每行必需 `date,instrument,score,score_available_at,source_version,recorder_id,scores_mode="control_only"`。recorder 必须为 §1 control。`anti_rank,anti_available_at,candidate_present,label,anti_source_version,anti_source_sha256,label_source_version` 仅可省略或 null，任何非 null 值均拒绝；candidate_score 始终禁止。行模式必须与 metadata 一致，混合模式拒绝。按全部显式 control 键排序，不取 candidate 交集、不缩小分母。control 覆盖完整性仍由宿主证明，不把控制分数名单解释成资格证明。
+
+P-BASE 不计算 T0 anti 中位数，也不要求十只证券、五个标签日或原 P-REF 两窗；仅要求显式非空研究日历和逐日覆盖。`constraints.csv` 保留原列，anti_rank/t0_median 为 JSON null。不把未知值填成 0，不生成虚假的 candidate_present 或 label。已有规则生成器的 buy_candidates 是带真实资格和冻结数量的订单候选，与 candidate recorder 成员字段不同。
+
+`freeze` 在瘦模式只核验三段，CLI 省略 `--pref`，传入 pref 反而拒绝；`portfolio` 输出 `pref_check.status=NOT_RUN`、空 numeric_scope。P-CHASE、WEAK_SIGNAL、P-REF-anti 请求均 INPUT_BLOCKED；不能用瘦 snapshot 恢复依赖 anti 的臂。恢复 full 必须提供完整四表、双臂 plans、原 pref 并重新冻结，不能只改模式字串。
+
+所有阶段 manifest 的 `scope_status` 分列 P-BASE、P-CHASE、P-REF-anti、WEAK_SIGNAL、Mode B。P-BASE 依次标 SCORES_MERGED / BACKTEST_RULE_PLANS_GENERATED / FROZEN_SNAPSHOT_ASSEMBLED / PORTFOLIO_CONSTRAINTS_PASS；其 execution_status 始终 NOT_RUN。后置项分别为 P-CHASE INPUT_BLOCKED、P-REF-anti NOT_RUN、WEAK_SIGNAL INPUT_BLOCKED、Mode B INPUT_BLOCKED/NOT_RUN。portfolio 的分臂 hash、参考状态、pairing.arms 仅列 P-BASE，不生成空 CHASE 臂冒充已验收。
+
+顶层 frozen 的 input_status 仍表示上游来源/PIT 待宿主核验，不能用它否定已完成的 P-BASE 本地约束，也不能据本地通过宣称真实回测通过。验收目标仍是换手、回撤、净超额；本入口只计算参考目标换手。真实 NAV、回撤、净超额缺执行/估值证据时必须 NOT_RUN，绝不以 RankIC 或 label 收益替代。
+
+## 4. full scores 与 P-REF
 
 每行必需 `date,instrument,score,score_available_at,source_version,anti_rank,anti_available_at,candidate_present,label`。score 保留原值；anti_rank 是现有 `MAXRET20_ANTI_RANK`，范围 [0,1]，高值表示近期未大涨。`candidate_present=true` 声明冻结共同宇宙；不得把 candidate score 加入字段。每日 T0 取按 score 排序前 10；中位数取 T0 十个 anti-rank 的通常中位数（第 5/6 个的平均）。严格 `< median` 才跳过，等号保留；T1 按 score 取 `>= median`，不足十个才从 `< median` 按 score 回填，逐项记录放宽。
 
@@ -81,7 +97,7 @@ bootstrap 固定 block=5、reps=10000、seed=20260919；NumPy default_rng 非环
 
 frozen 必须提供与 §1 MQ-PJSON 规范 hash 一致的完整 expected，以及原窗 `2025_valid:2025-01-03…2025-12-31`、`2026_oos:2026-01-01…2026-09-14`。每个日历日必须恰好落入一个窗口，不允许暗删日或重复窗口。真实通过仍需原始来源、统计生成口径与独立窗门禁；本刀真实 P-REF 为 `INPUT_BLOCKED`。synthetic 用手算 expected，永远只报 `SYNTHETIC_PASS`；不匹配报 `PREF_MISMATCH` 并阻止组合输出。
 
-### 4.1 scores 显式合并
+### 4.1 full scores 显式合并（默认不变）
 
 入口 `python -m my_scripts.joint_return_merge_scores --control PATH --universe PATH --anti PATH --labels PATH --output-dir NEW_DIR`。四个输入均为 JSON 行数组，键是 `(date,instrument)`，不自动改名/转换类型/补时间；每文件重复键、必需列缺失均 INPUT_BLOCKED。
 
@@ -93,6 +109,12 @@ frozen 必须提供与 §1 MQ-PJSON 规范 hash 一致的完整 expected，以�
 | labels | `label,source_version`；整日无 label 用显式 null，不能省行/省列。 |
 
 以 universe 为完整分母，逐键要求其他三表覆盖，禁止 inner join 丢缺失行；额外的 control/anti/label 键在 `merge-manifest.json.coverage.outside_common_keys` 完整记录。candidate scores 禁止进入任何表。输出 `scores.json` 维持 §4 必需列，保留 control recorder、anti/label 版本和原 sidecar hash 声明；按固定顺序输出，数值不重算。部分 label 缺失阻塞，全日 null 保留。输出 manifest 冻结四输入 URI/双 hash 和完整日历；上游 recorder/sidecar/PIT 真实性仍需核验，因此 status=SCORES_MERGED 也不把 input_status 从 INPUT_BLOCKED 改绿。
+
+### 4.2 control_only 合并与三列原料
+
+入口增加 `--mode control_only`，仅 `--control` 必需；universe/anti/labels 可不传。若显式传入后置文件，仅冻结文件 URI/双 hash 并在 `coverage.deferred_inputs_not_consumed` 留账，不 join、不授予候选资格、不启用 anti。后置文件必须为行数组且不能含 candidate_score，universe 也不能含 score。输出 scores 标记模式，coverage.control_rows 和 denominator 声明全部 control 键；没有 common_rows 伪称共同宇宙。
+
+control 已有 §4.1 四个必需来源/分数字段时可直接使用。若只有 date/instrument/score，另传 `--control-metadata PATH`，文件恰含 `recorder_id,source_version,score_available_at_by_date`。其中逐日可得时间映射必须恰覆盖 control 日期且带 +08:00；来源声明与已有行字段冲突报 PAIR_INVALID，缺字段/日期报 INPUT_BLOCKED。merge manifest 同时冻结原始三列文件和补充声明的 URI/双 hash。无自动“收盘已可得”假设；声明必须有宿主可核验依据。全量模式不接受此补充入口，也不会自动补列。
 
 ## 5. 回测规则意图与各臂参考状态
 
@@ -134,7 +156,7 @@ market 每行必须有 `instrument,execution_symbol,reference_price,buy_eligible
 
 ### 5.3 生成计划与递推校验
 
-portfolio calendar 每日有 P-BASE/P-CHASE 两条 plan，无交易也有空计划：
+portfolio calendar 每日在 full 下有 P-BASE/P-CHASE 两条 plan，control_only 仅一条 P-BASE；无交易也有空计划。生成器按 metadata.scores_mode 选择臂；可显式 `--arms P-BASE`，必须与 metadata/模式一致。瘦模式请求 P-CHASE 或弱信号/anti 臂立即 INPUT_BLOCKED。计划字段：
 
 | 字段 | 定义 |
 |---|---|
@@ -148,7 +170,7 @@ portfolio calendar 每日有 P-BASE/P-CHASE 两条 plan，无交易也有空计�
 
 数量字段为 `instrument,execution_symbol,instance_id,lot_id,target_weight,original_target_quantity,reference_price,reference_price_at,quantity_unit,quantity_conversion`。新 lot 身份由规则版本/臂/日期/证券/前态 hash 确定；SELL 量/lot 与持仓完全相同、weight=0。BUY 不加到旧仓；original_target_quantity 是**规则冻结的原始订单量**，不是存在过的线上原始订单。
 
-portfolio 验证来源、参数、数量转换、独立前态、现金、topk 上限和风险预算，manifest 保留完整 before/after、plan、hash、漂移/目标权重、目标换手及研究参考费。基础 plan 结构仍可用于手算合成 pins；真实来源须留存生成器回执和上游输入，不能把填入 source 字串本身当成来源证明。生成器不运行 P-REF；freeze 后 portfolio 仍执行原 expected hash/窗口/数值门禁。
+portfolio 验证来源、参数、数量转换、独立前态、现金、topk 上限和风险预算，manifest 保留完整 before/after、plan、hash、漂移/目标权重、目标换手及研究参考费。基础 plan 结构仍可用于手算合成 pins；真实来源须留存生成器回执和上游输入，不能把填入 source 字串本身当成来源证明。生成器不运行 P-REF；full 的 portfolio 仍执行原 expected hash/窗口/数值门禁，control_only 按 §3.1 显式跳过并分列状态。
 
 ## 6. 输出意图、数量与公司行动
 

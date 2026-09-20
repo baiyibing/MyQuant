@@ -13,11 +13,11 @@ import re
 from statistics import mean, median
 
 from my_scripts.joint_return_contract import (
-    ARMS, CANDIDATE_RECORDER, CONSTRAINT_FIELDS, INTENT_FIELDS, ORDER_POLICY, PJSON_HASH,
+    CANDIDATE_RECORDER, CONSTRAINT_FIELDS, INTENT_FIELDS, ORDER_POLICY, PJSON_HASH,
     RECORDER, SCHEMA_VERSION,
     ContractError, canonical_bytes, content_hash, contract_hash, csv_bytes, date_string,
     fields, load_snapshot, number, raw_hash, require, sort_intents, timestamp,
-    validate_intents, validate_plan_source, validate_snapshot,
+    validate_intents, validate_plan_source, validate_snapshot, scores_mode, portfolio_arms, scope_status,
 )
 
 PREF_ATOL = 1e-8
@@ -33,29 +33,38 @@ PREF_METRICS = (
 )
 
 
-def score_days(rows):
+def score_days(rows, *, mode="full"):
+    scores_mode({"scores_mode": mode})
     require(isinstance(rows, list) and rows, "scores snapshot missing")
     grouped = defaultdict(list)
     seen = set()
     for row in rows:
-        fields(row, ("date", "instrument", "score", "score_available_at", "source_version",
-                     "anti_rank", "anti_available_at", "candidate_present", "label"), "score")
+        fields(row, ("date", "instrument", "score", "score_available_at", "source_version"), "score")
+        require(row.get("scores_mode", "full") == mode, "scores_mode row/metadata drift")
         date_string(row["date"])
         require(isinstance(row["instrument"], str) and bool(row["instrument"]), "invalid instrument")
         key = row["date"], row["instrument"]
         require(key not in seen, f"duplicate score key: {key}")
         seen.add(key)
         number(row["score"], "score")
-        require(0 <= number(row["anti_rank"], "anti_rank") <= 1, "anti-rank outside [0,1]")
         timestamp(row["score_available_at"])
-        timestamp(row["anti_available_at"])
-        require(bool(row["source_version"]) and row["candidate_present"] is True,
-                "P-REF requires the frozen common universe; candidate scores are not inputs")
+        require(isinstance(row["source_version"], str) and bool(row["source_version"]), "source version missing")
+        if mode == "control_only":
+            fields(row, ("recorder_id", "scores_mode"), "control_only score")
+            require(all(row.get(k) is None for k in ("anti_rank", "anti_available_at", "candidate_present", "label",
+                        "anti_source_version", "anti_source_sha256", "label_source_version")),
+                    "control_only must omit/null anti, candidate and label fields")
+        else:
+            fields(row, ("anti_rank", "anti_available_at", "candidate_present", "label"), "score")
+            require(0 <= number(row["anti_rank"], "anti_rank") <= 1, "anti-rank outside [0,1]")
+            timestamp(row["anti_available_at"])
+            require(row["candidate_present"] is True,
+                    "P-REF requires the frozen common universe; candidate scores are not inputs")
+            if row["label"] is not None:
+                number(row["label"], "label")
         require("candidate_score" not in row, "candidate score is forbidden")
         require(row.get("recorder_id", RECORDER) == RECORDER
                 and CANDIDATE_RECORDER not in str(row["source_version"]), "candidate score source is forbidden")
-        if row["label"] is not None:
-            number(row["label"], "label")
         grouped[row["date"]].append(deepcopy(row))
     # Python's stable sort is byte-for-byte equivalent to mergesort on these unique keys.
     return {day: sorted(grouped[day], key=lambda r: (-r["score"], r["instrument"]))
@@ -63,6 +72,8 @@ def score_days(rows):
 
 
 def select_pref(ranked):
+    require(all(r.get("scores_mode", "full") == "full" and r.get("anti_rank") is not None for r in ranked),
+            "P-REF/P-CHASE anti median INPUT_BLOCKED: anti required; control_only cannot use anti paths")
     require(len(ranked) >= 10, "P-REF common universe has fewer than ten instruments")
     t0 = ranked[:10]
     threshold = median(r["anti_rank"] for r in t0)
@@ -128,6 +139,8 @@ def _compare(actual, expected, path, mismatches):
 
 def check_pref(grouped, spec, *, synthetic):
     """Recheck original Top10Spread, rank/selection and time-slice statistics, not PnL."""
+    require(all(r.get("scores_mode", "full") == "full" for rows in grouped.values() for r in rows),
+            "P-REF-anti INPUT_BLOCKED: control_only")
     fields(spec, ("calendar", "windows", "expected", "label", "bootstrap"), "pref")
     require(spec["label"] == "Ref($close,-2)/Ref($close,-1)-1", "P-REF label drift")
     require(spec["bootstrap"] == BOOTSTRAP, "P-REF bootstrap drift")
@@ -271,6 +284,7 @@ def _fee(intent, fees):
 
 
 def _step(arm, state, plan, ranked, metadata):
+    require(arm in portfolio_arms(metadata), "requested arm INPUT_BLOCKED: control_only permits only P-BASE")
     fields(plan, ("date", "arm_id", "pre_state_hash", "decision_at", "available_at", "effective_at",
                   "expires_at", "source", "marks", "mark_at", "sells", "buys", "buy_candidates",
                   "corporate_actions"), "frozen plan")
@@ -286,10 +300,11 @@ def _step(arm, state, plan, ranked, metadata):
     require(timestamp(plan["mark_at"]) <= decision, "future marks", "PAIR_INVALID")
     require(decision <= timestamp(plan["available_at"]) <= timestamp(plan["effective_at"]) < timestamp(plan["expires_at"]),
             "plan clock violation", "PAIR_INVALID")
-    require(all(timestamp(r[key]) <= decision for r in ranked for key in ("score_available_at", "anti_available_at")),
+    clocks = ("score_available_at",) if scores_mode(metadata) == "control_only" else ("score_available_at", "anti_available_at")
+    require(all(timestamp(r[key]) <= decision for r in ranked for key in clocks),
             "score/anti-rank not available at decision", "PAIR_INVALID")
     by_name = {r["instrument"]: r for r in ranked}
-    _, _, threshold, _ = select_pref(ranked)
+    threshold = None if scores_mode(metadata) == "control_only" else select_pref(ranked)[2]
     audit = []
 
     def record(inst, status, reason):
@@ -413,25 +428,28 @@ def _step(arm, state, plan, ranked, metadata):
 
 def build_portfolio(snapshot):
     validate_snapshot(snapshot)
-    grouped = score_days(snapshot["scores"])
-    pref = check_pref(grouped, snapshot["pref"], synthetic=snapshot["kind"] == "synthetic")
-    require(pref["status"] != "PREF_MISMATCH", "P-REF numeric recheck failed", "PAIR_INVALID")
     metadata = snapshot["metadata"]
+    mode, arms = scores_mode(metadata), portfolio_arms(metadata)
+    grouped = score_days(snapshot["scores"], mode=mode)
+    pref = ({"status": "NOT_RUN", "reason": "control_only: anti/universe/labels deferred", "numeric_scope": []}
+            if mode == "control_only" else check_pref(grouped, snapshot["pref"], synthetic=snapshot["kind"] == "synthetic"))
+    require(pref["status"] != "PREF_MISMATCH", "P-REF numeric recheck failed", "PAIR_INVALID")
     validate_state(snapshot["initial_state"], topk=metadata["strategy"]["topk"])
-    states = {arm: deepcopy(snapshot["initial_state"]) for arm in ARMS}
+    states = {arm: deepcopy(snapshot["initial_state"]) for arm in arms}
     plans = {}
     for plan in snapshot["plans"]:
         fields(plan, ("date", "arm_id"), "plan identity")
+        require(plan["arm_id"] in arms, "requested plan arm INPUT_BLOCKED for scores_mode")
         key = plan["date"], plan["arm_id"]
         require(key not in plans, "duplicate daily arm plan")
         plans[key] = plan
-    expected = {(day, arm) for day in metadata["calendar"] for arm in ARMS}
+    expected = {(day, arm) for day in metadata["calendar"] for arm in arms}
     require(set(plans) == expected, "missing/extra arm-days; explicit empty plans also required")
     intents, constraints, history = [], [], []
     symbols, reverse_symbols = {}, {}
     for day in metadata["calendar"]:
         require(day in grouped, f"missing scores: {day}")
-        for arm in ARMS:
+        for arm in arms:
             state, rows, audit, record = _step(arm, states[arm], plans[day, arm], grouped[day], metadata)
             states[arm] = state
             intents.extend(rows)
@@ -445,7 +463,8 @@ def build_portfolio(snapshot):
     validate_intents(intents)
     constraints.sort(key=lambda r: (r["date"], r["arm_id"], r["instrument"], r["status"], r["reason"]))
     return {"intents": intents, "constraints": constraints, "pref_check": pref,
-            "reference_states": history, "final_states": states}
+            "reference_states": history, "final_states": states,
+            "scope_status": scope_status(metadata, "PORTFOLIO_CONSTRAINTS_PASS", pref_status=pref["status"])}
 
 
 def run_snapshot(snapshot_path, output_root, run_id):
@@ -461,15 +480,18 @@ def run_snapshot(snapshot_path, output_root, run_id):
         "input_status": "SYNTHETIC_ONLY" if snapshot["kind"] == "synthetic" else "INPUT_BLOCKED",
         "real_input_blockers": ["original source raw hashes and PIT/coverage require host verification"],
         "execution_status": "NOT_RUN", "return_status": "待实测", "contract_hash": contract_hash(),
+        "scores_mode": scores_mode(snapshot["metadata"]), "scope_status": product["scope_status"],
+        "portfolio_status": "PORTFOLIO_CONSTRAINTS_PASS",
         "metadata": snapshot["metadata"], "snapshot": source,
         "input_raw_hashes_verified": False,  # bundled source declarations are not original file checks
         "intent_hash": content_hash(product["intents"]),
-        "arm_intent_hashes": {a: content_hash([r for r in product["intents"] if r["arm_id"] == a]) for a in ARMS},
+        "arm_intent_hashes": {a: content_hash([r for r in product["intents"] if r["arm_id"] == a])
+                             for a in portfolio_arms(snapshot["metadata"])},
         "artifacts": {"intents.csv": {"raw_sha256": raw_hash(intent_bytes), "content_sha256": content_hash(product["intents"])},
                       "constraints.csv": {"raw_sha256": raw_hash(constraint_bytes), "content_sha256": content_hash(product["constraints"])},
                       "pref_check.json": {"raw_sha256": raw_hash(pref_bytes), "content_sha256": content_hash(product["pref_check"])}},
         "reference_states": product["reference_states"], "initial_state": snapshot["initial_state"],
-        "pairing": {"arms": list(ARMS), "fills": ["M-REF", "M-LAG"], "bt_acceptance": "NOT_RUN"},
+        "pairing": {"arms": portfolio_arms(snapshot["metadata"]), "fills": ["M-REF", "M-LAG"], "bt_acceptance": "NOT_RUN"},
     }
     path = Path(output_root) / run_id
     path.parent.mkdir(parents=True, exist_ok=True)

@@ -1,6 +1,25 @@
 # Joint return v1 输入登记
 
-本刀只在 GrokBot 做 R0 + MQ R1 data-free。以下“已核实”指固定仓库文本存在，不表示原始数据在本机或 4090 可读。用户已澄清原始 10/3 未上线、从未实盘，仅有回测；不存在线上原始意图包，不再要求 live frozen_original intents。未知 URI/hash/覆盖逐项标 `INPUT_BLOCKED`，不搜索湖、不新预测、不由已成交持仓补造失败订单。
+本刀只在 GrokBot 做 MQ control-only P-BASE data-free。以下“已核实”指固定仓库文本存在，不表示原始数据在本机或 4090 可读。用户已澄清原始 10/3 未上线、从未实盘，仅有回测；不存在线上原始意图包，不再要求 live frozen_original intents。未知 URI/hash/覆盖逐项标 `INPUT_BLOCKED`，不搜索湖、不新预测、不由已成交持仓补造失败订单。
+
+## 2026-09-20 瘦合同裁定（覆盖下方历史全量依赖）
+
+工作基线 origin/master=`7e94891a9b5b79010cbe2f293515ac3f1e5bb08f`（含 #94）。用户回执：4090 当前分数原料只有 date/instrument/score，anti/universe/labels 与 sessions/initial_state/pref 未齐。当前不宣称这些真实文件已补齐；解除的是 P-BASE 对后置 anti 链的依赖。
+
+| 项 | P-BASE control_only | 后置臂 / 验证 |
+|---|---|---|
+| control pred | 固定原 recorder；只消费 control，保留全部键。三列原料可用显式 control-metadata 补来源/逐日可得时点，URI/双 hash 入 merge 回执 | 不重训、不重预测；原始来源/PIT/覆盖仍须宿主核验 |
+| candidate universe | 不需要；candidate_present 省略/null，不从 control 名单伪造 | full / P-REF-anti INPUT_BLOCKED |
+| anti_rank / anti_available_at | 不需要，不计算 anti 中位数 | P-CHASE、弱信号/anti 依赖臂 INPUT_BLOCKED；不重建 sidecar |
+| labels / pref | 不需要；pref 明确省略，pref_check NOT_RUN | P-REF-anti NOT_RUN；恢复 full 保留原 expected/hash/两窗门禁 |
+| 研究 initial_state | 允许显式选定研究现金空仓，不需要线上/历史持仓；仍必须提供文件与输入锁 | 不自动给金额，不从 PortAna/账户/旧缓存补仓 |
+| 研究 sessions | 规则生成器需逐日价格/映射/资格/时钟/事件声明；显式 JSON 合同已有，无湖依赖 | 缺真实价格/资格仍局部 INPUT_BLOCKED；不能造值。已有合法 plans 则 freeze 不另需 sessions |
+| P-BASE plans / portfolio | 单臂每日计划，50/5 默认，20/3、10/3 可配；三段 frozen 后独立通过组合约束 | 本地状态 PORTFOLIO_CONSTRAINTS_PASS，execution NOT_RUN；不是收益通过 |
+| Mode B / BT / 实际指标 | 不属于 MQ 瘦入口依赖 | INPUT_BLOCKED / NOT_RUN；实际换手、回撤、净超额待执行/估值证据，不能用 RankIC 代替 |
+
+宿主最小用法及三列来源声明见 [交接清单 §0](host-frozen-snapshot-checklist.md)。各阶段 scope_status 分列记账；顶层真实 input_status 保留上游来源待核验含义，不再把 anti/universe/labels/pref 缺失扩成 P-BASE 本地链阻断。
+
+## 全量来源登记与历史依据
 
 代码基线、白名单与 serialization 见 [contract](contract.md)；旧派工记录为 [联合计划](../2026-09-19-joint-return-implementation-plan.md)，本次用户澄清及修订合同优先。新 MQ 实施基线 `4e4368b274ada2e27da5902f7420aa5a8ae5950c`，BT `1049b904bdd818dbb79f51f1830a008c8f83b141`；旧计划 MQ 基线仅溯源，不替换用户令。生产/特征/pred/线上 10/3 配置/Mode A/B、δ1/δ2 既有实现及 sibling 均只读。研究默认 50/5（仓内实验积累最多），20/3、10/3 可切换；不据此声称有线上程序在运行。
 
