@@ -114,6 +114,8 @@ def test_cli_dry_run_exits_zero(tmp_path):
             "--dry-run",
             "--csv-dir",
             str(tmp_path / "csv"),
+            "--lake-index-root",
+            str(tmp_path / "lake_index"),
             "--archive-dir",
             str(tmp_path / "arch"),
             "--qlib-dir",
