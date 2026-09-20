@@ -10,9 +10,9 @@ import math
 from pathlib import Path
 
 from my_scripts.joint_return_contract import (
-    ARMS, DEFAULT_N_DROP, DEFAULT_TOPK, RULE_SOURCE, RULE_VERSION, ContractError,
+    DEFAULT_N_DROP, DEFAULT_TOPK, RULE_SOURCE, RULE_VERSION, ContractError,
     canonical_bytes, content_hash, date_string, fields, number, raw_hash, require,
-    timestamp, validate_rule_strategy, validate_topk,
+    timestamp, validate_rule_strategy, validate_topk, portfolio_arms, scores_mode, scope_status,
 )
 from my_scripts.joint_return_freeze_snapshot import _Parser, _read_json
 from my_scripts.joint_return_merge_scores import write_bundle
@@ -68,6 +68,7 @@ def _market(session, ranked, state, strategy):
 
 
 def make_rule_plan(arm, state, ages, ranked, session, metadata):
+    require(arm in portfolio_arms(metadata), "requested arm INPUT_BLOCKED: control_only permits only P-BASE")
     strategy = metadata["strategy"]
     topk, n_drop = strategy["topk"], strategy["n_drop"]
     rules = strategy["rule_parameters"]
@@ -125,9 +126,10 @@ def make_rule_plan(arm, state, ages, ranked, session, metadata):
 
 
 def generate_plans(scores, initial_state, sessions, metadata):
-    """Generate both arms with independent ideal reference states, never fill feedback."""
+    """Generate registered arms with independent reference states, never fill feedback."""
     fields(metadata, ("strategy", "calendar", "fees", "risk_budget"), "rule metadata")
     validate_rule_strategy(metadata["strategy"])
+    arms = portfolio_arms(metadata)
     fees = metadata["fees"]
     fields(fees, ("model", "buy_rate", "sell_rate", "minimum", "granularity", "source"), "fees")
     require(fees["model"] == "commission_only" and fees["granularity"] == "per_order" and bool(fees["source"]),
@@ -145,7 +147,7 @@ def generate_plans(scores, initial_state, sessions, metadata):
         initial_ages[inst] = age
     calendar = metadata["calendar"]
     require(isinstance(calendar, list) and calendar and calendar == sorted(set(calendar)), "calendar order/duplicates")
-    grouped = score_days(scores)
+    grouped = score_days(scores, mode=scores_mode(metadata))
     require(set(calendar) <= grouped.keys(), "portfolio calendar missing scores")
     require(isinstance(sessions, list), "rule sessions must be a list")
     by_date = {}
@@ -155,8 +157,8 @@ def generate_plans(scores, initial_state, sessions, metadata):
         require(session["date"] not in by_date, "duplicate rule session")
         by_date[session["date"]] = session
     require(set(by_date) == set(calendar), "missing/extra rule sessions")
-    states = {arm: deepcopy(initial_state) for arm in ARMS}
-    ages = {arm: dict(initial_ages) for arm in ARMS}
+    states = {arm: deepcopy(initial_state) for arm in arms}
+    ages = {arm: dict(initial_ages) for arm in arms}
     plans, history = [], []
     symbols, reverse = {}, {}
     previous = None
@@ -165,7 +167,7 @@ def generate_plans(scores, initial_state, sessions, metadata):
         require(decision is not None, "session: missing decision_at")
         require(previous is None or previous < decision, "nonmonotone decisions", "PAIR_INVALID")
         previous = decision
-        for arm in ARMS:
+        for arm in arms:
             plan = make_rule_plan(arm, states[arm], ages[arm], grouped[day], by_date[day], metadata)
             for row in by_date[day]["market"]:
                 inst, symbol = row["instrument"], row["execution_symbol"]
@@ -176,7 +178,8 @@ def generate_plans(scores, initial_state, sessions, metadata):
             states[arm] = state
             plans.append(plan)
             history.append(record)
-    return {"plans": plans, "reference_states": history, "final_states": states}
+    return {"plans": plans, "reference_states": history, "final_states": states,
+            "scope_status": scope_status(metadata, "BACKTEST_RULE_PLANS_GENERATED")}
 
 
 def main(argv=None):
@@ -185,6 +188,7 @@ def main(argv=None):
         parser.add_argument(f"--{name}", required=True, type=Path)
     parser.add_argument("--topk", type=int, default=DEFAULT_TOPK, help="research default 50; no change to online 10/3 config")
     parser.add_argument("--n-drop", type=int, default=DEFAULT_N_DROP, help="research default 5; supports 50/5, 20/3, 10/3")
+    parser.add_argument("--arms", nargs="+", help="must match mode: control_only permits only P-BASE")
     parser.add_argument("--output-dir", required=True, type=Path)
     try:
         args = parser.parse_args(argv)
@@ -193,6 +197,10 @@ def main(argv=None):
             values[name], sources[name] = _read_json(getattr(args, name).resolve())
         metadata = deepcopy(values["metadata"])
         fields(metadata, ("strategy", "inputs"), "metadata")
+        if args.arms is not None:
+            require("arms" not in metadata or metadata["arms"] == args.arms, "CLI/metadata arms drift")
+            metadata["arms"] = args.arms
+        arms = portfolio_arms(metadata)
         strategy = metadata["strategy"]
         require(isinstance(strategy, dict), "strategy: expected object")
         for key, value in (("topk", args.topk), ("n_drop", args.n_drop), ("source", RULE_SOURCE), ("rule_version", RULE_VERSION)):
@@ -209,13 +217,14 @@ def main(argv=None):
         plans = product["plans"]
         metadata["inputs"]["plans"] = {"uri": str((args.output_dir / "plans.json").resolve()),
             "raw_sha256": raw_hash(canonical_bytes(plans) + b"\n"), "content_sha256": content_hash(plans),
-            "coverage": {"calendar": metadata["calendar"], "arms": list(ARMS), "rows": len(plans)},
+            "coverage": {"calendar": metadata["calendar"], "arms": arms, "rows": len(plans)},
             "version": RULE_VERSION, "rule_inputs": sources, "strategy_hash": content_hash(strategy)}
         manifest = {"status": "BACKTEST_RULE_PLANS_GENERATED", "input_status": "INPUT_BLOCKED",
                     "execution_status": "NOT_RUN", "return_status": "待实测", "strategy": strategy,
+                    "scores_mode": scores_mode(metadata), "scope_status": product["scope_status"],
                     "inputs": sources, "plans": metadata["inputs"]["plans"],
                     "reference_states": product["reference_states"],
-                    "verification_scope": "reference rule recursion only; upstream provenance/PIT and frozen P-REF require verification"}
+                    "verification_scope": "reference rule recursion only; upstream provenance/PIT require host verification; P-REF applies only in full mode"}
         write_bundle(args.output_dir, {"plans.json": plans, "metadata.json": metadata, "rule-manifest.json": manifest})
     except (ContractError, OSError, TypeError, ValueError, KeyError) as exc:
         print(canonical_bytes({"status": getattr(exc, "status", "OUTPUT_BLOCKED" if isinstance(exc, OSError)

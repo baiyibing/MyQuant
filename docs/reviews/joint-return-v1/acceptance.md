@@ -1,6 +1,31 @@
 # Joint return v1 验收账本
 
-本次范围：R0 + MQ R1 data-free；BT R1 下一刀。真实输入 `INPUT_BLOCKED`，真实运行 `NOT_RUN`，收益结论待实测；MQ 合成绿不等于联合 `IMPLEMENTATION_PASS`。
+本次范围：MQ control-only P-BASE 瘦合同 data-free，基于 origin/master `7e94891`（含 #94）。P-BASE 本地 frozen / portfolio 入口已解耦 anti/universe/labels/pref；真实来源仍待核验，真实运行 `NOT_RUN`，收益结论待实测；MQ 合成绿不等于联合 `IMPLEMENTATION_PASS`。
+
+## 2026-09-20 瘦合同验收
+
+`tests/test_joint_return_control_only.py` 使用 pytest 临时目录内合成数据；即使 kind=frozen 也仅验证真实包装路径，不声称数据源真实。禁止 PortAna 倒推、造 anti/candidate/label/价格/资格；研究默认 50/5、可配 20/3 与 10/3，未改线上配置、训练、BT 或 Mode A/B。
+
+| 验收 | 结果 / 边界 |
+|---|---|
+| 原始三列链路 | control 三列 + 显式 recorder/version/逐日 availability 声明 → merge → rules → 三段 freeze → portfolio CLI；三组参数全部覆盖，省略 pref/universe/anti/labels 成功 |
+| 组合约束 | 与 full P-BASE 的数量、现金、目标权重、参考费用、目标换手逐日相等；排名反转触发 n_drop 调出及后续换回，初建换手手算 .95；独立状态 hash / topk / 风险预算 / 含费现金门保留 |
+| 最小研究规模 | 单日、三只证券、显式现金空仓可生成 P-BASE；没有 P-REF 的十只/五日/两窗依赖 |
+| 后置记账 | pairing/hash/状态仅 P-BASE；P-CHASE INPUT_BLOCKED、P-REF-anti NOT_RUN、WEAK_SIGNAL INPUT_BLOCKED、Mode B INPUT_BLOCKED/NOT_RUN；constraints anti_rank/t0_median 为 null，无假值 |
+| 仍须阻断 | 请求 chase/弱信号/anti 臂、直接调用 anti 门、混合/提升模式、假字段、错误 recorder、缺价格/资格/初态/sessions、未来时点、现金/风险超限、公司行动、状态/计划来源漂移均拒绝 |
+| 不缩水分母 | 全部 control 键保留；可选后置文件仅留原始 hash 与未消费清单；缺完整来源/availability 不猜测，重复键拒绝 |
+| 全量回归 | 原有 full 的四表、原 P-REF hash/窗/数值、两臂递推、immutable 输出及 import fence 测试继续通过；缺输入不会自动转瘦 |
+| 指标边界 | MQ 只输出参考目标换手；实际换手、回撤、净超额需执行/估值台账，均未测。RankIC 不作为本刀收益验收，不预填真实收益数字 |
+
+指定验收命令：
+
+```bash
+/workspace/vanna312/bin/python -m pytest tests/test_joint_return_*.py -q
+```
+
+实际结果：`216 passed in 8.69s`，exit code 0，无 skip（原有 174 项 + 新增瘦合同 42 项）。历史 174 项及以下账本只作为前序证据。本刀仅本地提交并写 handoff，不 push、不建 PR、不评论、不 merge。
+
+## 前序验收与后续联合门禁
 
 基线与白名单见 [contract](contract.md)，逐项缺口见 [input-register](input-register.md)。本次无生产/特征/pred/线上 10/3 配置改动；程序未上线，仅有回测。研究默认 50/5，20/3、10/3 可切换，不调用旧回测/PortAna/湖，不写 BT，不做 R2+、residual 叠回或 4090 实测。
 

@@ -2,9 +2,78 @@
 
 本次在 **Grok Bot 虚拟机**交付和合成验收，不是 4090。原始 10/3 从未实盘、程序未上线，仅有回测，不存在线上原始意图包；**禁止再要求 live `frozen_original_intents`**，也禁止 PortAna 持仓/成交倒推。control recorder READY 不等于本清单全部输入齐备。
 
-研究默认 **50/5**，仓内对此实验积累最多；这是研究默认，**不改线上 10/3 配置**，不表示线上已有程序在运行。20/3、10/3 可显式切换。规则与字段 SSOT 为 [contract](contract.md) §3–6，逐项状态见 [input-register](input-register.md)，测试见 [acceptance](acceptance.md)。当前真实状态 `INPUT_BLOCKED / NOT_RUN`，收益待实测。
+研究默认 **50/5**，仓内对此实验积累最多；这是研究默认，**不改线上 10/3 配置**，不表示线上已有程序在运行。20/3、10/3 可显式切换。规则与字段 SSOT 为 [contract](contract.md) §3–6，逐项状态见 [input-register](input-register.md)，测试见 [acceptance](acceptance.md)。2026-09-20 用户裁定已开放下列瘦入口，缺 anti/universe/labels 不再阻塞 P-BASE 组合约束。真实收益与 BT 仍 `NOT_RUN`。
 
-## 1. 准备显式输入，不寻找 live 包
+## 0. 只有 control 时走瘦合同
+
+以下是宿主只读研究准备流程；原全量流程保留在 §1–4。不要复制 full 的 candidate/sidecar/pref 依赖到瘦包，也不要把它们补成假值。
+
+| 最小输入 | 显式研究合同 |
+|---|---|
+| control | 固定 `8a061ea428e04bb3a199a485ade49d0e` 的原 date/instrument/score，全部键保留。已有 score_available_at/source_version/recorder_id 时直接 merge；否则另给下述来源声明。 |
+| control-metadata（仅三列原料需要） | 恰含 recorder_id、source_version、score_available_at_by_date（日期→秒精度 +08:00）；每个 control 日期都有经核验的可得时点，不能由日期猜收盘时间。 |
+| initial_state | 可显式选定研究起始现金并空仓：`{"cash":<研究者选定的CNY数值>,"positions":{},"quantity_unit":"share","native_stop":"N/A"}`。不是线上账户余额；inputs 的 version/coverage 登记研究假设和起点。不需要旧仓、holding_days 或历史成交。缺此文件不自动初始化。 |
+| sessions（生成 plans 时） | 仍用 §1 / contract §5.2 的研究 session，日期集合恰等于 metadata.calendar；每个 control 证券有显式参考价、execution_symbol、买卖资格/原因/可得时点。只需这些显式 JSON，不需要连接湖或分钟引擎。不可全设 eligible=true、price=1 来过门；无来源即局部 INPUT_BLOCKED。 |
+| plans（已有时） | 可以直接冻结符合合同的 P-BASE backtest_rule_intents；freeze/portfolio 无需另给 sessions 文件。必须保留来源证据、参考价、资格、冻结数量和状态链，不接受 PortAna 倒推。 |
+| pref / universe / anti / labels | 瘦路径不需要。pref 必须从 snapshot、metadata.inputs 与 freeze CLI 省略；candidate_recorder_id/sidecar_sha256 省略或 null。后置不等于通过。 |
+
+来源补充文件结构（尖括号必须由宿主真实证据替换，不是默认值）：
+
+```text
+{
+  "recorder_id": "8a061ea428e04bb3a199a485ade49d0e",
+  "source_version": "<control导出版本及来源>",
+  "score_available_at_by_date": {
+    "<实际交易日期>": "<该日分数实际可得的YYYY-MM-DDTHH:MM:SS+08:00>"
+  }
+}
+```
+
+瘦 metadata 增加 `"scores_mode":"control_only","arms":["P-BASE"]`；其余策略/费用/研究预算/时钟/单位字段延续 §2，只有 topk/n_drop 有默认。inputs 在规则生成前登记 scores/initial_state 的 URI/双 hash/coverage/version，生成器补入 plans 后恰为三段。来源补充文件由 merge manifest 锁定，宿主须保存该回执；sessions/原 metadata 的双 hash 在生成 plans 的 rule_inputs 中保留。不能以 hash 字串代替上游验证。
+
+```bash
+set -e
+MQ_PYTHON=/absolute/path/to/python
+FREEZE_INPUT_DIR=/absolute/path/to/verified-research-inputs
+FREEZE_OUT_DIR=/absolute/path/to/new-slim-output
+"$MQ_PYTHON" -m my_scripts.joint_return_merge_scores \
+  --mode control_only \
+  --control "$FREEZE_INPUT_DIR/control.json" \
+  --control-metadata "$FREEZE_INPUT_DIR/control-metadata.json" \
+  --output-dir "$FREEZE_OUT_DIR/merged"
+```
+
+若 control 已含完整来源字段，省略 `--control-metadata`。然后按 §2 的双 hash 命令，仅登记 merged/scores.json 和 initial_state.json（**不传 pref**），写好上述瘦 metadata，再运行：
+
+```bash
+"$MQ_PYTHON" -m my_scripts.joint_return_rule_intents \
+  --scores "$FREEZE_OUT_DIR/merged/scores.json" \
+  --initial-state "$FREEZE_INPUT_DIR/initial_state.json" \
+  --sessions "$FREEZE_INPUT_DIR/sessions.json" \
+  --metadata "$FREEZE_INPUT_DIR/metadata.json" \
+  --arms P-BASE --topk 50 --n-drop 5 \
+  --output-dir "$FREEZE_OUT_DIR/rules"
+
+"$MQ_PYTHON" -m my_scripts.joint_return_freeze_snapshot \
+  --scores "$FREEZE_OUT_DIR/merged/scores.json" \
+  --initial-state "$FREEZE_INPUT_DIR/initial_state.json" \
+  --plans "$FREEZE_OUT_DIR/rules/plans.json" \
+  --metadata "$FREEZE_OUT_DIR/rules/metadata.json" \
+  --output "$FREEZE_OUT_DIR/snapshot.json"
+
+"$MQ_PYTHON" -m my_scripts.joint_return_portfolio \
+  --snapshot "$FREEZE_OUT_DIR/snapshot.json" \
+  --run-id joint-return-control-only-50-5 \
+  --output-root "$FREEZE_OUT_DIR/portfolio"
+```
+
+已有经研究规则生成的 plans 时可跳过生成器，在三段 metadata 中明确登记该 plans，再直接 freeze。切换 20/3、10/3 仍需显式参数与 metadata 相符。所有输出必须为新目录/新文件；CLI 失败退出 2，成功退出 0 只说明相应本地阶段完成。
+
+验收回执检查 `portfolio_status=PORTFOLIO_CONSTRAINTS_PASS`、P-BASE 状态链/数量/费用/目标换手，`pairing.arms` 和 `arm_intent_hashes` 仅有 P-BASE；constraints 的 anti_rank/t0_median 为 null。`pref_check=NOT_RUN`，scope_status 分列 P-CHASE INPUT_BLOCKED、P-REF-anti NOT_RUN、WEAK_SIGNAL INPUT_BLOCKED、Mode B INPUT_BLOCKED/NOT_RUN。frozen 顶层 INPUT_BLOCKED 仍指上游来源待核验；不能再次拿后置 anti/universe/labels 当 P-BASE blocker。
+
+仅三列分数不能产生可信价格和资格。本最小链允许研究者显式给空仓初态、研究 sessions 或已冻结的规则 plans；缺真实价格/资格/可得时点仍停止并指出该项，不静默读湖或造字段。回撤、实际换手、净超额需要后续同窗/同成本/同资金的执行与估值台账；本刀输出仅供组合约束研究入口，不产生真实收益结论、不启动 Mode B。
+
+## 1. full 模式准备显式输入，不寻找 live 包
 
 所有输入都是 UTF-8 JSON，无 BOM/NUL/重复 key/NaN/Infinity。工具只读 CLI 显式路径和固定合同；不搜索 recorder/湖/缓存，不重新预测、不调用 Exchange/PortAna。文件中 source URI 只是声明，不自动解引用。
 
@@ -46,7 +115,7 @@ scores 合并以显式共同宇宙为分母；control/anti/label 任一共同键
 
 仅研究 `--topk 50 --n-drop 5` 有默认。metadata 中已登记参数必须和 CLI 相同；切换 20/3 或 10/3 时显式改两个开关及相应研究登记，不能只改开关覆盖旧锁。
 
-其余固定项延续合同：MQ/BT 两个实际完整 code_shas 与 implementation_bases 分列；control/candidate IDs、sidecar hash 固定；timezone=Asia/Shanghai，业务时点秒精度 +08:00，price_domain=none；fees 为显式 commission_only/per_order/buy_rate/sell_rate/minimum/source；risk_budget、valuation/benchmark version、order/quantity policy 均须完整。原始 P-REF expected 的规范 hash 为 `d9b503fa40937c6b870fc4b0bf9285e2ca53f0465af223f529f2e854712ae6f8`。
+其余固定项延续合同：MQ/BT 两个实际完整 code_shas 与 implementation_bases 分列；control ID 始终固定，full 才需 candidate ID、sidecar hash，瘦模式按 §0 省略/null；timezone=Asia/Shanghai，业务时点秒精度 +08:00，price_domain=none；fees 为显式 commission_only/per_order/buy_rate/sell_rate/minimum/source；risk_budget、valuation/benchmark version、order/quantity policy 均须完整。full 原始 P-REF expected 的规范 hash 为 `d9b503fa40937c6b870fc4b0bf9285e2ca53f0465af223f529f2e854712ae6f8`。
 
 原 contract_hash 因本次合同修订失效；用当前文件原字节 SHA-256。后续 BT 必须核对相同合同字节并重新验收，不能复用旧已通过标记。本次不改 BT，也不代替 BT 兼容性验收。
 
@@ -69,7 +138,7 @@ sha256sum docs/reviews/joint-return-v1/contract.md
 
 URI 必须是对应 CLI 输入的解析后绝对路径。记录日期/证券/行数/缺失原因、版本、时区/单位/价域和核验人/核验时点。规则生成器预先核验 scores/initial_state 锁，冻结观察到的 sessions/metadata 双 hash；freeze 再核验四段文件全部锁。上游数据来源/PIT 不会因写了一个 hash 字串自动得到证明。
 
-## 3. 实际 CLI 顺序
+## 3. full 模式实际 CLI 顺序
 
 以下命令已由本次 data-free tests 接线验证，路径必须替换为宿主明确准备好的研究输入和**新目录**。它们不是授权 4090 开跑分钟回测的命令。
 
@@ -123,7 +192,7 @@ FREEZE_OUT_DIR=/absolute/path/to/new-freeze-output
 
 freeze 成功退出 0 的 `FROZEN_SNAPSHOT_ASSEMBLED` 只证明显式四段拼装；`kind=frozen`、input_status=INPUT_BLOCKED、execution_status=portfolio_status=NOT_RUN。portfolio 仍验证原 P-REF expected hash/两窗/数值及状态/数量/现金递推。合成 expected 不可借拼装通过真实门；P-REF 仍是 Top10，不随持仓 topk 扩大。
 
-## 4. 剩余缺口和回执
+## 4. full 模式剩余缺口和回执（瘦模式按 §0 分列）
 
 | 项 | 状态 |
 |---|---|

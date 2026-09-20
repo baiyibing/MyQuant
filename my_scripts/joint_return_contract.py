@@ -18,6 +18,7 @@ CANDIDATE_RECORDER = "d03e8ffcb6d14668b4d6fc2b192bc8c7"
 SIDECAR_SHA256 = "27320f8b7f6de3854802f97325f682039732470ce387f21bc9cd6c3083b7b348"
 PJSON_HASH = "d9b503fa40937c6b870fc4b0bf9285e2ca53f0465af223f529f2e854712ae6f8"
 ARMS = ("P-BASE", "P-CHASE")
+SCORES_MODES = ("full", "control_only")
 RULE_SOURCE = "backtest_rule_intents"
 RULE_VERSION = "topk-dropout-reference-v1"
 DEFAULT_TOPK = 50
@@ -58,6 +59,40 @@ class ContractError(ValueError):
 def require(condition, detail, status="INPUT_BLOCKED"):
     if not condition:
         raise ContractError(status, detail)
+
+
+def scores_mode(metadata):
+    require(isinstance(metadata, dict), "metadata: expected object")
+    mode = metadata.get("scores_mode", "full")
+    require(mode in SCORES_MODES, "unknown scores_mode")
+    return mode
+
+
+def portfolio_arms(metadata):
+    expected = ["P-BASE"] if scores_mode(metadata) == "control_only" else list(ARMS)
+    require(metadata.get("arms", expected) == expected,
+            "requested arms blocked: control_only permits only P-BASE; full requires P-BASE/P-CHASE")
+    return expected
+
+
+def input_sections(metadata):
+    return ("scores", "initial_state", "plans") + (() if scores_mode(metadata) == "control_only" else ("pref",))
+
+
+def scope_status(metadata, base_status, *, pref_status="NOT_RUN"):
+    """Local research readiness is separate from execution and deferred dependencies."""
+    slim = scores_mode(metadata) == "control_only"
+    return {
+        "P-BASE": {"status": base_status, "execution_status": "NOT_RUN"},
+        "P-CHASE": {"status": "INPUT_BLOCKED" if slim else base_status,
+                    "execution_status": "NOT_RUN", "reason": "anti deferred" if slim else "full inputs required"},
+        "P-REF-anti": {"status": "NOT_RUN" if slim else pref_status,
+                       "reason": "anti/universe/labels deferred" if slim else "see pref_check"},
+        "WEAK_SIGNAL": {"status": "INPUT_BLOCKED", "execution_status": "NOT_RUN",
+                        "reason": "weak-signal inputs and filtering arms deferred"},
+        "Mode B": {"status": "INPUT_BLOCKED", "execution_status": "NOT_RUN",
+                   "reason": "real lake, execution and unit/PIT evidence outside MQ scope"},
+    }
 
 
 def validate_topk(topk, n_drop):
@@ -190,13 +225,13 @@ def load_snapshot(path):
 
 
 def validate_snapshot(snapshot):
-    fields(snapshot, ("schema_version", "kind", "metadata", "scores", "initial_state", "plans", "pref"),
+    fields(snapshot, ("schema_version", "kind", "metadata", "scores", "initial_state", "plans"),
            "snapshot")
     require(snapshot["schema_version"] == SCHEMA_VERSION, "schema version drift")
     require(snapshot["kind"] in ("synthetic", "frozen"), "unknown snapshot kind")
     m = snapshot["metadata"]
     fields(m, ("code_shas", "implementation_bases", "contract_hash", "pred_recorder_id",
-               "candidate_recorder_id", "sidecar_sha256", "generated_at", "window", "calendar",
+               "generated_at", "window", "calendar",
                "timezone", "price_domain", "strategy", "fees", "risk_budget", "valuation_version",
                "benchmark_version", "order_policy", "quantity_policy", "inputs"), "metadata")
     require(m["implementation_bases"] == {"MQ": BASE_MQ, "BT": BASE_BT}, "implementation base drift")
@@ -204,9 +239,18 @@ def validate_snapshot(snapshot):
     for value in m["code_shas"].values():
         sha(value, 40)
     require(m["contract_hash"] == contract_hash(), "contract hash drift", "PAIR_INVALID")
-    require(m["pred_recorder_id"] == RECORDER and m["candidate_recorder_id"] == CANDIDATE_RECORDER,
-            "full recorder mismatch")
-    require(m["sidecar_sha256"] == SIDECAR_SHA256, "existing sidecar hash mismatch")
+    require(m["pred_recorder_id"] == RECORDER, "full recorder mismatch")
+    portfolio_arms(m)
+    sections = input_sections(m)
+    fields(snapshot, sections, "snapshot")
+    if scores_mode(m) == "control_only":
+        require(m.get("candidate_recorder_id") is None and m.get("sidecar_sha256") is None,
+                "control_only must omit/null deferred candidate and sidecar declarations")
+        require("pref" not in snapshot, "control_only must omit pref; P-REF-anti is NOT_RUN")
+    else:
+        fields(m, ("candidate_recorder_id", "sidecar_sha256"), "metadata")
+        require(m["candidate_recorder_id"] == CANDIDATE_RECORDER, "full recorder mismatch")
+        require(m["sidecar_sha256"] == SIDECAR_SHA256, "existing sidecar hash mismatch")
     timestamp(m["generated_at"])
     require(m["timezone"] == "Asia/Shanghai" and m["price_domain"] == "none", "time/price domain drift")
     fields(m["window"], ("start", "end"), "window")
@@ -230,8 +274,10 @@ def validate_snapshot(snapshot):
     number(m["risk_budget"], "risk_budget", minimum=0)
     require(m["risk_budget"] <= 1, "risk budget above one")
     require(bool(m["valuation_version"]) and bool(m["benchmark_version"]), "valuation/benchmark version missing")
-    fields(m["inputs"], ("scores", "initial_state", "plans", "pref"), "input sources")
-    for name in ("scores", "initial_state", "plans", "pref"):
+    fields(m["inputs"], sections, "input sources")
+    if scores_mode(m) == "control_only":
+        require(set(m["inputs"]) == set(sections), "control_only requires exactly three input sections")
+    for name in sections:
         require(name in m["inputs"], f"missing source: {name}")
         source = m["inputs"][name]
         fields(source, ("uri", "raw_sha256", "content_sha256", "coverage", "version"), name)
