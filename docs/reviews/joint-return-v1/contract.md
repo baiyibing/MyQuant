@@ -2,7 +2,7 @@
 
 状态：本刀交付 R0 与 MQ R1 data-free；BT R1 下一刀。真实输入 `INPUT_BLOCKED`，分钟链 `NOT_RUN`，新收益、成交率、滑点与 Sharpe 均待实测。
 
-SSOT：[联合实施计划](../2026-09-19-joint-return-implementation-plan.md) §3、R0/R1、F-R2–F-R12；来源与缺口见 [input-register](input-register.md)，门禁见 [acceptance](acceptance.md)。本次用户令覆盖旧计划的 docs-only 派工限制与旧 MQ 实施基线；其余冻结边界继承。
+SSOT：[联合实施计划](../2026-09-19-joint-return-implementation-plan.md) §3、R0/R1、F-R2–F-R12；来源与缺口见 [input-register](input-register.md)，门禁见 [acceptance](acceptance.md)。本次用户澄清优先于旧计划：原始 10/3 从未实盘、程序未上线，只有回测，不存在线上原始意图包。禁止要求 live `frozen_original_intents`；来源改为显式回测规则生成。研究默认 50/5（仓内实验积累最多），20/3、10/3 可切换；这是研究默认，不改线上 10/3 配置，也不表示线上已经运行。旧计划中硬锁研究 10/3、等待原始意图包的要求作废，其余生产隔离边界继承。
 
 ## 1. 代码与有限范围
 
@@ -18,7 +18,7 @@ SSOT：[联合实施计划](../2026-09-19-joint-return-implementation-plan.md) �
 | MQ-PJSON 规范内容 SHA-256 | `d9b503fa40937c6b870fc4b0bf9285e2ca53f0465af223f529f2e854712ae6f8` |
 | 有限组合 / fill 清单 | P-REF 单列诊断；P-BASE、P-CHASE 各配 M-REF、M-LAG；MQ 不运行 fill |
 
-本刀 MQ 白名单仅：
+本次回测规则适配 MQ 白名单：
 
 - `docs/reviews/joint-return-v1/contract.md`
 - `docs/reviews/joint-return-v1/input-register.md`
@@ -26,10 +26,16 @@ SSOT：[联合实施计划](../2026-09-19-joint-return-implementation-plan.md) �
 - `my_scripts/joint_return_contract.py`
 - `my_scripts/joint_return_portfolio.py`
 - `tests/test_joint_return_portfolio.py`
+- `my_scripts/joint_return_freeze_snapshot.py`
+- `my_scripts/joint_return_rule_intents.py`
+- `my_scripts/joint_return_merge_scores.py`
+- `tests/test_joint_return_freeze_snapshot.py`
+- `tests/test_joint_return_rule_intents.py`
+- `docs/reviews/joint-return-v1/host-frozen-snapshot-checklist.md`
 
 BT 下一刀拟白名单：`backtest/research/joint_return_replay.py`、`scripts/research/run_joint_return_replay.py`、`tests/test_joint_return_replay.py`。本刀不写 BT 文件。sibling 工作区 HEAD `41f3d11a34c665cc8a21b3e1d351b9e06b0466b5` 仅作差异登记，事实按固定 BT 对象读取；不 checkout/pull。后续 R2–R6 另行派工，不在此白名单。
 
-运行 manifest 必填 MQ/BT 两个实际 40 位 `code_shas` 和上述两个 `implementation_bases`；合成 fixture 使用基线 SHA 仅演示字段，不能冒充实际运行提交。实际提交由 PR 与宿主回执登记，文档不自引用自身提交 SHA。
+运行 manifest 必填 MQ/BT 两个实际 40 位 `code_shas` 和上述两个 `implementation_bases`；合成 fixture 使用基线 SHA 仅演示字段，不能冒充实际运行提交。实际提交由本地 Git commit 与 handoff 登记；本次禁止 push、PR、评论。后续宿主回执另行登记，文档不自引用自身提交 SHA。
 
 ## 2. 字节、排序与配对
 
@@ -55,7 +61,7 @@ intents 按 `(arm_id, decision_at, side_order, instrument, intent_id)`，SELL �
 | `pred_recorder_id, candidate_recorder_id, sidecar_sha256` | 必须等于 §1；候选只作共同宇宙对齐 |
 | `generated_at, window{start,end}, calendar, timezone` | 生成时点、显式窗口、已排序无重复的市场交易日期；不按自然日补日期 |
 | `price_domain, valuation_version, benchmark_version` | none 价格域、估值版本、同 fill 的 P-BASE 基准版本；无默认指数 |
-| `strategy{topk,n_drop,source,eligibility_version,eligibility_rules,native_stop}` | 10、3、`frozen_original_intents`、资格来源版本、完整非空冻结闸门配置、`N/A`；配置只登记不重新判资格，不得猜 ST/年龄/涨幅资格 |
+| `strategy{topk,n_drop,source,rule_version,rule_parameters,eligibility_version,eligibility_rules,native_stop}` | 正整数 topk、0≤n_drop≤topk 整数；默认研究 50/5，覆盖 20/3、10/3；`backtest_rule_intents`、`topk-dropout-reference-v1`、下述规则参数、资格版本与非空闸门定义、`N/A`。bool/浮点数不当整数，不得猜 ST/年龄/涨幅资格 |
 | `fees{model,buy_rate,sell_rate,minimum,granularity,source}` | commission_only、费率为成交金额比例、最低费 CNY、per_order、证据来源；必须显式给值，无生产政策 import |
 | `risk_budget` | 股票目标权重上限 [0,1]；无来源的真实数值仍阻塞 |
 | `order_policy, quantity_policy` | §5/§6 固定枚举，无任意阈值网格 |
@@ -75,31 +81,74 @@ bootstrap 固定 block=5、reps=10000、seed=20260919；NumPy default_rng 非环
 
 frozen 必须提供与 §1 MQ-PJSON 规范 hash 一致的完整 expected，以及原窗 `2025_valid:2025-01-03…2025-12-31`、`2026_oos:2026-01-01…2026-09-14`。每个日历日必须恰好落入一个窗口，不允许暗删日或重复窗口。真实通过仍需原始来源、统计生成口径与独立窗门禁；本刀真实 P-REF 为 `INPUT_BLOCKED`。synthetic 用手算 expected，永远只报 `SYNTHETIC_PASS`；不匹配报 `PREF_MISMATCH` 并阻止组合输出。
 
-## 5. 原始 10/3 意图与各臂参考状态
+### 4.1 scores 显式合并
 
-当前没有可核验原始 10/3 意图包。`replay_10n3_two_year.py` 调用 backtest_daily；`export_positions_trades.py` 是已成交 PortAna 持仓；`export_next_day_pool.py` 默认 50/5 且可预测。三者均只作来源线索，不能调用、倒推失败订单或偷偷适配。本刀没有实现规则重建适配器。后续若原始快照不存在，须另刀核对冻结规则并交付仅生成意图的确定性适配。
+入口 `python -m my_scripts.joint_return_merge_scores --control PATH --universe PATH --anti PATH --labels PATH --output-dir NEW_DIR`。四个输入均为 JSON 行数组，键是 `(date,instrument)`，不自动改名/转换类型/补时间；每文件重复键、必需列缺失均 INPUT_BLOCKED。
 
-`initial_state` 是两臂共同起点：`cash`（CNY，非负）、`positions`（instrument→`quantity,lot_id,instance_id`）、`quantity_unit="share"`、`native_stop="N/A"`。持仓正数量、lot 唯一、最多十只。参考现金和持仓属于独立的理想化信号路径，不是 M-REF/M-LAG 的实际账本。
+| 输入 | 除 date/instrument 外的必需列 |
+|---|---|
+| control | `score,score_available_at,source_version,recorder_id`，recorder_id 必须是完整 control ID。 |
+| universe | `candidate_present=true,recorder_id`，recorder_id 为完整 candidate ID；这是**预先核验的共同宇宙**，只含成员信息，不能有 score。 |
+| anti | `anti_rank,anti_available_at,source_version,source_sha256`，source_sha256 是 §1 原 sidecar 的来源声明，不是转换后的 JSON 字节 hash。 |
+| labels | `label,source_version`；整日无 label 用显式 null，不能省行/省列。 |
 
-每个显式 portfolio calendar 日期必须有两个独立 plan，即使当日无意图也要交空计划。plan 必需：
+以 universe 为完整分母，逐键要求其他三表覆盖，禁止 inner join 丢缺失行；额外的 control/anti/label 键在 `merge-manifest.json.coverage.outside_common_keys` 完整记录。candidate scores 禁止进入任何表。输出 `scores.json` 维持 §4 必需列，保留 control recorder、anti/label 版本和原 sidecar hash 声明；按固定顺序输出，数值不重算。部分 label 缺失阻塞，全日 null 保留。输出 manifest 冻结四输入 URI/双 hash 和完整日历；上游 recorder/sidecar/PIT 真实性仍需核验，因此 status=SCORES_MERGED 也不把 input_status 从 INPUT_BLOCKED 改绿。
+
+## 5. 回测规则意图与各臂参考状态
+
+原始 10/3 **从未实盘、程序未上线，只有回测**。不存在可索取的 live frozen_original intents。本合同唯一接受 `source="backtest_rule_intents"`；旧 `frozen_original_intents` 与 `PortAna_positions` 均拒绝。生成器从 control scores、显式研究初态和逐日市场/资格输入生成计划，绝不由 PortAna 最终仓位、成交或线上订单倒推。
+
+入口 `python -m my_scripts.joint_return_rule_intents --scores PATH --initial-state PATH --sessions PATH --metadata PATH --output-dir NEW_DIR [--topk 50 --n-drop 5]`。默认 50/5；20/3、10/3 必须同时给两个开关。metadata 若已登记 topk/n_drop，必须与 CLI 一致，否则 INPUT_BLOCKED，不静默改写。生成新的 `plans.json,metadata.json,rule-manifest.json`；输入文件不改，输出目录不覆盖。输出 metadata 的 plans 声明含本次规则输入的 URI/双 hash 与策略 hash，其余 section 声明保留；scores/initial_state 的预登记 URI/双 hash 必须匹配文件。
+
+### 5.1 规则来源和明确边界
+
+复用 Qlib `TopkDropoutStrategy` 的 top/bottom 研究选股核心。仓内调用证据：`my_scripts/custom_train_backtest.py`、`my_scripts/replay_2025_st_age_vs_15.py`（50/5）、`my_scripts/replay_10n3_two_year.py`（10/3）；规则源码核对 Qlib commit `79633dd9506ea689e5400dea0197717b5b3d74b7` 的 `qlib/contrib/strategy/signal_strategy.py`。运行时不 import Qlib/Exchange/PortAna，不调用回测或真实撮合。
+
+`rule_parameters` 必须显式给且仅含：`method_buy="top",method_sell="bottom",only_tradable=false,hold_thresh`（非负整数）、`risk_degree`（[0,1]）。仅 topk/n_drop 有研究 CLI 默认；持有门槛、资金、费用、风险比例和资格配置不从旧脚本猜值。`eligibility_rules` 登记实际来源规则，market 中提供其可得时点和逐只判定；本适配不实现 ST/年龄/涨幅数据加载器，也不声称复现仓内所有 Filter 子类。
+
+每日、每臂按以下顺序递推：
+
+1. scores 按 `score desc,instrument asc` 排序。`today` 为未持有股票的前 `n_drop+topk-held_count`；旧仓与 today 合并排序，旧仓中落在合并榜尾 n_drop 的进入卖出候选。不是每天强卖 n_drop，也不是每天重新等权 TopK。n_drop=0 明确不卖出。
+2. 卖出还需显式 `sell_eligible=true` 且该臂持有交易日数≥hold_thresh。拒绝的候选留仓并记录原因。为遵守本合同 topk 上限，可买槽位=`min(len(today),批准卖出数+topk-held_count)`；**不借用拒绝卖出的槽位**。这是参考意图适配的明确约束，与 Qlib 先按候选卖出数算 buy 列表的实现有区别，不声称逐笔成交等价。
+3. 批准卖出按共同参考价、完整 lot 及显式研究费更新参考现金；每个买入槽位预算=`卖后现金*risk_degree/slots`。target_weight=预算/调仓前 NAV，数量=`floor((预算+1e-8)/参考价/100)*100`。不暗调费率、风险比例或缩单；实际选中的含费现金不足则 PAIR_INVALID。
+4. P-BASE 只在 today 的前 slots 中保留显式获准且整手数量>0 的买入，不因资格拒绝另行提升后排。所有非持仓候选均提供显式资格；零整手/无槽位记录到 rule_trace 和 constraints 的 `RULE_BUY_BLOCKED`，不造零量订单。
+5. P-CHASE 在该臂自己的规则基线上，只替换低于每日 **Top10 T0** anti 中位数的新买，合格候选按 score 补足，必要时记录放宽；资格绝不放宽。P-REF/anti 阈值的 Top10 是既有诊断口径，与研究持仓 topk 分开，50/5 不将它改成 Top50。
+6. 每臂用自身 SELL→BUY 参考结果递推下一天，持有交易日数也各自递推；新买到下一交易日计 1，旧仓每个显式市场 session 加 1。实际 M-REF/M-LAG fills 不反馈选股。持仓不得超过所选 topk，买入可补前日空槽，不能硬限所有非空仓日最多 n_drop。
+
+缺旧仓 score 直接 INPUT_BLOCKED，不沿用 Qlib NaN 排尾；稳定 instrument ties 明确锁定。以上差异都是版本 `topk-dropout-reference-v1` 的定义，不得把本参考账本说成历史原始成交记录。
+
+### 5.2 初态与 sessions 必需列
+
+`initial_state` 是显式研究起点：`cash`（CNY，非负）、`positions`（instrument→`quantity,lot_id,instance_id,holding_days`）、`quantity_unit="share"`、`native_stop="N/A"`。非空初始仓的 holding_days 必须显式提供，是第一决策时点已持有的交易日数；后续年龄在每臂 rule_trace 中记录。允许显式现金空仓起步，不要求真实/线上账户；不自动继承旧现金池。数量正、lot 唯一、持仓数≤topk。参考路径与 fill 账本分离。
+
+`sessions.json` 顶层行数组；日期集合必须恰好等于 metadata.calendar，不能删失败日。每行必需：
 
 | 字段 | 定义 |
 |---|---|
-| `date,arm_id,source,pre_state_hash` | 日期、P-BASE/P-CHASE、frozen_original_intents、该臂上次参考递推后 state hash；不得拿 BASE 状态重置 CHASE |
-| `decision_at,available_at,effective_at,expires_at` | decision≤available≤effective<expires；当日所有排序所用 score/anti 已在 decision 前可得；同日 close 事件不授权同根 open |
-| `marks,mark_at` | instrument→none 参考价（CNY/share）；mark_at≤decision；旧仓不能缺价；意图转换价格须与该估值点完全一致 |
-| `sells` | 原始卖出候选列表；完整数量字段 + `approved:bool,approval_reason`。未经批准继续持有，无名单删除；批准卖出最多 3，只允许完整 lot 退出 |
-| `buys` | 原始获准新买 instrument 有序列表；已有仓时最多 3、空仓初始建仓最多 10；持仓总数≤10 |
-| `buy_candidates` | 明确冻结的合法回填备选及逐只数量字段，另含 `eligible:bool,eligibility_reason`；每个原始买入必须已获准且有对应数量，缺失停止 |
-| `corporate_actions` | v1 MQ 只接受空列表；非空报 SEMANTICS_BLOCKED，不能隐式缩放或漏事件 |
+| `date,decision_at,available_at,effective_at,expires_at,mark_at` | 日期与五个显式时点；mark≤decision≤available≤effective<expires。score/anti/资格须在 decision 可得；日期不自动 shift。同根收盘信号不授权同根 open；后续 M-LAG 使用可得时点后的合法 open。 |
+| `price_domain,source_version,eligibility_version` | none、非空市场来源版本、与 strategy 一致的资格版本。 |
+| `market` | 每只当前 score 股票及旧仓的显式价格/证券映射/资格行；不够即 INPUT_BLOCKED。 |
+| `corporate_actions` | 显式空列表；非空 SEMANTICS_BLOCKED，不可删掉真实事件过门。 |
 
-每个数量记录必填 `instrument,execution_symbol,instance_id,lot_id,target_weight,original_target_quantity,reference_price,reference_price_at,quantity_unit,quantity_conversion`。证券映射唯一，跨日不漂移。BUY 为新 lot，不买已有仓；原始数量是明确买卖数量，不是持仓终值。SELL 量/lot 必须等于参考持仓，target_weight=0。目标权重是 [0,1] 的资金比例，旧仓沿用漂移权重；现金为补项。
+market 每行必须有 `instrument,execution_symbol,reference_price,buy_eligible,buy_reason,sell_eligible,sell_reason,eligibility_available_at`。价格为 mark_at 的 none CNY/share；资格布尔值和非空原因均不可省略，资格发布时间不得晚于 decision。映射跨日唯一且不能漂移，价格不能从未来成交拿来。资格在时点上的可证性仍需宿主验证。
 
-P-BASE 输出获准原始卖买及其原始权重/数量。P-CHASE 保持原卖出批准结果，只检查原买入；保留不低于 T0 中位数的原买入，严格低于者记录 `SKIP_BELOW_MEDIAN`，在冻结 eligible 候选中按 score 补足原始买入槽位，先 `BACKFILL_SCORE`，仍不足才 `RELAX_BELOW_MEDIAN`。资格失败永不放宽；未授权卖出的旧仓留存，不每日整体换成 T1。回填必须有该臂参考状态对应的数量快照，不能拿另一只股票的股数套用。
+### 5.3 生成计划与递推校验
 
-每臂用自己选出的 SELL→BUY 在共同参考价递推，扣一次显式 per_order 研究费，验证现金非负、股数合法、最多十只。它只是下一日原始计划的校验参考；fill 结果完全不输入此函数。下一日快照必须与该臂独立 state hash 相同，否则 PAIR_INVALID。manifest 保存完整 before/after state、原始 plan、两个 state hash、漂移/目标权重、目标换手、初始建仓标记、参考费用；失败日停止整包，不删除后继续。
+portfolio calendar 每日有 P-BASE/P-CHASE 两条 plan，无交易也有空计划：
 
-合成手算例：初始 P…Y 各 100 股×10 元，现金 5000，NAV=15000；获准卖 P/Q，R 未获准；原买 A/B 各 100 股、权重各 1/15。A/B 的 anti=.1，C…J=.5，K…O=.8，当日 T0 中位数=.5；CHASE 回填 C/D。BASE 次日持 ABRSTUVWXY，CHASE 持 CDRSTUVWXY，均仍现金 5000（仅此合成例零费）。次日空计划保持旧仓，绝不改成 C…L。目标换手两臂均 2/15；这不是实际换手或收益。
+| 字段 | 定义 |
+|---|---|
+| `date,arm_id,source,pre_state_hash` | 日期、臂、backtest_rule_intents、本臂上次参考状态 hash；不能用 BASE 重置 CHASE。 |
+| `decision_at,available_at,effective_at,expires_at,marks,mark_at` | 从上述显式 session 复制；marks 是参考价表。 |
+| `sells` | 完整数量字段 + `approved,approval_reason`；候选数量≤n_drop，只退出完整 lot。 |
+| `buys` | 规则获准新买 instrument 有序列表，填充批准卖出后及原有空槽，最终持仓≤topk。 |
+| `buy_candidates` | 每只非持仓且数量>0 的候选，完整数量字段 + `eligible,eligibility_reason`；CHASE 回填量由自身参考预算独立生成。 |
+| `corporate_actions` | 显式空列表。 |
+| `rule_version,strategy_hash,rule_trace` | 生成器证据：规则版本、完整策略 hash、session/scores 内容 hash、持有年龄、排序候选、零量拒绝原因；freeze 与 portfolio 拒绝策略 hash 漂移，portfolio 还校验排序后 scores hash。 |
+
+数量字段为 `instrument,execution_symbol,instance_id,lot_id,target_weight,original_target_quantity,reference_price,reference_price_at,quantity_unit,quantity_conversion`。新 lot 身份由规则版本/臂/日期/证券/前态 hash 确定；SELL 量/lot 与持仓完全相同、weight=0。BUY 不加到旧仓；original_target_quantity 是**规则冻结的原始订单量**，不是存在过的线上原始订单。
+
+portfolio 验证来源、参数、数量转换、独立前态、现金、topk 上限和风险预算，manifest 保留完整 before/after、plan、hash、漂移/目标权重、目标换手及研究参考费。基础 plan 结构仍可用于手算合成 pins；真实来源须留存生成器回执和上游输入，不能把填入 source 字串本身当成来源证明。生成器不运行 P-REF；freeze 后 portfolio 仍执行原 expected hash/窗口/数值门禁。
 
 ## 6. 输出意图、数量与公司行动
 
@@ -109,11 +158,11 @@ P-BASE 输出获准原始卖买及其原始权重/数量。P-CHASE 保持原卖�
 arm_id,intent_id,instance_id,lot_id,instrument,execution_symbol,decision_at,available_at,side,target_weight,original_target_quantity,quantity_unit,quantity_conversion,reference_price,reference_price_at,reason,reference_state_hash,source_plan_hash,effective_at,expires_at,retry_policy,conflict_policy,expiry_policy,native_stop
 ```
 
-`quantity_unit="share"`、`quantity_conversion="SNAPSHOT_FIXED"`。新买 100 股整手；审计已提供数量是否等于 `floor(target_weight*reference_NAV/reference_price/100)*100`，不改写它；卖出允许退出原有零股/小数 lot。比较现金/转换金额绝对容差 `1e-8` CNY，只消除浮点噪声，不允许融资。费用以 CNY 计、滑点未来通过成交价进入，不二次扣除。reference cost/peak/stop 均 N/A，不向 10/3 添加 r2/Livermore/WRD1。
+`quantity_unit="share"`、`quantity_conversion="SNAPSHOT_FIXED"`。新买 100 股整手；审计已提供数量是否等于 `floor(target_weight*reference_NAV/reference_price/100)*100`，不改写它；卖出允许退出原有零股/小数 lot。比较现金/转换金额绝对容差 `1e-8` CNY，只消除浮点噪声，不允许融资。费用以 CNY 计、滑点未来通过成交价进入，不二次扣除。reference cost/peak/stop 均 N/A，不向任一研究参数组添加 r2/Livermore/WRD1。
 
 公司行动转换未来 BT 单独记 `event_id,instrument,available_at,effective_at,from_unit,to_unit,original_quantity,factor,current_quantity,source_hash,price_domain`，所有配对共用同一事件；保留原始数量，未完成订单也须换算。Mode B shares÷k 的 factor=1/k，允许小数旧仓；这不表示现金分红入账或真实总回报守恒。映射/PIT/域不可证则 SEMANTICS_BLOCKED，绝不把转换伪装成选股差异。本刀 MQ 遇显式事件即阻塞，公司行动执行验收留给 BT；真实运行前必须证明无漏事件。
 
-`constraints.csv` 列 `date,arm_id,instrument,status,reason,score,anti_rank,t0_median,reference_state_hash`，状态包含上述 skip/backfill/relax、`ELIGIBILITY_BLOCKED`、`KEEP_UNAPPROVED_SELL`、`KEEP_OLD_POSITION`、`INTENT_EMITTED`；旧仓不在共同 score 宇宙时 score/anti 用 null，持仓仍保留。
+`constraints.csv` 列 `date,arm_id,instrument,status,reason,score,anti_rank,t0_median,reference_state_hash`，状态包含上述 skip/backfill/relax、`ELIGIBILITY_BLOCKED`、`KEEP_UNAPPROVED_SELL`、`KEEP_OLD_POSITION`、`INTENT_EMITTED`；已冻结基础计划可用 null 表达无 score 旧仓；本规则生成器要求旧仓 score 齐备，否则 INPUT_BLOCKED。
 
 ## 7. BT R1 生命周期（接口要求，尚未实现）
 

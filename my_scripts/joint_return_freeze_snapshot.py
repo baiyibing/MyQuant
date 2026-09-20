@@ -12,7 +12,7 @@ from pathlib import Path
 from my_scripts.joint_return_contract import (
     ARMS, CANDIDATE_RECORDER, RECORDER, SCHEMA_VERSION, ContractError, canonical_bytes,
     content_hash, date_string, fields, load_json_bytes, load_snapshot, raw_hash,
-    require, sha, timestamp, validate_snapshot,
+    require, sha, timestamp, validate_plan_source, validate_snapshot,
 )
 from my_scripts.joint_return_portfolio import score_days, validate_state
 
@@ -53,12 +53,11 @@ def _validate_sections(snapshot):
                 and CANDIDATE_RECORDER not in str(row["source_version"]),
                 "candidate score source is forbidden")
     require(set(metadata["calendar"]) <= grouped.keys(), "portfolio calendar missing scores")
-    validate_state(snapshot["initial_state"])
+    validate_state(snapshot["initial_state"], topk=metadata["strategy"]["topk"])
     seen = set()
     for plan in snapshot["plans"]:
         fields(plan, PLAN_FIELDS, "frozen plan")
-        require(plan["source"] == "frozen_original_intents",
-                "cannot reconstruct intent from filled positions / PortAna")
+        validate_plan_source(plan, metadata["strategy"])
         date_string(plan["date"])
         require(plan["arm_id"] in ARMS, "unknown plan arm")
         key = (plan["date"], plan["arm_id"])
@@ -145,7 +144,7 @@ def freeze_snapshot(*, scores, initial_state, plans, pref, metadata, output):
         "portfolio_status": "NOT_RUN",
         "real_input_blockers": [
             "upstream control scores/common universe/sidecar provenance and PIT/coverage require host verification",
-            "original intent provenance, reference state recursion and frozen P-REF checks require portfolio/host verification",
+            "backtest rule provenance, reference state recursion and frozen P-REF checks require portfolio/host verification",
         ],
     }
 

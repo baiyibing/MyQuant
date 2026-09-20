@@ -1,51 +1,60 @@
-# 4090 显式 frozen snapshot 宿主清单
+# Joint return 回测规则 freeze 交接清单
 
-本刀在 Grok Bot 仅交付 MQ 拼装器和 data-free 验收。宿主回执已登记 control recorder `8a061ea4` READY；这不补齐原始 10/3 意图。真实状态仍为 `INPUT_BLOCKED / NOT_RUN`。本清单承接 [contract](contract.md)、[input-register](input-register.md) 和 [acceptance](acceptance.md)，不改合同字节、BT 或既有 portfolio 门禁。
+本次在 **Grok Bot 虚拟机**交付和合成验收，不是 4090。原始 10/3 从未实盘、程序未上线，仅有回测，不存在线上原始意图包；**禁止再要求 live `frozen_original_intents`**，也禁止 PortAna 持仓/成交倒推。control recorder READY 不等于本清单全部输入齐备。
 
-## 1. 4090 必须显式提供的五个本地 JSON 文件
+研究默认 **50/5**，仓内对此实验积累最多；这是研究默认，**不改线上 10/3 配置**，不表示线上已有程序在运行。20/3、10/3 可显式切换。规则与字段 SSOT 为 [contract](contract.md) §3–6，逐项状态见 [input-register](input-register.md)，测试见 [acceptance](acceptance.md)。当前真实状态 `INPUT_BLOCKED / NOT_RUN`，收益待实测。
 
-CLI 只读取以下五个指定文件，以及代码固定的 `contract.md`；不搜索 recorder、湖、缓存或最近版本，不执行预测、PortAna 导出或原意图重建。四个 section 文件的 JSON 顶层就是对应段，不能再包一层同名 key。保留原始值和数组次序；UTF-8、无 BOM/NUL、无重复 key、无 NaN/Infinity。
+## 1. 准备显式输入，不寻找 live 包
 
-| 文件 / 参数 | 内容与必需来源 |
+所有输入都是 UTF-8 JSON，无 BOM/NUL/重复 key/NaN/Infinity。工具只读 CLI 显式路径和固定合同；不搜索 recorder/湖/缓存，不重新预测、不调用 Exchange/PortAna。文件中 source URI 只是声明，不自动解引用。
+
+| 输入 | 内容与停止条件 |
 |---|---|
-| `scores.json` / `--scores` | 行数组；`date,instrument,score,score_available_at,source_version,anti_rank,anti_available_at,candidate_present,label`。score 只能来自完整 control recorder；candidate 只用于共同宇宙，`candidate_present=true`，禁止 `candidate_score`。保留原 score/anti/label 和可得时点，不重新预测或制作 sidecar。 |
-| `initial_state.json` / `--initial-state` | 两臂共同起点：显式 `cash,positions,quantity_unit="share",native_stop="N/A"`；每个持仓有 `quantity,lot_id,instance_id`。现金、数量、none 价域和时点必须有真实来源。 |
-| `plans.json` / `--plans` | 原始计划数组。portfolio calendar 每日分别有 P-BASE/P-CHASE，无交易也提交空列表计划。必需字段见下段。缺少原包即阻塞，不能从 PortAna 已成交持仓倒推失败订单，不能编造 10/3 或复制 BASE 的后续状态给 CHASE。 |
-| `pref.json` / `--pref` | `calendar,windows,expected,label,bootstrap`。完整共同宇宙日历；expected 是完整原 MQ-PJSON 对象，不只是 windows 子段。原窗为 `2025_valid:2025-01-03…2025-12-31`、`2026_oos:2026-01-01…2026-09-14`。label 固定 `Ref($close,-2)/Ref($close,-1)-1`，bootstrap 固定 block=5/reps=10000/seed=20260919。 |
-| `metadata.json` / `--metadata` | 合同 §3 的完整 metadata 对象，字段见下一节；包括预先登记的四个文件 URI、双 hash、coverage、version。不给真实费用、风险预算、资格等填默认值。 |
+| control.json | 行数组，date/instrument/score/score_available_at/source_version/完整 control recorder_id；仅已有 control score。 |
+| universe.json | 已核验共同宇宙行数组，date/instrument/candidate_present=true/完整 candidate recorder_id；只含成员，不能含 score。 |
+| anti.json | 原 sidecar 的显式导出：date/instrument/anti_rank/anti_available_at/source_version/source_sha256；原 hash 固定合同值。导出 raw hash 另算，不能将二者混用。 |
+| labels.json | date/instrument/label/source_version；整日缺值用 null 保留键，部分缺值阻塞。 |
+| initial_state.json | 显式研究 cash/positions/quantity_unit=share/native_stop=N/A；可现金空仓，不要求线上账户。非空仓逐只 quantity/lot_id/instance_id/holding_days，最多所选 topk。 |
+| sessions.json | 每个 portfolio calendar 日期一个 session；clock、none 价格域、source_version、eligibility_version、market、corporate_actions；market 每只价格/映射/买卖资格布尔/原因/可得时点。完整列见合同 §5.2。缺列或缺市场行 INPUT_BLOCKED。 |
+| pref.json | calendar/windows/expected/label/bootstrap；保留原 P-REF 全日历/两窗/完整 MQ-PJSON expected，不生成新 expected 来凑绿。 |
+| metadata.json | 完整合同 metadata；生成器之前可省 strategy 的 topk/n_drop/source/rule_version，由 CLI 明确填入；其余规则、资格、现金/费用/预算/时点无隐含默认。inputs 至少含 scores/initial_state/pref 的 URI/双 hash/coverage/version；plans 由生成器输出新声明。 |
 
-每条 plan 必须有 `date,arm_id,source,pre_state_hash,decision_at,available_at,effective_at,expires_at,marks,mark_at,sells,buys,buy_candidates,corporate_actions`。`source="frozen_original_intents"`；`corporate_actions=[]`，真实有事件则不能删掉来过门。`sells` 包含批准和拒绝的原卖出数量记录及 `approved,approval_reason`；`buys` 为获准原买入 instrument 有序列表；`buy_candidates` 包含冻结资格/回填数量及 `eligible,eligibility_reason`。
+scores 合并以显式共同宇宙为分母；control/anti/label 任一共同键缺失都 INPUT_BLOCKED，不靠 inner join 消除困难样本。其他表额外键完整记录在 merge manifest。必须由宿主证明 universe 本身是完整共同宇宙，不能用人为删减名单冒充。
 
-所有数量记录均有 `instrument,execution_symbol,instance_id,lot_id,target_weight,original_target_quantity,reference_price,reference_price_at,quantity_unit,quantity_conversion`。数量是原始买卖量；`quantity_conversion="SNAPSHOT_FIXED"`。参考价、转换预算和各臂 `pre_state_hash` 必须来自原包，拼装器不生成这些值。若原始意图确实不存在，退回另刀冻结规则适配，不能靠此 CLI 解除缺口。
+## 2. 规则 metadata 和输入锁
 
-## 2. metadata 与源文件锁
+`strategy` 示例结构（尖括号项必须用有来源的真实研究值替换；示例不是可运行数据）：
 
-| 字段 | 必填值 / 宿主登记要求 |
-|---|---|
-| `code_shas` | MQ、BT 实际运行提交的完整 40 位 SHA；与 implementation bases 分开，不能拿测试基线冒充实际提交。 |
-| `implementation_bases` | MQ=`4e4368b274ada2e27da5902f7420aa5a8ae5950c`；BT=`1049b904bdd818dbb79f51f1830a008c8f83b141`。 |
-| `contract_hash` | 本次使用的 `docs/reviews/joint-return-v1/contract.md` 原字节 SHA-256，MQ/BT 固定同一文档字节。 |
-| `pred_recorder_id` | `8a061ea428e04bb3a199a485ade49d0e`，禁止短 ID 和 candidate recorder。 |
-| `candidate_recorder_id` | `d03e8ffcb6d14668b4d6fc2b192bc8c7`，只登记共同宇宙。 |
-| `sidecar_sha256` | `27320f8b7f6de3854802f97325f682039732470ce387f21bc9cd6c3083b7b348`。 |
-| `generated_at,window,calendar,timezone` | 显式生成时间、portfolio 起止日期和排序无重复交易日；业务时点为秒精度 `+08:00`，timezone=`Asia/Shanghai`。portfolio calendar 可小于 P-REF 全日历，但必须有各臂完整计划，不能自动截窗。 |
-| `price_domain,valuation_version,benchmark_version` | `none`，显式估值版本、同 fill P-BASE 基准版本。 |
-| `strategy` | `topk=10,n_drop=3,source="frozen_original_intents",native_stop="N/A"`，以及有来源的 `eligibility_version`、完整非空 `eligibility_rules`。不推断 ST/年龄/涨幅资格。 |
-| `fees` | `model="commission_only",granularity="per_order"`；显式 `buy_rate,sell_rate,minimum,source`。不能继承合成零费。 |
-| `risk_budget` | 有来源的 [0,1] 目标股票权重上限，不能把测试值当真实政策。 |
-| `order_policy` | `retry_policy="NEXT_LEGAL_BAR_LIMIT_DOWN_NEXT_SESSION"`、`conflict_policy="CANCEL_OLDER_REMAINDER_SELL_FIRST"`、`expiry_policy="CANCEL_REMAINDER_EXPIRY_EXIT_DEFER_NO_BAR"`。 |
-| `quantity_policy` | `unit="share",buy_lot=100,sell="FULL_LOT_EXIT",corporate_actions="EXPLICIT_ONLY"`。 |
-| `inputs` | 恰好 `scores,initial_state,plans,pref` 四项，每项 `uri,raw_sha256,content_sha256,coverage,version`。URI 为对应 CLI 文件的解析后绝对路径；coverage 登记日期、证券、行数及缺失原因；version 登记可核验来源。若 scores 声明额外 `recorder_id`，也必须等于 control recorder。 |
+```text
+{
+  "topk": 50,
+  "n_drop": 5,
+  "source": "backtest_rule_intents",
+  "rule_version": "topk-dropout-reference-v1",
+  "rule_parameters": {
+    "method_buy": "top",
+    "method_sell": "bottom",
+    "only_tradable": false,
+    "hold_thresh": <显式非负整数>,
+    "risk_degree": <显式0到1>
+  },
+  "eligibility_version": "<逐日资格来源版本>",
+  "eligibility_rules": {"<规则名>": "<完整定义/参数/证据>"},
+  "native_stop": "N/A"
+}
+```
 
-双 hash 是宿主对已核验文件的事先登记，CLI 会重新读取并比对，漂移即停止，不回填或覆盖声明。raw hash 覆盖实际文件字节；content hash 使用合同规范 JSON，无尾 LF。URI 只与 CLI 路径比对，绝不解引用成另一个输入。登记时可对**明确给出的文件**打印 hash，填入 metadata 后冻结：
+仅研究 `--topk 50 --n-drop 5` 有默认。metadata 中已登记参数必须和 CLI 相同；切换 20/3 或 10/3 时显式改两个开关及相应研究登记，不能只改开关覆盖旧锁。
+
+其余固定项延续合同：MQ/BT 两个实际完整 code_shas 与 implementation_bases 分列；control/candidate IDs、sidecar hash 固定；timezone=Asia/Shanghai，业务时点秒精度 +08:00，price_domain=none；fees 为显式 commission_only/per_order/buy_rate/sell_rate/minimum/source；risk_budget、valuation/benchmark version、order/quantity policy 均须完整。原始 P-REF expected 的规范 hash 为 `d9b503fa40937c6b870fc4b0bf9285e2ca53f0465af223f529f2e854712ae6f8`。
+
+原 contract_hash 因本次合同修订失效；用当前文件原字节 SHA-256。后续 BT 必须核对相同合同字节并重新验收，不能复用旧已通过标记。本次不改 BT，也不代替 BT 兼容性验收。
+
+对明确文件登记双 hash：
 
 ```bash
-# 在 MQ 仓库根目录；替换为 4090 的实际解释器与五个已备齐文件的位置。
 MQ_PYTHON=/absolute/path/to/python
-FREEZE_INPUT_DIR=/absolute/path/to/verified-inputs
-"$MQ_PYTHON" - "$FREEZE_INPUT_DIR/scores.json" \
-  "$FREEZE_INPUT_DIR/initial_state.json" "$FREEZE_INPUT_DIR/plans.json" \
-  "$FREEZE_INPUT_DIR/pref.json" <<'PY'
+"$MQ_PYTHON" - /absolute/path/to/scores.json /absolute/path/to/initial_state.json /absolute/path/to/pref.json <<'PY'
 import sys
 from pathlib import Path
 from my_scripts.joint_return_contract import content_hash, load_json_bytes, raw_hash
@@ -58,53 +67,78 @@ PY
 sha256sum docs/reviews/joint-return-v1/contract.md
 ```
 
-还需宿主独立核验上游 control pred、共同宇宙对齐、原 sidecar、原意图及发布时间/PIT/覆盖证据，并记录原 URI、hash、版本、核验人和时点。拼装器核验的是四个 JSON 文件，不会自动证明它们来自所声明 recorder 或核验 sidecar 文件。原 MQ-PJSON 文件 raw hash 为 `22d86384e7d4fcf82586e51fce4a212309baeab584e5cbb64054788460035e82`，`pref.expected` 的规范 hash 必须为 `d9b503fa40937c6b870fc4b0bf9285e2ca53f0465af223f529f2e854712ae6f8`；portfolio 将检查后者及原窗/完整数值，禁止反写 expected 或调容差凑绿。
+URI 必须是对应 CLI 输入的解析后绝对路径。记录日期/证券/行数/缺失原因、版本、时区/单位/价域和核验人/核验时点。规则生成器预先核验 scores/initial_state 锁，冻结观察到的 sessions/metadata 双 hash；freeze 再核验四段文件全部锁。上游数据来源/PIT 不会因写了一个 hash 字串自动得到证明。
 
-## 3. 拼装与 portfolio 调用
+## 3. 实际 CLI 顺序
 
-在 MQ 仓库根目录执行，所有输入必须先齐备；以下路径均须替换成 4090 实际路径。使用新的输出目录与 run ID，真实产物保存在宿主，不入 Git。
+以下命令已由本次 data-free tests 接线验证，路径必须替换为宿主明确准备好的研究输入和**新目录**。它们不是授权 4090 开跑分钟回测的命令。
+
+先合并 scores：
 
 ```bash
 set -e
 MQ_PYTHON=/absolute/path/to/python
 FREEZE_INPUT_DIR=/absolute/path/to/verified-inputs
 FREEZE_OUT_DIR=/absolute/path/to/new-freeze-output
-mkdir -p "$FREEZE_OUT_DIR"
-"$MQ_PYTHON" -m my_scripts.joint_return_freeze_snapshot \
-  --scores "$FREEZE_INPUT_DIR/scores.json" \
+"$MQ_PYTHON" -m my_scripts.joint_return_merge_scores \
+  --control "$FREEZE_INPUT_DIR/control.json" \
+  --universe "$FREEZE_INPUT_DIR/universe.json" \
+  --anti "$FREEZE_INPUT_DIR/anti.json" \
+  --labels "$FREEZE_INPUT_DIR/labels.json" \
+  --output-dir "$FREEZE_OUT_DIR/merged"
+```
+
+将上步 `merged/scores.json` 的 URI/双 hash/覆盖登记到输入 metadata；initial_state/pref 同样登记。再生成规则计划（省略两个参数也是 50/5）：
+
+```bash
+"$MQ_PYTHON" -m my_scripts.joint_return_rule_intents \
+  --scores "$FREEZE_OUT_DIR/merged/scores.json" \
   --initial-state "$FREEZE_INPUT_DIR/initial_state.json" \
-  --plans "$FREEZE_INPUT_DIR/plans.json" \
-  --pref "$FREEZE_INPUT_DIR/pref.json" \
+  --sessions "$FREEZE_INPUT_DIR/sessions.json" \
   --metadata "$FREEZE_INPUT_DIR/metadata.json" \
-  --output "$FREEZE_OUT_DIR/snapshot.json" \
-  > "$FREEZE_OUT_DIR/freeze-manifest.json"
+  --topk 50 --n-drop 5 \
+  --output-dir "$FREEZE_OUT_DIR/rules"
+```
+
+生成器按每臂独立理想参考路径输出 plans 和新 metadata。规则核心为 TopkDropout top/bottom；持有门槛、资格和参考数量均显式。拒绝卖出的槽位不可买入，缺旧仓 score 阻塞、ties 按 instrument；这些合同约束与原 Qlib 撮合路径的差异已在 contract §5.1 登记。它不复原历史 PortAna 成交，也不产生真实收益。
+
+最后拼装并运行原 portfolio 门禁：
+
+```bash
+"$MQ_PYTHON" -m my_scripts.joint_return_freeze_snapshot \
+  --scores "$FREEZE_OUT_DIR/merged/scores.json" \
+  --initial-state "$FREEZE_INPUT_DIR/initial_state.json" \
+  --plans "$FREEZE_OUT_DIR/rules/plans.json" \
+  --pref "$FREEZE_INPUT_DIR/pref.json" \
+  --metadata "$FREEZE_OUT_DIR/rules/metadata.json" \
+  --output "$FREEZE_OUT_DIR/snapshot.json"
 
 "$MQ_PYTHON" -m my_scripts.joint_return_portfolio \
   --snapshot "$FREEZE_OUT_DIR/snapshot.json" \
-  --run-id joint-return-host-frozen-v1 \
+  --run-id joint-return-backtest-rule-50-5 \
   --output-root "$FREEZE_OUT_DIR/portfolio"
 ```
 
-缺文件、缺声明、hash/固定 metadata 漂移、PortAna source 或候选分输入时，freeze 退出 2，stdout 为 `INPUT_BLOCKED` 或契约等价状态及原因，不产生新 snapshot。已有输出不覆盖；写入/回读失败会移除本次新文件。重定向文件可能包含失败状态，必须同时检查退出码和 JSON，不能仅以文件存在判断成功。
+合并器输出 scores.json/merge-manifest.json；生成器输出 plans.json/metadata.json/rule-manifest.json；freeze stdout 输出拼装回执。失败退出 2 并写明 INPUT_BLOCKED/PAIR_INVALID/SEMANTICS_BLOCKED/OUTPUT_BLOCKED，不把残留文件存在当成功。新目录/快照不可覆盖，写失败回滚本次新文件。
 
-成功退出 0 时 snapshot 固定 `kind="frozen"`，已通过 `validate_snapshot` 和写后 `load_snapshot`；stdout manifest 为 `FROZEN_SNAPSHOT_ASSEMBLED`，含 snapshot、metadata 输入、四段文件的 URI/raw/content hashes。`input_raw_hashes_verified=true` **仅指这四个显式 JSON 文件**；`input_status=INPUT_BLOCKED`、`execution_status=portfolio_status=NOT_RUN`。
+freeze 成功退出 0 的 `FROZEN_SNAPSHOT_ASSEMBLED` 只证明显式四段拼装；`kind=frozen`、input_status=INPUT_BLOCKED、execution_status=portfolio_status=NOT_RUN。portfolio 仍验证原 P-REF expected hash/两窗/数值及状态/数量/现金递推。合成 expected 不可借拼装通过真实门；P-REF 仍是 Top10，不随持仓 topk 扩大。
 
-拼装不执行 P-REF 数值复核、原 expected hash/窗口门禁或两臂参考状态递推；这些由随后 portfolio 按 `kind=frozen` 验证。纯合成文件可以验证拼装工程，但无法通过真实 P-REF hash 门禁。现有 portfolio manifest 的 `input_raw_hashes_verified=false` 与真实 `INPUT_BLOCKED` 状态保持原样：它只读内嵌 snapshot，不消费 freeze 回执来自动解除宿主门禁。归档两份 manifest，分别核对，不将其改成 READY 或联合通过。
+## 4. 剩余缺口和回执
 
-## 4. 仍阻塞的项与宿主回执
-
-| 项 | 状态 / 责任 |
+| 项 | 状态 |
 |---|---|
-| 原始 10/3 意图、各臂参考数量和状态、资格/费用来源 | 未提供即 `INPUT_BLOCKED`；MQ/宿主提供可追溯原包，不用 PortAna 倒推。recorder READY 不解除此项。 |
-| 原 score/anti 发布时点、共同宇宙、P-REF 原统计生成口径 | `INPUT_BLOCKED`，直至宿主逐源核验及 portfolio 数值门通过；不自动声称真实收益支持。 |
-| 中性臂 PIT 行业/size 及换手臂预登记 ε/τ | `INPUT_BLOCKED`；需明确字段定义、可用/生效时点、覆盖与 hash，并在看新增收益前登记 ε/τ。此刀只登记缺口，不设默认阈值、不新增臂。 |
-| Mode B 真湖、分钟/session、公司行动与数量映射 | 归 BT；本刀不改 BT、不读湖、不扩 Mode B。MQ 遇显式公司行动仍 `SEMANTICS_BLOCKED`，不能删除事件当作无事件。 |
-| 成交/NAV/换手/回撤/净超额 | `NOT_RUN / 待实测`，后续 BT 与宿主验收，不能用拼装或 MQ 测试绿代替。 |
+| 不存在的原始 10/3 live 意图包 | 已撤销该要求；不是 blocker，不再索取。 |
+| control/common-universe/anti/label 实际文件与时点/覆盖 | INPUT_BLOCKED，真实导出及上游来源须逐项核验。 |
+| 研究初态、hold_thresh/risk_degree、逐日资格、none marks/映射、费用和风险预算 | 规则接口及生成器已交付；真实输入缺任一必需列即 INPUT_BLOCKED。 |
+| 原 P-REF expected/完整日历/统计生成口径 | INPUT_BLOCKED / NOT_RUN，需真实复核，不改原 Top10 标签口径。 |
+| PIT 行业/size 与 ε/τ | 后续臂局部 INPUT_BLOCKED；本次不新增这些臂。 |
+| BT、分钟/session、公司行动/单位映射 | NOT_RUN / 待核验；合同 hash 变更后 BT 须重新对齐；本次不改 BT、不读湖、不扩 Mode B。 |
+| 成交/NAV/回撤/实际换手/净超额 | NOT_RUN / 待实测；MQ 合成绿不是联合通过或收益支持。 |
 
-4090 回执登记：实际 MQ/BT code SHA、合同 hash、五个输入的 URI/hash/覆盖/来源、freeze 命令/退出码/manifest、snapshot URI/双 hash、portfolio 命令/退出码及四个输出路径、逐项未解 blocker。缺任何真实输入就保留原因和 `INPUT_BLOCKED / NOT_RUN`，不补造产物。
+后续执行回执应记录：机器、解释器、实际两仓 code SHA/合同 hash、研究参数、每个源的 URI/双 hash/覆盖/版本/可得时点、merge/rules/freeze/portfolio 命令和退出码、所有 manifest 和 intent hash、尚未解除的 blocker。真实数值留宿主，不入 Git；不能用不存在 live 包这一理由再次阻塞研究规则路径。
 
-Grok Bot data-free 验收命令（只读合成临时文件）：
+Grok Bot 本次验收命令：
 
 ```bash
-/workspace/vanna312/bin/python -m pytest tests/test_joint_return_freeze_snapshot.py tests/test_joint_return_portfolio.py -q
+/workspace/vanna312/bin/python -m pytest tests/test_joint_return_rule_intents.py tests/test_joint_return_freeze_snapshot.py tests/test_joint_return_portfolio.py -q
 ```
