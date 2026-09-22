@@ -10,6 +10,7 @@ import math
 from pathlib import Path
 
 from my_scripts.joint_return_contract import (
+    validate_mlag_window,
     DEFAULT_N_DROP, DEFAULT_TOPK, RULE_SOURCE, RULE_VERSION, ContractError,
     canonical_bytes, content_hash, date_string, fields, number, raw_hash, require,
     timestamp, validate_rule_strategy, validate_topk, portfolio_arms, scores_mode, scope_status,
@@ -73,6 +74,7 @@ def make_rule_plan(arm, state, ages, ranked, session, metadata):
     topk, n_drop = strategy["topk"], strategy["n_drop"]
     rules = strategy["rule_parameters"]
     market = _market(session, ranked, state, strategy)
+    validate_mlag_window(session, metadata)
     held = state["positions"]
     sell_names, today = topk_dropout(ranked, held, topk=topk, n_drop=n_drop)
     marks = {i: r["reference_price"] for i, r in market.items()}

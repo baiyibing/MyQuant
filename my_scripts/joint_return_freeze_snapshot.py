@@ -10,6 +10,7 @@ import argparse
 from pathlib import Path
 
 from my_scripts.joint_return_contract import (
+    validate_mlag_window,
     CANDIDATE_RECORDER, RECORDER, SCHEMA_VERSION, ContractError, canonical_bytes,
     content_hash, date_string, fields, load_json_bytes, load_snapshot, raw_hash,
     require, sha, timestamp, validate_plan_source, validate_snapshot,
@@ -71,6 +72,7 @@ def _validate_sections(snapshot):
         require(decision.date().isoformat() == plan["date"], "decision date mismatch")
         require(timestamp(plan["mark_at"]) <= decision <= available <= effective < expires,
                 "plan clock violation", "PAIR_INVALID")
+        validate_mlag_window(plan, metadata)
         require(isinstance(plan["marks"], dict), "plan marks must be an object")
         require(plan["corporate_actions"] == [],
                 "company-action mapping not implemented in MQ R1", "SEMANTICS_BLOCKED")

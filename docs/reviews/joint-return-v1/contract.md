@@ -154,6 +154,45 @@ control 已有 §4.1 四个必需来源/分数字段时可直接使用。若只�
 
 market 每行必须有 `instrument,execution_symbol,reference_price,buy_eligible,buy_reason,sell_eligible,sell_reason,eligibility_available_at`。价格为 mark_at 的 none CNY/share；资格布尔值和非空原因均不可省略，资格发布时间不得晚于 decision。映射跨日唯一且不能漂移，价格不能从未来成交拿来。资格在时点上的可证性仍需宿主验证。
 
+### 5.2.1 M-LAG 机会窗口（BUG_ALIGNMENT 修订）
+
+`mark ≤ decision ≤ available ≤ effective < expires` 仍必需，但仅有排序不够。
+rule_intents、freeze、portfolio（含空计划、full/control_only）统一调用
+`joint_return_contract.validate_mlag_window(clocks, metadata)`：必须存在分钟 open
+`t > available_at AND t >= effective_at AND t < expires_at`，否则 `PAIR_INVALID: no possible M-LAG open`。
+验证器只拒绝，不改宿主任意时钟，不产生 bar、不保证真实成交或覆盖。
+
+本研究合同明确固定 data-free 连续交易 convention：Asia/Shanghai，秒为 00 的一分钟
+OPEN_TIME 网格，`[09:30:00,11:30:00)` 与 `[13:00:00,15:00:00)`，左闭右开；
+不假设 14:57，不纳入集合竞价或 15:00 endpoint。该 convention 用于 MQ 机会检查和 helper，
+不是湖事实。宿主必须核对 BT 分钟 metadata 的 session/标签转换是否支持这个窗口；
+不同市场会话不可直接套用本 convention，需另行显式合同修订，不能改 BT 核过门。
+
+`metadata.calendar` 仍是研究决策日期，sessions.json 日期集合仍与它完全相等。
+可另声明 `metadata.execution_calendar`：显式、非空、升序无重复的完整市场日期列表，
+包含全部研究日期及末日执行所需的后续 session；不受决策 window.end 限制，
+不要求尾日 scores/market/plan。省略时只使用 metadata.calendar，绝不按自然日/工作日补日期。
+宿主应从原显式市场日历提供该列表和来源证据，不能为了放行随手添加日期。
+缺下一 session 的 helper 调用报 INPUT_BLOCKED；窗口没有已声明机会报 PAIR_INVALID。
+
+显式 opt-in API `next_session_clocks(decision_at=..., mark_at=..., metadata=...)`
+返回新五时钟字典：保留 mark/decision，available=effective=日历中下一 session 的
+`09:30:00+08:00`，expires=该 session `15:00:00+08:00`。宿主 exporter 必须显式
+`session.update(next_session_clocks(...))` 才改写；规则/冻结入口永不自动调用 helper 修改输入。
+任意其他宿主时钟只要满足排序和机会门禁仍可使用，例如午休跨到下午或收盘跨日。
+更晚 expiry 可显式声明并重新验证，不能在冻结后直接编辑 CSV。
+
+| close-signal 示例 | available / effective | expires | M-LAG |
+|---|---|---|---|
+| 修复前（错误）decision=2026-09-07 15:02 | 2026-09-07 15:03 | 2026-09-07 16:00 | 当日已收盘，零机会，PAIR_INVALID |
+| 修复后（日历显式含 09-08）同一 decision/mark | 2026-09-08 09:30 | 2026-09-08 15:00 | 最早允许 09:31；09:30 不满足严格大于 |
+
+表内时间均 +08:00。15:03 的问题是过了会话末端且 16:00 当日过期，并非资金/容量，
+不是禁止所有 15:03 可得时间（跨到下一 session 且 expiry 足够的窗口可合法）。
+本合同字节 hash 已改变，旧 frozen/portfolio pack 和旧已通过标记不可复用；4090 必须
+重建 sessions/metadata、plans、freeze、portfolio/intents。精确重导步骤见
+[4090 rebuild](intent-clock-4090-reexport.md)。BT fill kernel 不变，BT 接收前须对齐新合同锁。
+
 ### 5.3 生成计划与递推校验
 
 portfolio calendar 每日在 full 下有 P-BASE/P-CHASE 两条 plan，control_only 仅一条 P-BASE；无交易也有空计划。生成器按 metadata.scores_mode 选择臂；可显式 `--arms P-BASE`，必须与 metadata/模式一致。瘦模式请求 P-CHASE 或弱信号/anti 臂立即 INPUT_BLOCKED。计划字段：

@@ -11,7 +11,7 @@ from my_scripts import joint_return_merge_scores as merge
 from my_scripts import joint_return_rule_intents as rules
 from my_scripts.joint_return_contract import (
     ARMS, CANDIDATE_RECORDER, RECORDER, SIDECAR_SHA256, ContractError,
-    canonical_bytes, content_hash, load_snapshot, raw_hash,
+    canonical_bytes, content_hash, load_snapshot, raw_hash, next_session_clocks,
 )
 from my_scripts.joint_return_portfolio import build_portfolio, score_days
 from test_joint_return_portfolio import seal, snapshot
@@ -24,6 +24,7 @@ def inputs(snapshot, topk=50, n_drop=5):
     s = deepcopy(snapshot)
     days = s["pref"]["calendar"]
     s["metadata"].update(calendar=days, window={"start": days[0], "end": days[-1]})
+    s["metadata"]["execution_calendar"] = [*days, "2026-09-14"]
     s["metadata"]["strategy"].update(topk=topk, n_drop=n_drop)
     s["initial_state"].update(cash=1_000_000, positions={})
     s["scores"] = [{"date": day, "instrument": f"I{i:03}", "score": 100 - i,
@@ -42,9 +43,9 @@ def inputs(snapshot, topk=50, n_drop=5):
                              "d_top10_share_neg": 0, "turnover": 0.3, "n_relax_mean": 0, "share_relaxed": 0}],
                     t0_vs_frozen_ctrl={"top10_t0": 0, "frozen_top10_ctrl": 0, "abs_diff": 0})
     expected["bootstrap"].update(point=0, lo=0, hi=0)
-    sessions = [{"date": day, "decision_at": f"{day}T15:02:00+08:00",
-                 "available_at": f"{day}T15:03:00+08:00", "effective_at": f"{day}T15:03:00+08:00",
-                 "expires_at": f"{day}T16:00:00+08:00", "mark_at": f"{day}T15:00:00+08:00",
+    sessions = [{"date": day, **next_session_clocks(
+                    decision_at=f"{day}T15:02:00+08:00", mark_at=f"{day}T15:00:00+08:00",
+                    metadata=s["metadata"]),
                  "price_domain": "none", "source_version": "synthetic-market-v1",
                  "eligibility_version": "synthetic-v1", "corporate_actions": [],
                  "market": [{"instrument": f"I{i:03}", "execution_symbol": f"I{i:03}.SYN", "reference_price": 10,

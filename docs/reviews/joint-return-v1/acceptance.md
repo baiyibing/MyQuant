@@ -114,3 +114,23 @@ PATH=/workspace/vanna312/bin:$PATH python -m pytest tests/test_joint_return_port
 ```
 
 实际结果：`174 passed in 5.76s`，exit code 0，无 skip。旧 52/111/169 数字是历史/中间记录，不是本次总数。真实输入仍 INPUT_BLOCKED；真实 P-REF/BT/分钟成交/NAV 为 NOT_RUN，收益待实测。未运行训练、湖、PortAna 或 4090 任务；未 push、PR、评论。
+
+
+## 2026-09-22 BUG_ALIGNMENT：M-LAG 意图时钟
+
+4090 narrow 回执 1891 intents / 0 fills；available=effective=当日 15:03，
+expires=当日 16:00。严格 `t > available_at` 的 session open 在截止前不存在；
+此为空窗口错误，不是资金/容量问题。修复后示例：09-07 15:02 决策 → 09-08
+09:30 available/effective → 09-08 15:00 expiry，首个 M-LAG open 为 09:31。
+
+MQ 共享日历机会门禁在 rule / freeze / portfolio 拒绝错误宿主窗口，不静默改写。
+显式 next_session_clocks API 使用合同固定的连续交易 convention 和声明日历；
+末日 next session 必须由宿主提供。测试覆盖 full/control_only 的三边界拒绝、不变性、
+严格可得/生效/过期秒边界、午休、跨日及日历缺口，50/5、20/3、10/3
+规则→freeze→portfolio CLI 保留正确 CSV 时钟，原来源/P-REF/数量/现金门禁保持。
+
+验收命令：`/workspace/vanna312/bin/python -m pytest tests/test_joint_return_*.py -q`。
+Grok Bot VM 本次结果：**233 passed in 8.80s**；`git diff --check` 通过。
+真实 fills/NAV/换手/回撤/净超额本机未运行，仍待 4090 重导后实测；不将日历机会视为 bar。
+合同 hash 已变，旧冻结包不可复用；[4090 命令与输入复用边界](intent-clock-4090-reexport.md)。
+BT kernel、生产配置、训练/pred、湖读取均未修改。

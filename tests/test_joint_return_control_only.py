@@ -12,7 +12,7 @@ from my_scripts import joint_return_merge_scores as merge
 from my_scripts import joint_return_portfolio as portfolio
 from my_scripts import joint_return_rule_intents as rules
 from my_scripts.joint_return_contract import (
-    CANDIDATE_RECORDER, RECORDER, ContractError, content_hash, load_snapshot, raw_hash,
+    CANDIDATE_RECORDER, RECORDER, ContractError, content_hash, load_snapshot, raw_hash, read_intents,
 )
 from test_joint_return_portfolio import snapshot
 from test_joint_return_rule_intents import PAIRS, inputs, split_scores, write
@@ -243,6 +243,16 @@ def test_three_column_merge_rules_freeze_portfolio_cli(snapshot, tmp_path, capsy
                "--run-id", "slim", "--output-root", str(tmp_path / "portfolio")]
     subprocess.run(command, check=True, capture_output=True, text=True)
     out_dir = tmp_path / "portfolio" / "slim"
+    emitted = read_intents(out_dir / "intents.csv")
+    by_decision = {row["decision_at"]: row for row in sessions}
+    assert emitted
+    for intent in emitted:
+        session = by_decision[intent["decision_at"]]
+        for clock in ("available_at", "effective_at", "expires_at"):
+            assert intent[clock] == session[clock]
+        assert intent["available_at"][:10] > intent["decision_at"][:10]
+        assert intent["available_at"][11:] == "09:30:00+08:00"
+        assert intent["expires_at"][11:] == "15:00:00+08:00"
     manifest = json.loads((out_dir / "manifest.json").read_bytes())
     assert manifest["portfolio_status"] == "PORTFOLIO_CONSTRAINTS_PASS"
     assert manifest["execution_status"] == "NOT_RUN" and manifest["return_status"] == "待实测"
