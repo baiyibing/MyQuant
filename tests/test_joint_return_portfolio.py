@@ -49,8 +49,8 @@ def snapshot():
     plans = []
     for arm in ARMS:
         first = {"date": days[0], "arm_id": arm, "pre_state_hash": content_hash(initial),
-                 "decision_at": f"{days[0]}T15:02:00+08:00", "available_at": f"{days[0]}T15:03:00+08:00",
-                 "effective_at": f"{days[0]}T15:03:00+08:00", "expires_at": f"{days[1]}T15:00:00+08:00",
+                 "decision_at": f"{days[0]}T15:02:00+08:00", "available_at": f"{days[1]}T09:30:00+08:00",
+                 "effective_at": f"{days[1]}T09:30:00+08:00", "expires_at": f"{days[1]}T15:00:00+08:00",
                  "source": "backtest_rule_intents", "marks": {chr(i): 10 for i in range(65, 90)},
                  "mark_at": f"{days[0]}T15:00:00+08:00", "corporate_actions": [],
                  "sells": [{**frozen_order(i, weight=0), "approved": i != "R",
@@ -66,8 +66,8 @@ def snapshot():
             after["positions"][inst] = {"quantity": 100, "lot_id": f"lot-{inst}", "instance_id": f"instance-{inst}"}
         second = deepcopy(first)
         second.update(date=days[1], pre_state_hash=content_hash(after),
-                      decision_at=f"{days[1]}T15:02:00+08:00", available_at=f"{days[1]}T15:03:00+08:00",
-                      effective_at=f"{days[1]}T15:03:00+08:00", expires_at=f"{days[2]}T15:00:00+08:00",
+                      decision_at=f"{days[1]}T15:02:00+08:00", available_at=f"{days[2]}T09:30:00+08:00",
+                      effective_at=f"{days[2]}T09:30:00+08:00", expires_at=f"{days[2]}T15:00:00+08:00",
                       mark_at=f"{days[1]}T15:00:00+08:00", sells=[], buys=[], buy_candidates=[])
         plans.append(second)
     expected = {"n_days_calendar": 5, "n_days_top10": 5, "n_rows_mean": 15,
@@ -94,7 +94,7 @@ def snapshot():
                               "contract_hash": contract_hash(), "pred_recorder_id": RECORDER,
                               "candidate_recorder_id": CANDIDATE_RECORDER, "sidecar_sha256": SIDECAR_SHA256,
                               "generated_at": "2026-09-12T10:00:00+08:00",
-                              "window": {"start": days[0], "end": days[1]}, "calendar": days[:2],
+                              "window": {"start": days[0], "end": days[1]}, "calendar": days[:2], "execution_calendar": days,
                               "timezone": "Asia/Shanghai", "price_domain": "none",
                               "strategy": {"topk": 10, "n_drop": 3, "source": "backtest_rule_intents",
                                            "rule_version": "topk-dropout-reference-v1",

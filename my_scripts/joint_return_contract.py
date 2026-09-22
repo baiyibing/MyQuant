@@ -61,6 +61,65 @@ def require(condition, detail, status="INPUT_BLOCKED"):
         raise ContractError(status, detail)
 
 
+# Contract §5.2: data-free minute OPEN_TIME grid, inclusive start/exclusive end.
+RESEARCH_SESSION_WINDOWS = (("09:30:00", "11:30:00"), ("13:00:00", "15:00:00"))
+
+
+def execution_calendar(metadata):
+    """Explicit market dates; optional tail supports the last research decision."""
+    fields(metadata, ("calendar",), "clock metadata")
+    calendar = metadata.get("execution_calendar", metadata["calendar"])
+    require(isinstance(calendar, list) and calendar, "execution calendar required")
+    for day in calendar:
+        date_string(day)
+    require(calendar == sorted(set(calendar)), "execution calendar order/duplicates")
+    require(set(metadata["calendar"]) <= set(calendar), "execution calendar missing research dates")
+    return calendar
+
+
+def validate_mlag_window(clocks, metadata):
+    """Reject zero calendar opportunities; never shift clocks or assert bar coverage."""
+    fields(clocks, ("available_at", "effective_at", "expires_at"), "M-LAG clocks")
+    available, effective, expires = (timestamp(clocks[k]) for k in
+                                    ("available_at", "effective_at", "expires_at"))
+    require(available <= effective < expires, "M-LAG clock violation", "PAIR_INVALID")
+    for day in execution_calendar(metadata):
+        if day < available.date().isoformat() or day > expires.date().isoformat():
+            continue
+        for start, end in RESEARCH_SESSION_WINDOWS:
+            opening = timestamp(f"{day}T{start}+08:00")
+            closing = timestamp(f"{day}T{end}+08:00")
+            # Strict availability and inclusive effectiveness, including seconds.
+            offset = max(0, int((available - opening).total_seconds() // 60) + 1,
+                         math.ceil((effective - opening).total_seconds() / 60))
+            opportunity = opening + timedelta(minutes=offset)
+            if opportunity < min(closing, expires):
+                return
+    raise ContractError("PAIR_INVALID", "no possible M-LAG open: require t > available_at, "
+                        "t >= effective_at and t < expires_at in explicit execution calendar sessions")
+
+
+def next_session_clocks(*, decision_at, mark_at, metadata):
+    """Opt-in close-signal helper; next date comes only from explicit calendar.
+
+    Returns new clock fields; leaves host market/score/eligibility values untouched.
+    Pinned research open is 09:30; M-LAG first permits 09:31.
+    """
+    decision, mark = timestamp(decision_at), timestamp(mark_at)
+    require(mark <= decision, "future marks", "PAIR_INVALID")
+    calendar = execution_calendar(metadata)
+    day = decision.date().isoformat()
+    require(day in calendar, "decision missing from execution calendar")
+    index = calendar.index(day) + 1
+    require(index < len(calendar), "next session missing from explicit execution calendar")
+    next_day = calendar[index]
+    opening = f"{next_day}T09:30:00+08:00"
+    clocks = dict(mark_at=mark_at, decision_at=decision_at, available_at=opening,
+                  effective_at=opening, expires_at=f"{next_day}T15:00:00+08:00")
+    validate_mlag_window(clocks, metadata)
+    return clocks
+
+
 def scores_mode(metadata):
     require(isinstance(metadata, dict), "metadata: expected object")
     mode = metadata.get("scores_mode", "full")
@@ -259,6 +318,7 @@ def validate_snapshot(snapshot):
     calendar = m["calendar"]
     require(isinstance(calendar, list) and calendar and calendar == sorted(set(calendar)), "calendar order/duplicates")
     require(all(start <= date_string(d) <= end for d in calendar), "calendar outside window")
+    execution_calendar(m)
     strategy = m["strategy"]
     validate_rule_strategy(strategy)
     require(m["order_policy"] == ORDER_POLICY, "lifecycle policy drift")

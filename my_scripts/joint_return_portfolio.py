@@ -13,6 +13,7 @@ import re
 from statistics import mean, median
 
 from my_scripts.joint_return_contract import (
+    validate_mlag_window,
     CANDIDATE_RECORDER, CONSTRAINT_FIELDS, INTENT_FIELDS, ORDER_POLICY, PJSON_HASH,
     RECORDER, SCHEMA_VERSION,
     ContractError, canonical_bytes, content_hash, contract_hash, csv_bytes, date_string,
@@ -300,6 +301,7 @@ def _step(arm, state, plan, ranked, metadata):
     require(timestamp(plan["mark_at"]) <= decision, "future marks", "PAIR_INVALID")
     require(decision <= timestamp(plan["available_at"]) <= timestamp(plan["effective_at"]) < timestamp(plan["expires_at"]),
             "plan clock violation", "PAIR_INVALID")
+    validate_mlag_window(plan, metadata)
     clocks = ("score_available_at",) if scores_mode(metadata) == "control_only" else ("score_available_at", "anti_available_at")
     require(all(timestamp(r[key]) <= decision for r in ranked for key in clocks),
             "score/anti-rank not available at decision", "PAIR_INVALID")

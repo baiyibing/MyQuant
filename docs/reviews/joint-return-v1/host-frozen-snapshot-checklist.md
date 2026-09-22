@@ -4,6 +4,17 @@
 
 研究默认 **50/5**，仓内对此实验积累最多；这是研究默认，**不改线上 10/3 配置**，不表示线上已有程序在运行。20/3、10/3 可显式切换。规则与字段 SSOT 为 [contract](contract.md) §3–6，逐项状态见 [input-register](input-register.md)，测试见 [acceptance](acceptance.md)。2026-09-20 用户裁定已开放下列瘦入口，缺 anti/universe/labels 不再阻塞 P-BASE 组合约束。真实收益与 BT 仍 `NOT_RUN`。
 
+## 2026-09-22 时钟修复后的宿主必做项
+
+- 按 [contract §5.2.1](contract.md#521-m-lag-机会窗口bug_alignment-修订) 核对连续 session
+  convention（09:30–11:30 / 13:00–15:00，右端不含）与真实 BT metadata。
+- 旧 available=effective=当日 15:03、expires=当日 16:00 没有 M-LAG open，现报 PAIR_INVALID。
+  close-signal 用显式 helper 改成下一日历 session 09:30 / expiry 15:00，首个合法 open 为 09:31。
+- 显式 execution_calendar 包括末个研究日的下一 session；缺日期停止，不补工作日、不删研究日。
+- 新合同 hash 使旧 frozen pack 失效。按 [4090 重导命令](intent-clock-4090-reexport.md)
+  重建 sessions/metadata → plans → freeze → portfolio/intents，再交 bt 核验覆盖并重跑。
+  scores/初态经核验可复用；bars 仅在宇宙与新执行窗口覆盖均满足时复用。
+
 ## 0. 只有 control 时走瘦合同
 
 以下是宿主只读研究准备流程；原全量流程保留在 §1–4。不要复制 full 的 candidate/sidecar/pref 依赖到瘦包，也不要把它们补成假值。
