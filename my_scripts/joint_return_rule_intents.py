@@ -127,7 +127,7 @@ def make_rule_plan(arm, state, ages, ranked, session, metadata):
     return plan
 
 
-def generate_plans(scores, initial_state, sessions, metadata):
+def generate_plans(scores, initial_state, sessions, metadata, *, cache_plan_hash=False):
     """Generate registered arms with independent reference states, never fill feedback."""
     fields(metadata, ("strategy", "calendar", "fees", "risk_budget"), "rule metadata")
     validate_rule_strategy(metadata["strategy"])
@@ -175,7 +175,8 @@ def generate_plans(scores, initial_state, sessions, metadata):
                 inst, symbol = row["instrument"], row["execution_symbol"]
                 require(symbols.setdefault(inst, symbol) == symbol and reverse.setdefault(symbol, inst) == inst,
                         "instrument mapping drift/collision", "SEMANTICS_BLOCKED")
-            state, _, _, record = _step(arm, states[arm], plan, grouped[day], metadata)
+            state, _, _, record = _step(arm, states[arm], plan, grouped[day], metadata,
+                                        cache_plan_hash=cache_plan_hash)
             ages[arm] = {inst: ages[arm].get(inst, 0) + 1 for inst in state["positions"]}
             states[arm] = state
             plans.append(plan)
@@ -192,6 +193,8 @@ def main(argv=None):
     parser.add_argument("--n-drop", type=int, default=DEFAULT_N_DROP, help="research default 5; supports 50/5, 20/3, 10/3")
     parser.add_argument("--arms", nargs="+", help="must match mode: control_only permits only P-BASE")
     parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument("--cache-plan-hash", action="store_true",
+                        help="research Track B: hash each plan once per step; default is slow reference")
     try:
         args = parser.parse_args(argv)
         values, sources = {}, {}
@@ -215,7 +218,10 @@ def main(argv=None):
             fields(declared, ("uri", "raw_sha256", "content_sha256", "coverage", "version"), name)
             for key in ("uri", "raw_sha256", "content_sha256"):
                 require(declared[key] == sources[name][key], f"{name} {key} drift", "PAIR_INVALID")
-        product = generate_plans(values["scores"], values["initial_state"], values["sessions"], metadata)
+        if args.cache_plan_hash:
+            metadata["research_acceleration"] = "TRACK_B_PLAN_HASH_CACHE_PENDING_REVIEW"
+        product = generate_plans(values["scores"], values["initial_state"], values["sessions"], metadata,
+                                 cache_plan_hash=args.cache_plan_hash)
         plans = product["plans"]
         metadata["inputs"]["plans"] = {"uri": str((args.output_dir / "plans.json").resolve()),
             "raw_sha256": raw_hash(canonical_bytes(plans) + b"\n"), "content_sha256": content_hash(plans),

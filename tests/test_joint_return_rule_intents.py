@@ -277,8 +277,9 @@ def write(path, value):
     path.write_bytes(canonical_bytes(value) + b"\n")
 
 
+@pytest.mark.parametrize("cache", [False, True])
 @pytest.mark.parametrize("topk,n_drop", PAIRS)
-def test_merge_rule_freeze_cli_end_to_end_and_default(snapshot, tmp_path, capsys, topk, n_drop):
+def test_merge_rule_freeze_cli_end_to_end_and_default(snapshot, tmp_path, capsys, topk, n_drop, cache):
     s, sessions = inputs(snapshot, topk, n_drop)
     parts = split_scores(s["scores"])
     args = []
@@ -304,6 +305,8 @@ def test_merge_rule_freeze_cli_end_to_end_and_default(snapshot, tmp_path, capsys
     rule_args = ["--scores", str(paths["scores"]), "--initial-state", str(paths["initial_state"]),
                  "--sessions", str(tmp_path / "sessions.json"), "--metadata", str(tmp_path / "metadata.json"),
                  "--output-dir", str(rule_dir)]
+    if cache:
+        rule_args += ["--cache-plan-hash"]
     if topk != 50:
         rule_args += ["--topk", str(topk), "--n-drop", str(n_drop)]
     assert rules.main(rule_args) == 0
@@ -316,6 +319,7 @@ def test_merge_rule_freeze_cli_end_to_end_and_default(snapshot, tmp_path, capsys
     receipt = json.loads(capsys.readouterr().out)
     assert receipt["input_status"] == "INPUT_BLOCKED" and receipt["execution_status"] == "NOT_RUN"
     frozen, _ = load_snapshot(frozen_path)
+    assert ("research_acceleration" in frozen["metadata"]) is cache
     with pytest.raises(ContractError, match="MQ-PJSON reference content drift"):
         build_portfolio(frozen)
     frozen["kind"] = "synthetic"  # explicit test only: frozen above must not bypass P-REF
