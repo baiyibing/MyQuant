@@ -332,8 +332,11 @@ def _step(arm, state, plan, ranked, metadata, *, cache_plan_hash=False):
     candidates = plan["buy_candidates"]
     require(isinstance(candidates, list) and isinstance(plan["buys"], list) and isinstance(plan["sells"], list),
             "plan lists required")
-    # The completed plan is read-only throughout this step. Never retain this
-    # digest across calls/days, even when callers reuse the same plan object.
+    # The completed plan, including nested orders/marks, MUST remain read-only
+    # through return: mutating it after hashing would silently diverge from the
+    # slow path. test_serial_recurrence_and_artifact_bytes checks this at each
+    # _intent call and step return. Finalize any plan changes before this step.
+    # Never retain this digest across calls/days, even for a reused plan object.
     plan_hash = content_hash(plan) if cache_plan_hash and (candidates or plan["sells"]) else None
     options = {}
     for order in candidates:
