@@ -12,9 +12,32 @@ from test_joint_return_rule_intents import PAIRS, inputs
 
 @pytest.mark.parametrize('topk,n_drop', PAIRS)
 @pytest.mark.parametrize('mode', ['full', 'control_only'])
-def test_serial_recurrence_and_artifact_bytes(snapshot, topk, n_drop, mode):
+def test_serial_recurrence_and_artifact_bytes(snapshot, monkeypatch, topk, n_drop, mode):
     from test_joint_return_control_only import slim_inputs, seal as slim_seal
 
+    original_step, original_intent = portfolio._step, portfolio._intent
+
+    def checked_step(arm, state, plan, *args, **kwargs):
+        before = canonical_bytes(plan)
+        expected_hash = content_hash(plan)
+
+        def checked_intent(*intent_args, **intent_kwargs):
+            # Catch mutations before any candidate/sell/buy consumes the digest,
+            # including a transient mutation later undone before step return.
+            assert canonical_bytes(plan) == before
+            row = original_intent(*intent_args, **intent_kwargs)
+            assert row['source_plan_hash'] == expected_hash
+            assert canonical_bytes(plan) == before
+            return row
+
+        with monkeypatch.context() as patch:
+            patch.setattr(portfolio, '_intent', checked_intent)
+            result = original_step(arm, state, plan, *args, **kwargs)
+        assert canonical_bytes(plan) == before
+        return result
+
+    monkeypatch.setattr(portfolio, '_step', checked_step)
+    monkeypatch.setattr(rules, '_step', checked_step)
     s, sessions = (slim_inputs if mode == 'control_only' else inputs)(snapshot, topk, n_drop)
     before = deepcopy((s, sessions))
     slow = rules.generate_plans(s['scores'], s['initial_state'], sessions, s['metadata'])
@@ -55,6 +78,43 @@ def test_hash_once_per_step_and_reused_plan_is_rehashed(snapshot, monkeypatch):
     plan = empty
     step(True)
     assert calls == []
+
+
+@pytest.mark.parametrize('with_unapproved_sell', [False, True])
+def test_hash_once_with_sells(snapshot, monkeypatch, with_unapproved_sell):
+    if with_unapproved_sell:
+        s = snapshot
+        plan = next(p for p in s['plans'] if p['arm_id'] == 'P-CHASE')
+        state = s['initial_state']
+        assert any(not order['approved'] for order in plan['sells'])
+    else:
+        s, sessions = inputs(snapshot)
+        generated = rules.generate_plans(s['scores'], s['initial_state'], sessions, s['metadata'])
+        record = next(r for r in generated['reference_states']
+                      if r['arm_id'] == 'P-CHASE' and r['source_plan']['sells'])
+        plan, state = record['source_plan'], record['before']
+        assert (len(plan['buy_candidates']), len(plan['sells']), len(plan['buys'])) == (30, 3, 3)
+    ranked = portfolio.score_days(s['scores'])[plan['date']]
+    before, digest = canonical_bytes(plan), content_hash(plan)
+    calls = []
+
+    def counted(value):
+        if value is plan:
+            calls.append(content_hash(value))
+        return content_hash(value)
+
+    monkeypatch.setattr(portfolio, 'content_hash', counted)
+    results = []
+    for cache in (True, False):
+        calls.clear()
+        result = portfolio._step('P-CHASE', state, plan, ranked, s['metadata'], cache_plan_hash=cache)
+        expected_calls = 1 if cache else len(plan['buy_candidates']) + len(plan['sells']) + len(plan['buys'])
+        assert calls == [digest] * expected_calls
+        assert canonical_bytes(plan) == before
+        assert sum(row['side'] == 'SELL' for row in result[1]) == sum(o['approved'] for o in plan['sells'])
+        assert all(row['source_plan_hash'] == digest for row in result[1])
+        results.append(result)
+    assert canonical_bytes(results[0]) == canonical_bytes(results[1])
 
 
 @pytest.mark.parametrize('cache', [False, True])

@@ -9,6 +9,29 @@ permissions:
   contents: read
 
 jobs:
+  joint-return:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # Track B needs NumPy for P-REF bootstrap, but no qlib or external data.
+      - name: Install test dependencies
+        run: python -m pip install pytest numpy
+      - name: Run joint-return regression tests
+        env:
+          PYTHONPATH: tests:.
+        run: |
+          python -m pytest -q \
+            tests/test_joint_return_hash_accel.py \
+            tests/test_joint_return_rule_intents.py \
+            tests/test_joint_return_freeze_snapshot.py \
+            tests/test_joint_return_portfolio.py \
+            tests/test_joint_return_intent_clocks.py \
+            tests/test_joint_return_control_only.py
+
   pytest:
     runs-on: ubuntu-latest
     timeout-minutes: 30
