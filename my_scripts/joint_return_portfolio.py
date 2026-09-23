@@ -263,7 +263,7 @@ def validate_state(state, *, topk):
         lots.add(position["lot_id"])
 
 
-def _intent(arm, plan, order, side, reason):
+def _intent(arm, plan, order, side, reason, *, source_plan_hash=None):
     fields(order, ("instrument", "execution_symbol", "instance_id", "lot_id", "target_weight",
                    "original_target_quantity", "reference_price", "reference_price_at",
                    "quantity_unit", "quantity_conversion"), "frozen quantity")
@@ -272,7 +272,8 @@ def _intent(arm, plan, order, side, reason):
                                      "reference_price_at", "quantity_unit", "quantity_conversion")}
     row.update(arm_id=arm, decision_at=plan["decision_at"], available_at=plan["available_at"],
                side=side, reason=reason, reference_state_hash=plan["pre_state_hash"],
-               source_plan_hash=content_hash(plan), effective_at=plan["effective_at"],
+               source_plan_hash=content_hash(plan) if source_plan_hash is None else source_plan_hash,
+               effective_at=plan["effective_at"],
                expires_at=plan["expires_at"], native_stop="N/A", **ORDER_POLICY)
     row["intent_id"] = content_hash(row)
     validate_intents([row])
@@ -284,7 +285,7 @@ def _fee(intent, fees):
     return max(fees["minimum"], value * fees["buy_rate" if intent["side"] == "BUY" else "sell_rate"])
 
 
-def _step(arm, state, plan, ranked, metadata):
+def _step(arm, state, plan, ranked, metadata, *, cache_plan_hash=False):
     require(arm in portfolio_arms(metadata), "requested arm INPUT_BLOCKED: control_only permits only P-BASE")
     fields(plan, ("date", "arm_id", "pre_state_hash", "decision_at", "available_at", "effective_at",
                   "expires_at", "source", "marks", "mark_at", "sells", "buys", "buy_candidates",
@@ -331,11 +332,14 @@ def _step(arm, state, plan, ranked, metadata):
     candidates = plan["buy_candidates"]
     require(isinstance(candidates, list) and isinstance(plan["buys"], list) and isinstance(plan["sells"], list),
             "plan lists required")
+    # The completed plan is read-only throughout this step. Never retain this
+    # digest across calls/days, even when callers reuse the same plan object.
+    plan_hash = content_hash(plan) if cache_plan_hash and (candidates or plan["sells"]) else None
     options = {}
     for order in candidates:
         fields(order, ("eligible", "eligibility_reason"), "candidate eligibility")
         require(type(order["eligible"]) is bool and bool(order["eligibility_reason"]), "unknown eligibility")
-        row = _intent(arm, plan, order, "BUY", "VALIDATE_CANDIDATE")
+        row = _intent(arm, plan, order, "BUY", "VALIDATE_CANDIDATE", source_plan_hash=plan_hash)
         inst = row["instrument"]
         require(inst not in options and inst in by_name and inst not in positions, "invalid/duplicate buy candidate")
         options[inst] = order
@@ -348,7 +352,7 @@ def _step(arm, state, plan, ranked, metadata):
     for order in plan["sells"]:
         fields(order, ("approved", "approval_reason"), "sell approval")
         require(type(order["approved"]) is bool and bool(order["approval_reason"]), "unknown sell approval")
-        row = _intent(arm, plan, order, "SELL", "TOPK_DROPOUT_SELL")
+        row = _intent(arm, plan, order, "SELL", "TOPK_DROPOUT_SELL", source_plan_hash=plan_hash)
         inst = row["instrument"]
         require(inst in positions and inst not in sell_seen, "sell absent/duplicated in reference state", "PAIR_INVALID")
         sell_seen.add(inst)
@@ -381,7 +385,8 @@ def _step(arm, state, plan, ranked, metadata):
                     choices.append((row["instrument"], reason))
                     record(row["instrument"], reason, "P-REF preference; frozen eligible candidate quantity")
         require(len(choices) == len(buys), "insufficient frozen backfill quantities")
-    intents = selected_sells + [_intent(arm, plan, options[i], "BUY", reason) for i, reason in choices]
+    intents = selected_sells + [_intent(arm, plan, options[i], "BUY", reason, source_plan_hash=plan_hash)
+                               for i, reason in choices]
     next_state = deepcopy(state)
     target = dict(drift)
     fees_total = 0
@@ -428,7 +433,7 @@ def _step(arm, state, plan, ranked, metadata):
     return next_state, intents, audit, state_record
 
 
-def build_portfolio(snapshot):
+def build_portfolio(snapshot, *, cache_plan_hash=False):
     validate_snapshot(snapshot)
     metadata = snapshot["metadata"]
     mode, arms = scores_mode(metadata), portfolio_arms(metadata)
@@ -452,7 +457,8 @@ def build_portfolio(snapshot):
     for day in metadata["calendar"]:
         require(day in grouped, f"missing scores: {day}")
         for arm in arms:
-            state, rows, audit, record = _step(arm, states[arm], plans[day, arm], grouped[day], metadata)
+            state, rows, audit, record = _step(arm, states[arm], plans[day, arm], grouped[day], metadata,
+                                                cache_plan_hash=cache_plan_hash)
             states[arm] = state
             intents.extend(rows)
             constraints.extend(audit)
@@ -469,10 +475,12 @@ def build_portfolio(snapshot):
             "scope_status": scope_status(metadata, "PORTFOLIO_CONSTRAINTS_PASS", pref_status=pref["status"])}
 
 
-def run_snapshot(snapshot_path, output_root, run_id):
+def run_snapshot(snapshot_path, output_root, run_id, *, cache_plan_hash=False):
     require(isinstance(run_id, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}", run_id), "unsafe run_id")
     snapshot, source = load_snapshot(snapshot_path)
-    product = build_portfolio(snapshot)
+    if cache_plan_hash:
+        snapshot["metadata"]["research_acceleration"] = "TRACK_B_PLAN_HASH_CACHE_PENDING_REVIEW"
+    product = build_portfolio(snapshot, cache_plan_hash=cache_plan_hash)
     intent_bytes = csv_bytes(product["intents"], INTENT_FIELDS)
     constraint_bytes = csv_bytes(product["constraints"], CONSTRAINT_FIELDS)
     pref_bytes = canonical_bytes(product["pref_check"]) + b"\n"
@@ -509,9 +517,11 @@ def main(argv=None):
     parser.add_argument("--snapshot", required=True, type=Path, help="explicit immutable JSON snapshot; no resolver")
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--output-root", type=Path, default=Path("exports/analysis/joint-return-v1"))
+    parser.add_argument("--cache-plan-hash", action="store_true",
+                        help="research Track B: hash each plan once per step; default is slow reference")
     args = parser.parse_args(argv)
     try:
-        path = run_snapshot(args.snapshot, args.output_root, args.run_id)
+        path = run_snapshot(args.snapshot, args.output_root, args.run_id, cache_plan_hash=args.cache_plan_hash)
     except (ContractError, OSError) as exc:
         print(canonical_bytes({"status": getattr(exc, "status", "OUTPUT_BLOCKED"), "detail": str(exc)}).decode())
         return 2
