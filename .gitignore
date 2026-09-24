@@ -38,6 +38,8 @@ my_scripts/timing_*.json
 timing_*.json
 my_scripts/catboost_info/
 /catboost_info/
+/runs/
+/_agent_runs/
 my_scripts/position_analysis.txt
 my_scripts/预测结果.csv
 my_scripts/预测结果和真实标签.csv
