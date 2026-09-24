@@ -94,6 +94,22 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--emit-signal-bundle",
+        action="store_true",
+        help="write signal-bundle.json for pools written in this export (default: off)",
+    )
+    parser.add_argument(
+        "--available-at-time",
+        default=None,
+        help="declared HH:MM:SS+08:00 on each signal date; used with --emit-signal-bundle",
+    )
+    parser.add_argument(
+        "--price-domain",
+        choices=("unspecified", "none", "front", "back"),
+        default="unspecified",
+        help="explicit price domain for --emit-signal-bundle; never inferred from paths",
+    )
+    parser.add_argument(
         "--neutralize",
         choices=METHODS,
         default=None,
@@ -254,12 +270,15 @@ def export_daily_pool(
     asof: str = "pred_minus_one",
     write_topk: bool = True,
     write_scores: bool = True,
+    bundle_sessions: list[tuple[str, str, Path]] | None = None,
 ) -> tuple[list[Path], list[Path], int]:
     """Write daily TopK and/or scores sidecar; return (topk paths, scores paths, illegal).
 
     Scores live under ``<out-dir>/scores/YYYYMMDD.csv`` with the **same buy-date
     asof** as the TopK pool files. Content is the full cross-section for the
     prediction day that feeds buy date T (``pred_minus_one`` → pred[T−1]).
+    If supplied, bundle_sessions collects (signal_asof, target_session, path)
+    only for TopK files written by this call, using this same date mapping.
     """
     if topk <= 0:
         raise ValueError("topk must be greater than zero")
@@ -302,12 +321,59 @@ def export_daily_pool(
                 "".join(f"{code}\n" for code in codes), encoding="utf-8", newline="\n"
             )
             written.append(destination)
+            if bundle_sessions is not None:
+                bundle_sessions.append((
+                    f"{pred_date:%Y-%m-%d}", f"{buy_date:%Y-%m-%d}", destination,
+                ))
         if write_scores:
             scores_path = output / "scores" / f"{buy_date:%Y%m%d}.csv"
             _write_scores_csv(scores_path, rows)
             scores_written.append(scores_path)
 
     return written, scores_written, illegal_count
+
+
+def _write_signal_bundle(
+    out_dir: Path,
+    sessions: Sequence[tuple[str, str, Path]],
+    *,
+    asof: str,
+    available_at_time: str | None,
+    price_domain: str,
+) -> None:
+    """Hash written pools and serialize the opt-in contract, without deriving dates."""
+    import hashlib
+
+    from myquant_contract import build_signal_bundle, canonical_json_bytes
+
+    available_at = None
+    if available_at_time is not None:
+        if re.fullmatch(r"(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\+08:00", available_at_time) is None:
+            raise ValueError("--available-at-time must be HH:MM:SS+08:00 (00:00:00 to 23:59:59)")
+        if not sessions:
+            raise ValueError("cannot declare available_at without a written pool's signal_asof")
+        # One clock template, anchored to the earliest emitted signal date.
+        available_at = f"{min(signal_asof for signal_asof, _, _ in sessions)}T{available_at_time}"
+    rows = []
+    for signal_asof, target_session, path in sessions:
+        payload = path.read_bytes()
+        rows.append({
+            "signal_asof": signal_asof,
+            "target_session": target_session,
+            "pool_file": path.name,
+            "pool_md5": hashlib.md5(payload).hexdigest(),
+            "pool_sha256": hashlib.sha256(payload).hexdigest(),
+        })
+    bundle = build_signal_bundle(
+        rows,
+        signal_asof_policy=asof,
+        availability="declared" if available_at_time is not None else "unproven",
+        available_at=available_at,
+        price_domain=price_domain,
+    )
+    output = _safe_output_dir(Path(out_dir))
+    output.mkdir(parents=True, exist_ok=True)
+    (output / "signal-bundle.json").write_bytes(canonical_json_bytes(bundle))
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -320,6 +386,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(f"prediction file does not exist: {pred_path}")
     write_topk = not args.scores_only
     write_scores = not args.no_scores
+    bundle_sessions = [] if args.emit_signal_bundle else None
     try:
         predictions = load_predictions(pred_path)
         pred_rows = int(len(predictions))
@@ -340,7 +407,16 @@ def main(argv: Sequence[str] | None = None) -> int:
             asof=args.asof,
             write_topk=write_topk,
             write_scores=write_scores,
+            bundle_sessions=bundle_sessions,
         )
+        if args.emit_signal_bundle:
+            _write_signal_bundle(
+                args.out_dir,
+                bundle_sessions,
+                asof=args.asof,
+                available_at_time=args.available_at_time,
+                price_domain=args.price_domain,
+            )
     except (OSError, ValueError, DataRootError, pd.errors.ParserError) as exc:
         parser.error(str(exc))
     if illegal_count:
