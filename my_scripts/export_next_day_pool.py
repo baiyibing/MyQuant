@@ -16,7 +16,7 @@ import json
 import multiprocessing
 import os
 import sys
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -33,21 +33,37 @@ DEFAULT_EXP = "alpha158_cost_kdj_lgb"
 DEFAULT_PROVIDER = os.path.expanduser("~/.qlib/qlib_data/my_data")
 
 
+class NextSessionUnavailable(ValueError):
+    """The supplied calendar has no session after the prediction date."""
+
+    def __init__(self, pred_date: date, message: str) -> None:
+        self.pred_date = pred_date
+        super().__init__(message)
+
+
 def _as_date(value) -> date:
     return pd.Timestamp(value).date()
 
 
 def next_calendar_date(pred_date, calendar: list) -> date:
-    """日历上 pred_date 的下一交易日；日历未收录则退回下一自然日（周末再 +1/+2）。"""
+    """返回所给日历中 pred_date 之后的首个交易日；未收录则报错。"""
     pred = _as_date(pred_date)
     dates = [_as_date(x) for x in calendar]
+    if not dates:
+        raise NextSessionUnavailable(pred, "trading calendar is empty")
     for d in dates:
         if d > pred:
             return d
-    nxt = pred + timedelta(days=1)
-    while nxt.weekday() >= 5:
-        nxt += timedelta(days=1)
-    return nxt
+    raise NextSessionUnavailable(
+        pred, f"next session after {pred} is not in the supplied calendar"
+    )
+
+
+def resolve_buy_date(pred_date, calendar: list, buy_date: str | None) -> str:
+    """Use an explicit buy date or the next session in the supplied calendar."""
+    if buy_date:
+        return str(_as_date(buy_date))
+    return str(next_calendar_date(pred_date, calendar))
 
 
 def score_frame(pred) -> pd.DataFrame:
@@ -352,7 +368,10 @@ def main(argv=None) -> int:
         raise SystemExit("qlib calendar empty")
     pred_date = args.pred_date or str(_as_date(cal[-1]))
     args.pred_date = pred_date
-    buy_date = args.buy_date or str(next_calendar_date(pred_date, cal))
+    try:
+        buy_date = resolve_buy_date(pred_date, cal, args.buy_date)
+    except NextSessionUnavailable as exc:
+        raise SystemExit(str(exc)) from exc
     out_dir = Path(args.out_dir) if args.out_dir else _ROOT / "exports" / "live_pool" / buy_date.replace("-", "")
     if out_dir.exists() and any(out_dir.iterdir()) and not args.force:
         raise SystemExit(f"out-dir not empty (pass --force): {out_dir}")

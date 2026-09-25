@@ -1,15 +1,20 @@
 # -*- coding: utf-8 -*-
+import sys
 from datetime import date
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock
 
+import export_next_day_pool as exporter
 import pandas as pd
 import pytest
-
 from export_next_day_pool import (
+    NextSessionUnavailable,
     load_pred_csv,
     next_calendar_date,
     parse_cli,
     plan_rebalance,
+    resolve_buy_date,
     score_frame,
     write_suite,
 )
@@ -45,8 +50,78 @@ def test_next_calendar_date_uses_next_session():
     assert next_calendar_date("2026-09-15", cal) == date(2026, 9, 16)
 
 
-def test_next_calendar_date_skips_weekend_when_calendar_ends():
-    assert next_calendar_date("2026-09-11", ["2026-09-11"]) == date(2026, 9, 14)
+def test_next_calendar_date_raises_when_calendar_ends():
+    with pytest.raises(NextSessionUnavailable, match="2026-09-11") as exc_info:
+        next_calendar_date("2026-09-11", ["2026-09-11"])
+    assert exc_info.value.pred_date == date(2026, 9, 11)
+    assert str(exc_info.value) == "next session after 2026-09-11 is not in the supplied calendar"
+
+
+def test_next_calendar_date_raises_on_empty_calendar():
+    with pytest.raises(NextSessionUnavailable, match="^trading calendar is empty$") as exc_info:
+        next_calendar_date("2026-09-11", [])
+    assert exc_info.value.pred_date == date(2026, 9, 11)
+
+
+def test_next_calendar_date_returns_later_supplied_session_across_a_gap():
+    assert next_calendar_date("2026-09-11", ["2026-09-11", "2026-09-15"]) == date(2026, 9, 15)
+
+
+def test_resolve_buy_date_explicit_skips_calendar(monkeypatch):
+    next_session = Mock(side_effect=AssertionError("calendar must not be read"))
+    monkeypatch.setattr(exporter, "next_calendar_date", next_session)
+
+    assert resolve_buy_date("2026-09-11", ["2026-09-11"], "2026-09-16") == "2026-09-16"
+    assert resolve_buy_date("2026-09-11", [], "20260916") == "2026-09-16"
+    next_session.assert_not_called()
+
+
+@pytest.mark.parametrize("buy_date", [None, ""])
+def test_resolve_buy_date_omitted_raises_when_no_successor(buy_date):
+    with pytest.raises(NextSessionUnavailable, match="2026-09-11"):
+        resolve_buy_date("2026-09-11", ["2026-09-11"], buy_date)
+
+
+def _stub_cli_calendar(monkeypatch, calendar):
+    modules = {
+        "qlib": SimpleNamespace(init=lambda **kwargs: None),
+        "qlib.config": SimpleNamespace(REG_CN="cn"),
+        "qlib.data": SimpleNamespace(D=SimpleNamespace(calendar=lambda **kwargs: calendar)),
+        "buy_eligibility": SimpleNamespace(BuyEligibilityFilter=Mock(), load_age_map=Mock()),
+        "train_wiring": SimpleNamespace(EXCLUDE_STOCKS_DEFAULT=[]),
+    }
+    for name, module in modules.items():
+        monkeypatch.setitem(sys.modules, name, module)
+    write = Mock(side_effect=AssertionError("suite must not be written"))
+    monkeypatch.setattr(exporter, "write_suite", write)
+    monkeypatch.setattr(exporter, "_predict_last_day", Mock(side_effect=AssertionError("must not predict")))
+    return write
+
+
+def test_main_exits_before_output_when_calendar_has_no_successor(monkeypatch, tmp_path):
+    write = _stub_cli_calendar(monkeypatch, ["2026-09-11"])
+    out_dir = tmp_path / "pool"
+
+    with pytest.raises(SystemExit, match="2026-09-11") as exc_info:
+        exporter.main(["--out-dir", str(out_dir)])
+
+    assert exc_info.value.code == "next session after 2026-09-11 is not in the supplied calendar"
+    assert isinstance(exc_info.value.__cause__, NextSessionUnavailable)
+    assert exc_info.value.__cause__.pred_date == date(2026, 9, 11)
+    assert not out_dir.exists()
+    write.assert_not_called()
+
+
+def test_main_preserves_empty_qlib_calendar_exit(monkeypatch, tmp_path):
+    write = _stub_cli_calendar(monkeypatch, [])
+    out_dir = tmp_path / "pool"
+
+    with pytest.raises(SystemExit, match="^qlib calendar empty$") as exc_info:
+        exporter.main(["--out-dir", str(out_dir)])
+
+    assert exc_info.value.__cause__ is None
+    assert not out_dir.exists()
+    write.assert_not_called()
 
 
 def test_score_frame_ranks_score_desc_then_instrument():
