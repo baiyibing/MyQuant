@@ -520,8 +520,9 @@ def main(argv=None):
     parser.add_argument("--snapshot", required=True, type=Path, help="explicit immutable JSON snapshot; no resolver")
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--output-root", type=Path, default=Path("exports/analysis/joint-return-v1"))
-    parser.add_argument("--cache-plan-hash", action="store_true",
-                        help="research Track B: hash each plan once per step; default is slow reference")
+    parser.add_argument("--cache-plan-hash", action=argparse.BooleanOptionalAction, default=True,
+                        help="research Track B (default ON): hash each plan once per nonempty step; identical products; "
+                             "--no-cache-plan-hash selects the slow reference path (re-hash the full plan per candidate)")
     args = parser.parse_args(argv)
     try:
         path = run_snapshot(args.snapshot, args.output_root, args.run_id, cache_plan_hash=args.cache_plan_hash)

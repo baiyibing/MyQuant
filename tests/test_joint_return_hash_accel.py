@@ -1,11 +1,12 @@
 """Track B differential checks on the existing data-free rule fixtures."""
+import json
 from copy import deepcopy
 
 import pytest
 
 from my_scripts import joint_return_portfolio as portfolio
 from my_scripts import joint_return_rule_intents as rules
-from my_scripts.joint_return_contract import INTENT_FIELDS, ContractError, canonical_bytes, content_hash, csv_bytes
+from my_scripts.joint_return_contract import INTENT_FIELDS, ContractError, canonical_bytes, content_hash, csv_bytes, raw_hash
 from test_joint_return_portfolio import seal, snapshot
 from test_joint_return_rule_intents import PAIRS, inputs
 
@@ -128,15 +129,89 @@ def test_unselected_candidate_still_validated(snapshot, cache):
         portfolio._step('P-BASE', s['initial_state'], plan, ranked, s['metadata'], cache_plan_hash=cache)
 
 
-def test_portfolio_cli_accel_is_stamped_and_intents_match(snapshot, tmp_path, capsys):
-    import json
+def test_rule_cli_cache_defaults_and_artifacts_match(request, tmp_path, capsys, monkeypatch):
+    s, sessions = inputs(request.getfixturevalue('snapshot'))
+    args = []
+    for name, value in [('scores', s['scores']), ('initial_state', s['initial_state']), ('sessions', sessions)]:
+        path = tmp_path / f'{name}.json'
+        data = canonical_bytes(value) + b'\n'
+        path.write_bytes(data)
+        args += [f'--{name.replace("_", "-")}', str(path)]
+        if name in ('scores', 'initial_state'):
+            s['metadata']['inputs'][name].update(
+                uri=str(path.resolve()), raw_sha256=raw_hash(data), content_sha256=content_hash(value))
+    metadata_path = tmp_path / 'metadata.json'
+    metadata_path.write_bytes(canonical_bytes(s['metadata']) + b'\n')
+    args += ['--metadata', str(metadata_path)]
+
+    original_generate = rules.generate_plans
+    cache_options = []
+
+    def capture_generate(*args, cache_plan_hash, **kwargs):
+        cache_options.append(cache_plan_hash)
+        return original_generate(*args, cache_plan_hash=cache_plan_hash, **kwargs)
+
+    monkeypatch.setattr(rules, 'generate_plans', capture_generate)
+    plans, manifests, metadata = [], [], []
+    for name, flags, cache in [('default', [], True), ('slow', ['--no-cache-plan-hash'], False),
+                               ('fast', ['--cache-plan-hash'], True)]:
+        output = tmp_path / name
+        assert rules.main([*args, '--output-dir', str(output), *flags]) == 0
+        capsys.readouterr()
+        plans.append((output / 'plans.json').read_bytes())
+        manifest = json.loads((output / 'rule-manifest.json').read_bytes())
+        current_metadata = json.loads((output / 'metadata.json').read_bytes())
+        assert ('research_acceleration' in current_metadata) is cache
+        assert current_metadata.pop('research_acceleration', None) == (
+            'TRACK_B_PLAN_HASH_CACHE_PENDING_REVIEW' if cache else None)
+        assert current_metadata['inputs']['plans'].pop('uri') == str((output / 'plans.json').resolve())
+        assert manifest['plans'].pop('uri') == str((output / 'plans.json').resolve())
+        metadata.append(current_metadata)
+        manifests.append(manifest)
+    assert cache_options == [True, False, True]
+    assert plans[0] == plans[1] == plans[2]
+    assert manifests[0]['reference_states'] == manifests[1]['reference_states'] == manifests[2]['reference_states']
+    assert manifests[0] == manifests[1] == manifests[2]
+    assert metadata[0] == metadata[1] == metadata[2]
+
+
+@pytest.mark.parametrize('flag', ['--cache-plan-hash', '--no-cache-plan-hash'])
+def test_rule_cli_boolean_error_stays_input_blocked(tmp_path, capsys, flag):
+    args = [arg for name in ('scores', 'initial-state', 'sessions', 'metadata')
+            for arg in (f'--{name}', str(tmp_path / f'{name}.json'))]
+    assert rules.main([*args, '--output-dir', str(tmp_path / 'out'), f'{flag}=true']) == 2
+    error = json.loads(capsys.readouterr().out)
+    assert error['status'] == 'INPUT_BLOCKED'
+    assert "ignored explicit argument 'true'" in error['detail']
+    assert not (tmp_path / 'out').exists()
+
+
+def test_portfolio_cli_accel_is_stamped_and_intents_match(snapshot, tmp_path, capsys, monkeypatch):
+    original_run = portfolio.run_snapshot
+    cache_options = []
+
+    def capture_run(*args, cache_plan_hash, **kwargs):
+        cache_options.append(cache_plan_hash)
+        return original_run(*args, cache_plan_hash=cache_plan_hash, **kwargs)
+
+    monkeypatch.setattr(portfolio, 'run_snapshot', capture_run)
 
     source = tmp_path / 'snapshot.json'
     source.write_bytes(canonical_bytes(snapshot))
     args = ['--snapshot', str(source), '--output-root', str(tmp_path)]
-    assert portfolio.main([*args, '--run-id', 'slow']) == 0
-    assert portfolio.main([*args, '--run-id', 'fast', '--cache-plan-hash']) == 0
-    capsys.readouterr()
-    assert (tmp_path / 'slow/intents.csv').read_bytes() == (tmp_path / 'fast/intents.csv').read_bytes()
-    manifest = json.loads((tmp_path / 'fast/manifest.json').read_bytes())
-    assert manifest['metadata']['research_acceleration'] == 'TRACK_B_PLAN_HASH_CACHE_PENDING_REVIEW'
+    manifests = []
+    for run_id, flags, cache in [('default', [], True), ('slow', ['--no-cache-plan-hash'], False),
+                                 ('fast', ['--cache-plan-hash'], True)]:
+        assert portfolio.main([*args, '--run-id', run_id, *flags]) == 0
+        capsys.readouterr()
+        manifest = json.loads((tmp_path / run_id / 'manifest.json').read_bytes())
+        assert manifest.pop('run_id') == run_id
+        assert ('research_acceleration' in manifest['metadata']) is cache
+        assert manifest['metadata'].pop('research_acceleration', None) == (
+            'TRACK_B_PLAN_HASH_CACHE_PENDING_REVIEW' if cache else None)
+        manifests.append(manifest)
+    assert cache_options == [True, False, True]
+    for name in ('intents.csv', 'constraints.csv', 'pref_check.json'):
+        assert ((tmp_path / 'default' / name).read_bytes() == (tmp_path / 'slow' / name).read_bytes()
+                == (tmp_path / 'fast' / name).read_bytes())
+    assert manifests[0] == manifests[1] == manifests[2]

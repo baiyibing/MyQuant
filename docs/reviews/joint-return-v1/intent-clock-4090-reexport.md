@@ -95,6 +95,8 @@ convention 与 BT session 核对结果写入新目录的宿主回执。
 
 继续同一会话；不传 pref，不重算 score，不运行训练。
 
+2026-09-25 起，rule/portfolio 默认启用 plan-hash cache（产品相同，metadata/manifest 带 `research_acceleration: TRACK_B_PLAN_HASH_CACHE_PENDING_REVIEW` 研究标记）；两端加 `--no-cache-plan-hash` 可复现慢速参考路径。
+
 ```powershell
 & $Py -m my_scripts.joint_return_rule_intents --scores $Scores --initial-state $Initial --sessions "$Out\sessions.json" --metadata "$Out\metadata.json" --arms P-BASE --topk 50 --n-drop 5 --output-dir "$Out\rules"
 if ($LASTEXITCODE -ne 0) { throw 'rule generation failed' }

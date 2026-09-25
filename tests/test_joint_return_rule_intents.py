@@ -305,8 +305,7 @@ def test_merge_rule_freeze_cli_end_to_end_and_default(snapshot, tmp_path, capsys
     rule_args = ["--scores", str(paths["scores"]), "--initial-state", str(paths["initial_state"]),
                  "--sessions", str(tmp_path / "sessions.json"), "--metadata", str(tmp_path / "metadata.json"),
                  "--output-dir", str(rule_dir)]
-    if cache:
-        rule_args += ["--cache-plan-hash"]
+    rule_args += ["--cache-plan-hash" if cache else "--no-cache-plan-hash"]
     if topk != 50:
         rule_args += ["--topk", str(topk), "--n-drop", str(n_drop)]
     assert rules.main(rule_args) == 0
