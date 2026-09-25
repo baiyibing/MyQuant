@@ -56,6 +56,8 @@ FREEZE_OUT_DIR=/absolute/path/to/new-slim-output
 
 若 control 已含完整来源字段，省略 `--control-metadata`。然后按 §2 的双 hash 命令，仅登记 merged/scores.json 和 initial_state.json（**不传 pref**），写好上述瘦 metadata，再运行：
 
+2026-09-25 起，rule/portfolio 默认启用 plan-hash cache（产品相同，metadata/manifest 带 `research_acceleration: TRACK_B_PLAN_HASH_CACHE_PENDING_REVIEW` 研究标记）；两端加 `--no-cache-plan-hash` 可复现慢速参考路径。
+
 ```bash
 "$MQ_PYTHON" -m my_scripts.joint_return_rule_intents \
   --scores "$FREEZE_OUT_DIR/merged/scores.json" \

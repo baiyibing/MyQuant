@@ -30,7 +30,8 @@ jobs:
             tests/test_joint_return_freeze_snapshot.py \
             tests/test_joint_return_portfolio.py \
             tests/test_joint_return_intent_clocks.py \
-            tests/test_joint_return_control_only.py
+            tests/test_joint_return_control_only.py \
+            tests/test_joint_return_ab_kit.py
 
   pytest:
     runs-on: ubuntu-latest

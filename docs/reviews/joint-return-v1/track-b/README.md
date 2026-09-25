@@ -4,19 +4,25 @@
 
 `_step` previously called `content_hash(plan)` for every candidate validation,
 approved/unapproved sell validation, and selected buy. The completed plan is
-read-only within `_step`; the opt-in path computes the same canonical hash once
+read-only within `_step`; the cache path computes the same canonical hash once
 per nonempty step and passes it to `_intent`. Empty steps need no plan hash.
 The binding expires on return. No object-id/global cache, cross-day parallelism,
 canonicalization changes, session hash changes, quantity identity changes, or
 BASE_MQ/contract rotation is involved. Every candidate is still validated.
 
-Add `--cache-plan-hash` to **both** the existing rule-intents command and the
-subsequent portfolio command. Freeze is unchanged. Omitting the flag retains the
-slow reference behavior. Python callers can select `cache_plan_hash=True` on
-`generate_plans`, `build_portfolio`, or `run_snapshot`.
+2026-09-25 update: **both** rule-intents and portfolio CLIs now default to the
+cache. `--cache-plan-hash` remains accepted as an explicit-on no-op;
+`--no-cache-plan-hash` restores the slow reference path, which re-hashes the full
+plan per candidate. Freeze is unchanged. See the
+[performance study and full-data A/B merge gate](../../../performance/2026-09-25-joint-return-plan-hash-cache.md).
+Python API defaults remain `cache_plan_hash=False`; callers can select
+`cache_plan_hash=True` on `generate_plans`, `build_portfolio`, or `run_snapshot`.
 
 Both CLI artifact writers stamp metadata with
-`research_acceleration: TRACK_B_PLAN_HASH_CACHE_PENDING_REVIEW` when opted in.
+`research_acceleration: TRACK_B_PLAN_HASH_CACHE_PENDING_REVIEW` when the cache
+is enabled, so the stamp now appears by default. `--no-cache-plan-hash` does not
+add it; use the opt-out on both CLIs with unstamped inputs to reproduce an
+unstamped slow-path chain. Existing upstream stamps are preserved.
 Rule metadata carries that stamp through freeze into the portfolio manifest.
 Pure generation/build APIs return identical products without adding metadata;
 callers packaging those products must preserve the research designation.

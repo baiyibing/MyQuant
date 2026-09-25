@@ -5,6 +5,7 @@ Run: python -m my_scripts.joint_return_rule_intents --help
 """
 from __future__ import annotations
 
+import argparse
 from copy import deepcopy
 import math
 from pathlib import Path
@@ -193,8 +194,9 @@ def main(argv=None):
     parser.add_argument("--n-drop", type=int, default=DEFAULT_N_DROP, help="research default 5; supports 50/5, 20/3, 10/3")
     parser.add_argument("--arms", nargs="+", help="must match mode: control_only permits only P-BASE")
     parser.add_argument("--output-dir", required=True, type=Path)
-    parser.add_argument("--cache-plan-hash", action="store_true",
-                        help="research Track B: hash each plan once per step; default is slow reference")
+    parser.add_argument("--cache-plan-hash", action=argparse.BooleanOptionalAction, default=True,
+                        help="research Track B (default ON): hash each plan once per nonempty step; identical products; "
+                             "--no-cache-plan-hash selects the slow reference path (re-hash the full plan per candidate)")
     try:
         args = parser.parse_args(argv)
         values, sources = {}, {}
