@@ -42,6 +42,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Lint signal bundle contract
+        run: |
+          pip install ruff
+          ruff check myquant_contract
+
       # qlib 按开发基准 commit 源码安装（requirements.txt 注明的口径，勿用发布包）
       # eng-perf P1-8: cache qlib-dev tree; key binds OS + py3.12 + literal 79633dd9 + reqs hash
       - name: Cache qlib-dev (pinned 79633dd9)

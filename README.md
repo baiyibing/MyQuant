@@ -13,6 +13,11 @@ MyQuant/
 ├── my_scripts/     # 自定义扩展：DataHandler（KDJ、$volume 与有效流通盘等特征）、
 │                   # 涨停/涨幅过滤策略（TopkDropoutStrategy 扩展）、工具函数
 ├── my_tests/       # 测试
+├── tests/          # 合同与回归测试
+├── docs/           # 设计、计划与验证文档
+├── configs/        # 研究与模型配置
+├── manifests/      # 运行与导出清单
+├── .github/workflows/ci.yml  # CI 工作流
 └── my_docs/        # 学习笔记与问题记录
 ```
 
@@ -34,7 +39,7 @@ pip install -e .
 
 ## 相关项目
 
-- [MyQuant-backtrader](https://github.com/baiyibing/MyQuant-backtrader) — backtrader 回测 + 股票数据 + 筹码/换手阻力研究（Python + Rust）
+- [MyQuant-backtrader](https://github.com/baiyibing/MyQuant-backtrader) — 向量化研究回测（Cerebro 已于 2026-09-16 退役）；本仓库输出信号，不运行该回测账本。
 
 ## 免责声明
 
