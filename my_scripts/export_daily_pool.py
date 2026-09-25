@@ -342,8 +342,15 @@ def _write_signal_bundle(
     price_domain: str,
 ) -> None:
     """Hash written pools and serialize the opt-in contract, without deriving dates."""
+    output = _safe_output_dir(Path(out_dir))
+    if not sessions and (output / "signal-bundle.json").exists():
+        # No TopK files changed, so keep the contract for the existing pools.
+        return
+
     import hashlib
 
+    if str(REPO_ROOT) not in sys.path:
+        sys.path.insert(0, str(REPO_ROOT))
     from myquant_contract import build_signal_bundle, canonical_json_bytes
 
     available_at = None
@@ -371,7 +378,6 @@ def _write_signal_bundle(
         available_at=available_at,
         price_domain=price_domain,
     )
-    output = _safe_output_dir(Path(out_dir))
     output.mkdir(parents=True, exist_ok=True)
     (output / "signal-bundle.json").write_bytes(canonical_json_bytes(bundle))
 
