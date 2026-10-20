@@ -9,4 +9,4 @@ MyQuant **不拥有或不维护**该交接正文；本文件仅为指针，不�
 
 Owners / RACI / CLI 工作流仍见既有指针：[`grok-bot-raci-workflow.md`](grok-bot-raci-workflow.md) → `baiyibing/grok-bot-ops` `docs/raci/grok-bot-raci-workflow-ssot.md`。
 
-本仓 Owner：qlib（MyQuant）。细节以 grok-bot-ops RACI 为准；此处不复制交接快照或操作步骤。
+本仓 Owner：qt（原 qlib；MyQuant）。细节以 grok-bot-ops RACI 为准；此处不复制交接快照或操作步骤。
