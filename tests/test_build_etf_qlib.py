@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -67,7 +68,11 @@ def test_refuses_protected_paths_before_wipe(tmp_path: Path):
         protected.parent / "my_data_1min",
     ]
     link = tmp_path / "alias_my_data"
-    subprocess.check_call(["cmd", "/c", "mklink", "/J", str(link), str(protected)])
+    if os.name == "nt":
+        subprocess.check_call(["cmd", "/c", "mklink", "/J", str(link), str(protected)])
+    else:
+        os.symlink(protected, link, target_is_directory=True)
+    assert link.resolve() == protected.resolve()
     targets.append(link)
     for target in targets:
         cfg.qlib_dir = target

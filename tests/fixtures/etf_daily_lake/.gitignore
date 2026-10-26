@@ -1,0 +1,2 @@
+# Only these tiny synthetic lake fixtures override the repository data ignore.
+!dividend_type=*/symbol=*/data.parquet

@@ -107,3 +107,5 @@ v1 本次实验锁定 P-3 窗口末日为 **2026-10-13**，E3 验收末日与 P-
 5. **P-11** 新脚本，而不是给 `custom_train_backtest.py` 加 `--provider etf`。加开关容易把 ST/涨停过滤带到 ETF 上。
 
 没有第 6 个开放项：分钟、并入股票 `my_data`、2020 年之前的 front 历史，都不在本轮评审范围里。
+
+2026-10-26 status: [ETF daily qlib local offline smoke](etf-daily-qlib-offline-smoke.md) covers synthetic fixtures and Linux pytest hardening only; host E3/E4 acceptance remains separate.
