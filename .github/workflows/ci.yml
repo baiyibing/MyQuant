@@ -9,6 +9,25 @@ permissions:
   contents: read
 
 jobs:
+  data-staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install offline staging test dependencies
+        run: python -m pip install pytest numpy pandas pyarrow
+      - name: Run ETF and minute staging offline tests
+        run: |
+          python -m pytest -q \
+            tests/test_build_etf_qlib.py \
+            tests/test_etf_daily_qlib_offline_smoke.py \
+            tests/test_stage_1min_from_lake.py \
+            tests/test_stage_etf_daily_from_lake.py \
+            tests/test_train_etf_smoke.py
+
   joint-return:
     runs-on: ubuntu-latest
     timeout-minutes: 5
