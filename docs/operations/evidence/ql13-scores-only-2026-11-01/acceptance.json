@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-11-01T12:11:52.405024+00:00",
+  "package_id": "P12",
+  "audit_id": "QL13",
+  "package_closed": false,
+  "implementation_commit": "0369eba855a1bbcf2392ecf136bb5faeaae8132f",
+  "base_commit": "11720e5b394b440101b31f32038c85ab536f572e",
+  "behavior": [
+    "scores-only preserves an existing bundle byte-for-byte and creates no bundle in a fresh directory",
+    "Clock format is checked before CSV/score writes when bundle emission is requested, including empty/preserved branches",
+    "Default CSV bytes, asof and signal-bundle schema unchanged"
+  ],
+  "baseline_regressions": {
+    "failed": 8,
+    "passed": 2,
+    "deselected": 13,
+    "exit_code": 1
+  },
+  "targeted_five_file_result": {
+    "passed": 84,
+    "exit_code": 0
+  },
+  "full_ci_selection_local": {
+    "passed": 449,
+    "skipped": 1,
+    "subtests_passed": 18,
+    "exit_code": 0
+  },
+  "local_test_isolation": "Explicit empty audit pytest.ini plus repo root/confcutdir and private basetemp, matching a standalone MyQuant checkout rather than inheriting the parent BT pytest config. Initial parent-config setup errors are not counted as behavior regressions.",
+  "log_hashes": {
+    "ql13-before-isolated.log": "5bea1806b8e53491d6d66ffe860e5ece7288d0f0674a5f2ccc6131a6f6f5ce8c",
+    "ql13-after-isolated.log": "1ffc0aa20a9d5bf2798d0d92fedaf8f9516464240ce7edd7dfdad79ba7b3d8f4",
+    "ql13-full-suite.log": "38e35370eb4ca1a4965656b2abaa29df83b1219aa5bf8c21ea55bbeb66706afe"
+  },
+  "remaining": [
+    "Final-head remote CI and merge before audit closure",
+    "QL12 train/export required-manifest failure semantics still open",
+    "QL10/QL11 independent refresh and real host acceptance still open"
+  ],
+  "market_write_performed": false
+}
