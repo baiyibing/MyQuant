@@ -91,5 +91,21 @@
 `HH:MM:SS+08:00` 格式；空导出和保留旧 bundle 的分支也不能绕过。合法 clock 模板
 不会改写被保留的旧 bundle。普通空导出仍不能声明一个不存在的 signal_asof。
 
-本片不改 as-of、默认名单/score CSV 字节或 signal-bundle schema。主 run-manifest
-写盘失败当前仍是告警，QL12 的训练/导出失败语义继续单独跟踪，P12 未整包关闭。
+QL13 保留既有 as-of、默认名单/score CSV 字节和 signal-bundle schema。
+
+## 2026-11-01 必需 manifest 失败语义（QL12）
+
+默认训练入口 `custom_train_backtest.py` 和日池导出入口 `export_daily_pool.py` 的
+run-manifest 属于必需产物。主清单位于 `manifests/<stage>_<UTC>.json`；副本按调用方
+参数选择，已请求的副本写入也须成功。底层 writer 的序列化、指纹、建目录及写文件
+错误继续向上传递。
+
+任一必需清单写入失败时，两个入口向 stderr 输出错误并以退出码 1 结束；训练入口
+停止输出“策略回测完成／训练与回测完成”。普通导出、signal-bundle 和 scores-only
+分支共用这一失败语义。
+
+失败前可能已有预测、CSV 或主清单文件落盘；这些文件保留供诊断，调用方应同时
+检查成功退出码和有效 manifest，再确认本次任务完成。显式关闭 manifest 的研究入口
+继续遵守各自已有选项。schema 与 writer 的文件格式保持原合同。
+
+QL12 和 QL13 各自落回执；P12 的独立刷新、分钟增量现场验收仍开放。

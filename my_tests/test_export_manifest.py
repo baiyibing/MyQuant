@@ -8,6 +8,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _MY_SCRIPTS = os.path.join(_ROOT, "my_scripts")
 if _MY_SCRIPTS not in sys.path:
@@ -76,3 +78,36 @@ def test_export_main_writes_manifest_tiny_window(tmp_path: Path, monkeypatch):
     assert man["artifacts"][0]["path"].endswith("pred.csv") or man["artifacts"][0]["path"] == "pred.csv"
     # as-of lock: last pred day has no buy file
     assert not (out / "20260302.csv").exists()
+
+
+@pytest.mark.parametrize("flags", [[], ["--emit-signal-bundle"], ["--scores-only", "--emit-signal-bundle"]])
+def test_export_main_required_primary_manifest_failure(tmp_path: Path, monkeypatch, capsys, flags):
+    import export_daily_pool as edp
+
+    pred = tmp_path / "pred.csv"
+    pred.write_text("datetime,instrument,score\n2026-03-02,SZ300190,2\n2026-03-05,SH600000,1\n", encoding="utf-8")
+    blocked = tmp_path / "manifests"
+    blocked.write_bytes(b"existing file must remain intact")
+    monkeypatch.setattr(edp, "REPO_ROOT", tmp_path)
+    assert edp.main(["--pred", str(pred), "--out-dir", str(tmp_path / "out"), *flags]) == 1
+    assert "Failed to write export manifest:" in capsys.readouterr().err
+    assert blocked.read_bytes() == b"existing file must remain intact"
+
+
+def test_requested_manifest_copy_failure_returns_failure(tmp_path: Path, monkeypatch, capsys):
+    import export_daily_pool as edp
+
+    pred = tmp_path / "pred.csv"
+    pred.write_text("datetime,instrument,score\n2026-03-02,SZ300190,2\n2026-03-05,SH600000,1\n", encoding="utf-8")
+    out = tmp_path / "out"
+    monkeypatch.setattr(edp, "REPO_ROOT", tmp_path)
+    real_write = Path.write_bytes
+    def reject_copy(path, data):
+        if path.parent == out and path.name.startswith("export_") and path.suffix == ".json":
+            raise PermissionError("requested copy fixture denied")
+        return real_write(path, data)
+    monkeypatch.setattr(Path, "write_bytes", reject_copy)
+    assert edp.main(["--pred", str(pred), "--out-dir", str(out)]) == 1
+    assert "requested copy fixture denied" in capsys.readouterr().err
+    primary, = (tmp_path / "manifests").glob("export_*.json")
+    assert load_manifest(primary)["stage"] == "export"
