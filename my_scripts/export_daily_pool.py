@@ -475,8 +475,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             },
             repo_root=REPO_ROOT,
         )
-    except Exception as exc:  # noqa: BLE001 — export success must not fail on manifest
+    except Exception as exc:  # noqa: BLE001 — required provenance failure fails the CLI
         print(f"Failed to write export manifest: {exc}", file=sys.stderr)
+        return 1
     return 0
 
 

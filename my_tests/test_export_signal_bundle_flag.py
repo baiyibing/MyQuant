@@ -230,12 +230,12 @@ def test_builder_value_error_is_cli_error(prediction, tmp_path, monkeypatch, cap
     assert "invalid bundle fixture" in capsys.readouterr().err
 
 
-def test_legacy_manifest_failure_still_returns_success(prediction, tmp_path, monkeypatch, capsys):
+def test_required_manifest_failure_returns_failure(prediction, tmp_path, monkeypatch, capsys):
     def reject(**kwargs):
         raise RuntimeError("legacy fixture failure")
 
     monkeypatch.setattr(edp, "write_export_manifest", reject)
     output = tmp_path / "out"
-    assert _run(prediction, output, "--emit-signal-bundle") == 0
+    assert _run(prediction, output, "--emit-signal-bundle") == 1
     assert _bundle(output)["rows"]
     assert "Failed to write export manifest: legacy fixture failure" in capsys.readouterr().err

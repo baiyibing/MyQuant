@@ -2,6 +2,7 @@ import multiprocessing
 import atexit
 import logging
 import os
+import sys
 import copy
 
 # 共享 mlflow 逃生口 / 静音（须在任何 qlib import 之前）
@@ -1047,7 +1048,8 @@ if __name__ == '__main__':
             )
             print(f"=== Train manifest saved: {_written[0]} ===")
         except Exception as _man_exc:
-            print(f"Failed to write train manifest: {_man_exc}")
+            print(f"Failed to write train manifest: {_man_exc}", file=sys.stderr)
+            raise RuntimeError("Required train manifest could not be written") from _man_exc
 
         print("策略回测完成！", rid, timer() - r_start)
 
