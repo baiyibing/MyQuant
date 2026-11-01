@@ -12,6 +12,9 @@ Columns: bare 6-digit ``code``, ``score``. LF, no BOM. Default on; no ST/age
 filter. TopK pool files at ``<out-dir>/YYYYMMDD.csv`` stay the bare-code
 contract. ``--scores-only`` writes the sidecar without rewriting TopK CSVs
 (safe beside an existing ``cat_50_raw_*`` pool dir).
+With ``--emit-signal-bundle``, scores-only preserves an existing bundle and
+does not create one in a fresh directory. Declared clock syntax is checked
+before output writes, including empty exports and preserved bundles.
 
 The output intentionally has no stock-name column.  Consequently unnamed ST
 stocks are assigned a board limit by code prefix (10%/20%/30%), not the 5% ST
@@ -333,6 +336,13 @@ def export_daily_pool(
     return written, scores_written, illegal_count
 
 
+def _validate_available_at_time(available_at_time: str | None) -> None:
+    if available_at_time is not None and re.fullmatch(
+        r"(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\+08:00", available_at_time,
+    ) is None:
+        raise ValueError("--available-at-time must be HH:MM:SS+08:00 (00:00:00 to 23:59:59)")
+
+
 def _write_signal_bundle(
     out_dir: Path,
     sessions: Sequence[tuple[str, str, Path]],
@@ -340,11 +350,14 @@ def _write_signal_bundle(
     asof: str,
     available_at_time: str | None,
     price_domain: str,
+    scores_only: bool = False,
 ) -> None:
     """Hash written pools and serialize the opt-in contract, without deriving dates."""
     output = _safe_output_dir(Path(out_dir))
-    if not sessions and (output / "signal-bundle.json").exists():
-        # No TopK files changed, so keep the contract for the existing pools.
+    _validate_available_at_time(available_at_time)
+    if not sessions and (scores_only or (output / "signal-bundle.json").exists()):
+        # No TopK files changed. Preserve an old contract; scores-only cannot
+        # establish a new contract for pools it did not write.
         return
 
     import hashlib
@@ -355,8 +368,6 @@ def _write_signal_bundle(
 
     available_at = None
     if available_at_time is not None:
-        if re.fullmatch(r"(?:[01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]\+08:00", available_at_time) is None:
-            raise ValueError("--available-at-time must be HH:MM:SS+08:00 (00:00:00 to 23:59:59)")
         if not sessions:
             raise ValueError("cannot declare available_at without a written pool's signal_asof")
         # One clock template, anchored to the earliest emitted signal date.
@@ -394,6 +405,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     write_scores = not args.no_scores
     bundle_sessions = [] if args.emit_signal_bundle else None
     try:
+        if args.emit_signal_bundle:
+            _validate_available_at_time(args.available_at_time)
         predictions = load_predictions(pred_path)
         pred_rows = int(len(predictions))
         industry_map = args.industry_map
@@ -422,6 +435,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 asof=args.asof,
                 available_at_time=args.available_at_time,
                 price_domain=args.price_domain,
+                scores_only=args.scores_only,
             )
     except (OSError, ValueError, DataRootError, pd.errors.ParserError) as exc:
         parser.error(str(exc))

@@ -172,12 +172,39 @@ def test_empty_export_preserves_existing_bundle(prediction, tmp_path):
     assert (output / "20260311.csv").read_bytes() == pool_before
 
 
-def test_scores_only_in_fresh_directory_writes_empty_bundle(prediction, tmp_path):
+@pytest.mark.parametrize("available_time", [None, "15:00:00+08:00"])
+def test_scores_only_in_fresh_directory_does_not_invent_bundle(prediction, tmp_path, available_time):
     output = tmp_path / "scores-only"
-    assert _run(prediction, output, "--scores-only", "--emit-signal-bundle") == 0
-    assert _bundle(output)["rows"] == []
+    flags = ["--scores-only", "--emit-signal-bundle"]
+    if available_time is not None:
+        flags += ["--available-at-time", available_time]
+    assert _run(prediction, output, *flags) == 0
+    assert not (output / "signal-bundle.json").exists()
     assert not list(output.glob("*.csv"))
     assert (output / "scores" / "20260311.csv").is_file()
+
+
+@pytest.mark.parametrize("scores_only", [False, True])
+@pytest.mark.parametrize("existing", [False, True])
+@pytest.mark.parametrize("invalid_time", ["24:00:00+08:00", "2026-03-06T15:00:00+08:00"])
+def test_clock_checked_before_empty_or_preserved_bundle_branch(
+    prediction, tmp_path, capsys, scores_only, existing, invalid_time,
+):
+    output = tmp_path / "clock-validation"
+    if existing:
+        assert _run(prediction, output, "--emit-signal-bundle") == 0
+    # Normal empty export and scores-only both bypass new pool publication.
+    if not scores_only:
+        prediction.write_text("datetime,instrument,score\n2026-03-06,SZ000001,2\n", encoding="utf-8")
+    before = {p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()}
+    flags = ["--emit-signal-bundle", "--available-at-time", invalid_time]
+    if scores_only:
+        flags.append("--scores-only")
+    with pytest.raises(SystemExit) as exc:
+        _run(prediction, output, *flags)
+    assert exc.value.code == 2
+    assert "--available-at-time must be HH:MM:SS+08:00" in capsys.readouterr().err
+    assert {p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()} == before
 
 
 def test_empty_export_does_not_invent_signal_date(prediction, tmp_path, capsys):

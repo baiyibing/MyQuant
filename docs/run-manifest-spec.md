@@ -80,3 +80,16 @@
 
 - 不重开 as-of；不改池 CSV 字节契约（LF、无 BOM、裸六位）
 - 不在本仓改 MyQuant-backtrader 代码
+
+## 2026-11-01 scores-only 导出合同收尾（QL13）
+
+`export_daily_pool.py --scores-only --emit-signal-bundle` 只更新 scores：已有
+`signal-bundle.json` 原字节保留；新目录不生成空 bundle，因为这次没有写入任何 TopK
+池文件。普通空导出仍保留原有空 bundle 行为，不从 scores 推导名单或 signal_asof。
+
+指定 `--emit-signal-bundle` 时，`--available-at-time` 在任何 CSV/score 写入前先检查
+`HH:MM:SS+08:00` 格式；空导出和保留旧 bundle 的分支也不能绕过。合法 clock 模板
+不会改写被保留的旧 bundle。普通空导出仍不能声明一个不存在的 signal_asof。
+
+本片不改 as-of、默认名单/score CSV 字节或 signal-bundle schema。主 run-manifest
+写盘失败当前仍是告警，QL12 的训练/导出失败语义继续单独跟踪，P12 未整包关闭。
