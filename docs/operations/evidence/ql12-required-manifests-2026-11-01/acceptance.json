@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-11-01T13:27:58.629245+00:00",
+  "package_id": "P12",
+  "audit_ids": [
+    "QL12"
+  ],
+  "scope": "required manifest failure handling",
+  "package_closed": false,
+  "base_commit": "21519eb4ce263019896b642dd62858fbecd625e8",
+  "code_commit": "36ca487ede077e54500044244994705f1e2415e6",
+  "required_entries": [
+    "custom_train_backtest.py default training manifest",
+    "export_daily_pool.py all export modes"
+  ],
+  "required_outputs": "Primary manifest and any sidecar copies explicitly requested by the caller must all succeed; existing writer exceptions still propagate.",
+  "behavior": [
+    "export_daily_pool.main returns 1 with a stderr error when manifest generation/write fails.",
+    "Training raises an Exception through the real Qlib recorder context; the recorder failure branch marks FAILED and reraises, producing nonzero process exit.",
+    "Training completion messages follow the required manifest and are unreachable on its failure.",
+    "Existing output files may remain after failure; successful exit plus a valid required manifest determine completion."
+  ],
+  "validation": {
+    "final_regressions_against_original_CLIs": {
+      "failed": 6,
+      "passed": 27
+    },
+    "full_CI_test_selection": {
+      "passed": 455,
+      "skipped": 1,
+      "subtests_passed": 18
+    },
+    "export_failure_cases": [
+      "ordinary",
+      "emit-signal-bundle",
+      "scores-only with bundle",
+      "requested sidecar copy failure",
+      "writer exception"
+    ],
+    "train_failure_case": "Compile the actual terminal try/except and following completion statements, using its actual os/sys imports. Execute in a subprocess inside the real QlibRecorder.start with a scratch/fake experiment backend. A blocked manifest directory yields exit1, recorder FAILED, stderr error, no completion messages, preserved existing file bytes.",
+    "train_success_case": "The same actual terminal phase writes a valid manifest and emits the existing completion message.",
+    "test_invocation": "Explicit audit pytest.ini/rootdir/confcutdir/basetemp isolate this nested worktree from the parent BT configuration; same my_tests + my_scripts/test_zhangting_filter.py selection as CI."
+  },
+  "log_sha256": {
+    "ql12-before-final.log": "71793f76801e8c28e54b0f1d548f730828ce0bcd02950866bec0ab07e9cd9daa",
+    "ql12-final-full-suite.log": "feeee8f2d4a52fe5710a98ae7ec399e33b70b927ae30dfc9faa7de0bf5b082d1",
+    "ql12-context-after.log": "2e033e5acf86c3b652392b07fbbbdcf41f048e8664a3d22847d08be5ba36ad55"
+  },
+  "limits": [
+    "No full model training, authoritative lake download/write, trading or ETF host acceptance was performed.",
+    "The terminal-phase test uses actual Qlib context handling with fake experiment start/end ports; it does not open a real MLflow experiment.",
+    "No manifest schema, writer format, CSV/as-of contract or explicit research no-manifest opt-out changes.",
+    "P12 refresh/minute host acceptance remains open. Remote CI and merge are recorded separately."
+  ]
+}
