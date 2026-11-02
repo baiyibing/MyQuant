@@ -26,7 +26,8 @@ jobs:
             tests/test_etf_daily_qlib_offline_smoke.py \
             tests/test_stage_1min_from_lake.py \
             tests/test_stage_etf_daily_from_lake.py \
-            tests/test_train_etf_smoke.py
+            tests/test_train_etf_smoke.py \
+            tests/test_ql11_1min_increment_receipt_harness.py
 
   joint-return:
     runs-on: ubuntu-latest

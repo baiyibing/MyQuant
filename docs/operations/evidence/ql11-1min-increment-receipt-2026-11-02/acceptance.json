@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-11-02T10:12:13Z",
+  "audit_id": "QL11",
+  "package_closed": false,
+  "implementation_commit": "TBD (this commit; filled at closeout)",
+  "base_commit": "1f984f2b7c0e8ffe7d6a19cf087fd7b694ac8d14",
+  "behavior": [
+    "Pinned receipt schema ql11.1min.v1 (18 required fields) in a stdlib-only module; no qlib/pandas import at module load",
+    "refresh_mydata_1min.py gained an optional --receipt PATH flag covering incremental / noop success exits (rebuild wired, not smoke-run offline); default stays no-receipt and byte-compatible with existing behavior",
+    "Offline harness under tests/ runs schema/hash/round-trip cases data-free; the real append_new_1min_bars case is pytest.importorskip-gated so the CI data-staging job (no qlib) stays green"
+  ],
+  "test_results": {
+    "harness_with_qlib": "31 passed, 0 skipped",
+    "harness_data_staging_sim": "30 passed, 1 skipped (qlib stubbed out)",
+    "data_staging_ci_selection_sim": "58 passed, 1 skipped",
+    "my_tests_refresh_1min": "4 passed"
+  },
+  "live_smoke": {
+    "incremental_receipt": "tmp-dir lake -> stage -> append_new_1min_bars -> receipt.json valid (bars 2->3, calendar advanced, preserved, unchanged daily sha)",
+    "noop_receipt": "rerun at cutoff with --skip-stage -> mode=noop, bars_appended=0"
+  },
+  "constraints_held": [
+    "No M5 pulls, no true-lake reads, no writes under ~/.qlib (host daily dir absent on smoke box; fingerprint read-only by design)",
+    "No dump_update; daily my_data still refused by refuse_if_daily"
+  ],
+  "remaining": [
+    "Real M5 host increment acceptance against this frozen receipt format",
+    "Rebuild-mode --receipt smoke on a real dump_all run"
+  ],
+  "market_write_performed": false
+}
