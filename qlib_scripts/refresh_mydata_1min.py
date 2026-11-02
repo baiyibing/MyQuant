@@ -26,6 +26,12 @@ _MY_SCRIPTS = Path(__file__).resolve().parents[1] / "my_scripts"
 if str(_MY_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_MY_SCRIPTS))
 from data_root import resolve_index_1min_none, resolve_stock_1min_none  # noqa: E402
+from qlib_1min_increment_receipt import (  # noqa: E402
+    build_receipt,
+    sha256_file,
+    snapshot_1min_state,
+    write_receipt,
+)
 from stage_1min_from_lake import (
     DEFAULT_MAX_WORKERS,
     DEFAULT_STAGING,
@@ -35,6 +41,7 @@ from stage_1min_from_lake import (
 DAILY_QLIB = Path.home() / ".qlib" / "qlib_data" / "my_data"
 DEFAULT_QLIB_1MIN = Path.home() / ".qlib" / "qlib_data" / "my_data_1min"
 DUMP_BIN = Path(__file__).resolve().parent / "dump_bin.py"
+RECEIPT_PROBE_SYMBOL = "SZ000001"
 
 
 def refuse_if_daily(qlib_dir: Path) -> None:
@@ -189,6 +196,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--rebuild", action="store_true", help="dump_all even if my_data_1min exists")
     parser.add_argument("--skip-stage", action="store_true")
     parser.add_argument("--max-workers", type=int, default=DEFAULT_MAX_WORKERS)
+    parser.add_argument("--receipt", type=Path, default=None, help="write QL11 1min increment receipt JSON on success")
     return parser
 
 
@@ -198,6 +206,27 @@ def main(argv: Sequence[str] | None = None) -> int:
     refuse_if_daily(qlib_dir)
     workers = clamp_workers(args.max_workers)
     daily_fp = daily_calendar_fingerprint()
+    state_before = (
+        snapshot_1min_state(qlib_dir, probe_symbol=RECEIPT_PROBE_SYMBOL) if args.receipt else None
+    )
+
+    def emit_receipt(mode: str, bars_appended: int | None, symbols_touched: int) -> None:
+        if args.receipt is None:
+            return
+        receipt = build_receipt(
+            mode=mode,
+            qlib_1min_dir=qlib_dir,
+            daily_dir=DAILY_QLIB,
+            daily_day_txt_sha256_before=daily_fp[1],
+            daily_day_txt_sha256_after=sha256_file(DAILY_QLIB / "calendars" / "day.txt"),
+            state_before=state_before,
+            state_after=snapshot_1min_state(qlib_dir, probe_symbol=RECEIPT_PROBE_SYMBOL),
+            bars_appended=bars_appended,
+            symbols_touched=symbols_touched,
+        )
+        write_receipt(args.receipt, receipt)
+        print(f"receipt → {args.receipt}", flush=True)
+
     lake_root = args.lake_root or resolve_stock_1min_none()
     index_lake = None if args.skip_index else (args.index_lake or resolve_index_1min_none())
     staging = Path(args.staging_dir)
@@ -239,6 +268,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if not new_only:
             print(f"1min already at {cutoff}; nothing to append", flush=True)
             assert_daily_unchanged(daily_fp)
+            emit_receipt("noop", 0, 0)
             return 0
         full_cal = (old_cal or []) + new_only
         full_staging = staging.parent / (staging.name + "_full_new")
@@ -263,11 +293,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             full_staging.mkdir(parents=True, exist_ok=True)
         n = append_new_1min_bars(staging, full_staging, qlib_dir, new_only, full_cal)
         print(f"appended {len(new_only)} bars for {n} symbols → {qlib_dir} last={full_cal[-1]}", flush=True)
+        mode, bars_appended, symbols_touched = "incremental", len(new_only), n
     else:
         dump_all_1min(staging, qlib_dir, workers)
         print(f"qlib 1min dir → {qlib_dir}", flush=True)
+        mode, bars_appended, symbols_touched = "rebuild", None, len(list(staging.glob("*.parquet")))
 
     assert_daily_unchanged(daily_fp)
+    emit_receipt(mode, bars_appended, symbols_touched)
     return 0
 
 
