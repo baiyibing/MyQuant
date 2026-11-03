@@ -39,6 +39,9 @@ from stage_1min_from_lake import (  # noqa: E402
     DEFAULT_MAX_WORKERS,
     DEFAULT_STAGING,
     stage_stock_and_index,
+    iter_lake_partitions,
+    lake_partition_to_qlib_code,
+    qlib_code_to_partition,
 )
 
 DAILY_QLIB = Path.home() / ".qlib" / "qlib_data" / "my_data"
@@ -125,6 +128,77 @@ def incremental_calendar(dumper: DumpDataAll, cutoff: pd.Timestamp) -> list[pd.T
         frame = pd.read_parquet(path, columns=['date'])
         dates.update(pd.Timestamp(t) for t in pd.to_datetime(frame['date']).unique() if t > cutoff)
     return sorted(dates)
+
+
+def requested_codes(symbols) -> set[str] | None:
+    if symbols is None:
+        return None
+    codes = [lake_partition_to_qlib_code(qlib_code_to_partition(s)) for s in symbols]
+    if not codes or len(set(codes)) != len(codes):
+        raise ValueError('1min explicit symbols must be nonempty and unique after normalization')
+    return set(codes)
+
+
+def validate_increment_sources(lake_root: Path, index_lake: Path | None, symbols) -> None:
+    """Reject bad routing before old staging is removed; do not reread source frames."""
+    available = set()
+    for root in [lake_root] + ([index_lake] if index_lake is not None else []):
+        if not Path(root).is_dir():
+            raise ValueError('1min source root missing or not a directory')
+        for partition in iter_lake_partitions(root, symbols):
+            if any(partition.glob('*.parquet')):
+                available.add(lake_partition_to_qlib_code(partition.name))
+    if not available:
+        raise ValueError('1min request has no source parquet files')
+    if symbols is not None:
+        requested = requested_codes(symbols)
+        if not requested.issubset(available):
+            raise ValueError('1min requested symbol has no source parquet')
+
+
+def validate_empty_increment(audit: list[dict], qlib_dir: Path,
+                             old_cal: list[pd.Timestamp], symbols) -> dict:
+    """Empty automatic selection is noop only with usable, already represented inputs."""
+    axis = pd.DatetimeIndex(old_cal)
+    if not len(axis) or axis.hasnans or axis.has_duplicates or not axis.is_monotonic_increasing:
+        raise ValueError('invalid existing 1min calendar for noop')
+    if not audit or any(r['invalid_time_rows'] or r['requested_rows'] for r in audit):
+        raise ValueError('empty 1min stage is not proof of no new input')
+    if any(r['source_rows'] and not r['usable_source_rows'] for r in audit):
+        raise ValueError('1min source contains rows but no usable history')
+    by_code = {}
+    for row in audit:
+        if row['usable_source_rows'] > 0:
+            by_code.setdefault(row['code'], []).append(row)
+    usable = set(by_code)
+    if not usable:
+        raise ValueError('empty 1min stage has no usable source history')
+    if symbols is not None:
+        requested = requested_codes(symbols)
+        if not requested.issubset(usable):
+            raise ValueError('requested 1min symbol has no usable source history')
+    checked = 0
+    for code, rows in by_code.items():
+        if not symbols and all(pd.Timestamp(r['source_max']) < axis[0] for r in rows):
+            continue
+        path = qlib_dir / 'features' / code_to_fname(code).lower() / 'close.1min.bin'
+        if not path.is_file():
+            raise ValueError('1min source symbol absent from provider; import/rebuild required')
+        size = path.stat().st_size
+        if size < 8 or size % 4:
+            raise ValueError('invalid existing 1min close bin for noop')
+        first = float(np.fromfile(path, dtype='<f4', count=1)[0])
+        if not np.isfinite(first) or first < 0 or not first.is_integer() or int(first)+size//4-1 > len(axis):
+            raise ValueError('invalid existing 1min close bin bounds for noop')
+        checked += 1
+    if not checked:
+        raise ValueError('1min provider has no corresponding usable source')
+    return {'source_partitions_observed': len(audit),
+            'source_rows': sum(r['source_rows'] for r in audit),
+            'usable_history_rows': sum(r['usable_source_rows'] for r in audit),
+            'raw_rows_in_window': 0, 'invalid_time_rows': 0,
+            'provider_close_bins_checked': checked,
+            'scope': 'Configured input request only; not market freshness or full provider quality'}
 
 
 def _append_aligned_symbol(dumper: DumpDataAll, path: Path,
@@ -283,6 +357,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    requested_codes(args.symbols)
     qlib_dir = args.qlib_dir.expanduser()
     refuse_if_daily(qlib_dir)
     workers = clamp_workers(args.max_workers)
@@ -291,7 +366,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         snapshot_1min_state(qlib_dir, probe_symbol=RECEIPT_PROBE_SYMBOL) if args.receipt else None
     )
 
-    def emit_receipt(mode: str, bars_appended: int | None, symbols_touched: int) -> None:
+    def emit_receipt(mode: str, bars_appended: int | None, symbols_touched: int,
+                     empty_proof: dict | None = None) -> None:
         if args.receipt is None:
             return
         receipt = build_receipt(
@@ -305,13 +381,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             bars_appended=bars_appended,
             symbols_touched=symbols_touched,
         )
+        if empty_proof is not None:
+            receipt['empty_increment_proof'] = empty_proof
         write_receipt(args.receipt, receipt)
         print(f"receipt → {args.receipt}", flush=True)
 
     lake_root = args.lake_root or resolve_stock_1min_none()
     index_lake = None if args.skip_index else (args.index_lake or resolve_index_1min_none())
     staging = Path(args.staging_dir)
-    symbols = args.symbols or None
+    symbols = args.symbols
 
     incremental = existing_1min_ready(qlib_dir) and not args.rebuild
     old_cal = read_1min_calendar(qlib_dir) if incremental else []
@@ -321,6 +399,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         stage_start = (cutoff + pd.Timedelta(seconds=1)).strftime("%Y-%m-%d %H:%M:%S")
 
     if not args.skip_stage:
+        automatic_increment = incremental and args.start is None
+        audit = [] if automatic_increment else None
+        if automatic_increment:
+            validate_increment_sources(lake_root, index_lake, symbols)
         if incremental:
             for path in staging.glob("*.parquet"):
                 path.unlink()
@@ -332,8 +414,15 @@ def main(argv: Sequence[str] | None = None) -> int:
             start=stage_start,
             end=args.end,
             max_workers=workers,
+            audit=audit,
         )
         if not written:
+            if automatic_increment:
+                empty_proof = validate_empty_increment(audit, qlib_dir, old_cal, symbols)
+                assert_daily_unchanged(daily_fp)
+                print(f'1min has no new bars after {cutoff} within the request', flush=True)
+                emit_receipt('noop', 0, 0, empty_proof)
+                return 0
             raise SystemExit("no 1m parquet staged; check lake path / symbols / window")
         print(f"staged {len(written)} → {staging}", flush=True)
 

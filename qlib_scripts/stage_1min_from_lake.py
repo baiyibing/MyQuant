@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Sequence
 
 import pandas as pd
+import numpy as np
 
 _MY_SCRIPTS = Path(__file__).resolve().parents[1] / "my_scripts"
 if str(_MY_SCRIPTS) not in sys.path:
@@ -64,9 +65,12 @@ def _as_naive(index_or_series) -> pd.DatetimeIndex:
     return pd.DatetimeIndex(values)
 
 
-def load_symbol_frame(partition: Path, start: str | None, end: str | None) -> pd.DataFrame:
+def load_symbol_frame(partition: Path, start: str | None, end: str | None, *, audit: dict | None = None) -> pd.DataFrame:
     files = sorted(partition.glob("*.parquet"))
     if not files:
+        if audit is not None:
+            audit.update(source_rows=0, usable_source_rows=0, invalid_time_rows=0,
+                         source_min=None, source_max=None, requested_rows=0, staged_rows=0)
         return pd.DataFrame()
     frame = pd.concat((pd.read_parquet(path) for path in files), ignore_index=False)
     if isinstance(frame.index, pd.DatetimeIndex) and len(frame.index) == len(frame):
@@ -83,6 +87,13 @@ def load_symbol_frame(partition: Path, start: str | None, end: str | None) -> pd
         raise ValueError(f"{partition} has no datetime index or time column")
     out = pd.DataFrame({col: pd.to_numeric(work[col], errors="coerce") for col in OHLCV if col in work.columns})
     out.insert(0, "date", dates)
+    if audit is not None:
+        usable = out['date'].notna() & out['close'].notna() & np.isfinite(out['close']) & (out['close'] > 0)
+        valid_dates = out.loc[usable, 'date']
+        audit.update(source_rows=len(out), usable_source_rows=int(usable.sum()),
+                     invalid_time_rows=int(out['date'].isna().sum()),
+                     source_min=str(valid_dates.min()) if len(valid_dates) else None,
+                     source_max=str(valid_dates.max()) if len(valid_dates) else None)
     if start:
         out = out.loc[out["date"] >= pd.Timestamp(start)]
     if end:
@@ -95,14 +106,21 @@ def load_symbol_frame(partition: Path, start: str | None, end: str | None) -> pd
     if vol is not None and amt is not None:
         denom = vol.astype("float64") * 100.0
         out["vwap"] = (amt.astype("float64") / denom).where(denom > 0)
+    if audit is not None:
+        audit['requested_rows'] = len(out)
     out = out.dropna(subset=["date", "close"])
     out = out.drop_duplicates("date").sort_values("date")
+    if audit is not None:
+        audit['staged_rows'] = len(out)
     return out.reset_index(drop=True)
 
 
-def stage_symbol(partition: Path, staging_dir: Path, start: str | None, end: str | None) -> Path | None:
+def stage_symbol(partition: Path, staging_dir: Path, start: str | None, end: str | None,
+                 *, audit: dict | None = None) -> Path | None:
     code = lake_partition_to_qlib_code(partition.name)
-    frame = load_symbol_frame(partition, start, end)
+    if audit is not None:
+        audit.update(code=code, partition=str(partition))
+    frame = load_symbol_frame(partition, start, end, audit=audit)
     if frame.empty:
         return None
     frame.insert(1, "symbol", code)
@@ -118,6 +136,13 @@ def _stage_job(item: tuple[str, str, str | None, str | None]) -> str | None:
     return str(dest) if dest is not None else None
 
 
+def _stage_job_audited(item: tuple[str, str, str | None, str | None]) -> tuple[str | None, dict]:
+    partition, staging_dir, start, end = item
+    audit = {}
+    dest = stage_symbol(Path(partition), Path(staging_dir), start, end, audit=audit)
+    return str(dest) if dest is not None else None, audit
+
+
 def stage_lake(
     lake_root: Path,
     staging_dir: Path,
@@ -126,25 +151,33 @@ def stage_lake(
     start: str | None = None,
     end: str | None = None,
     max_workers: int = 1,
+    audit: list[dict] | None = None,
 ) -> list[Path]:
     partitions = iter_lake_partitions(Path(lake_root), symbols)
     staging = Path(staging_dir)
     staging.mkdir(parents=True, exist_ok=True)
     jobs = [(str(p), str(staging), start, end) for p in partitions]
     written: list[Path] = []
+    job_func = _stage_job_audited if audit is not None else _stage_job
+
+    def record(result):
+        if audit is not None:
+            dest, row = result
+            audit.append(row)
+        else:
+            dest = result
+        if dest:
+            written.append(Path(dest))
     workers = max(1, int(max_workers))
     if workers == 1 or len(jobs) <= 1:
         for i, job in enumerate(jobs, 1):
-            dest = _stage_job(job)
-            if dest:
-                written.append(Path(dest))
+            record(job_func(job))
             if i % 200 == 0 or i == len(jobs):
                 print(f"stage {i}/{len(jobs)} written={len(written)}", flush=True)
         return written
     with ProcessPoolExecutor(max_workers=workers) as pool:
-        for i, dest in enumerate(pool.map(_stage_job, jobs, chunksize=8), 1):
-            if dest:
-                written.append(Path(dest))
+        for i, result in enumerate(pool.map(job_func, jobs, chunksize=8), 1):
+            record(result)
             if i % 200 == 0 or i == len(jobs):
                 print(f"stage {i}/{len(jobs)} written={len(written)}", flush=True)
     return written
@@ -159,6 +192,7 @@ def stage_stock_and_index(
     start: str | None = None,
     end: str | None = None,
     max_workers: int = DEFAULT_MAX_WORKERS,
+    audit: list[dict] | None = None,
 ) -> list[Path]:
     written = stage_lake(
         stock_root,
@@ -167,6 +201,7 @@ def stage_stock_and_index(
         start=start,
         end=end,
         max_workers=max_workers,
+        audit=audit,
     )
     if index_root is None:
         return written
@@ -178,6 +213,7 @@ def stage_stock_and_index(
             start=start,
             end=end,
             max_workers=min(2, max(1, int(max_workers))),
+            audit=audit,
         )
     )
     return written
