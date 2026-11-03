@@ -1,0 +1,23 @@
+{
+  "scope": "QL10/P12 daily refresh path isolation; no provider refresh or promotion",
+  "base_head": "f343b08b971023de937a38044a4a6cf642ddd3b1",
+  "confirmed_failure": "With new_qlib_dir equal to qlib_dir and wipe_new_qlib_dir=true, validate_params returns no errors and ensure_dump_target_clean deletes the existing provider. Reproduced only in a task-local disposable sandbox.",
+  "implementation_plan": [
+    "Resolve configured path identities (including existing symlink/junction aliases) before side effects. Reject equality and either ancestor direction between staging/new output roots and protected live provider/archive/CSV/index inputs; reject overlap between staging and new roots.",
+    "When an explicit OSKH_SOURCE_PARQUET_ROOT environment pin exists, protect that whole read-only container as well. Do not infer a disk or container from directory spelling.",
+    "Feed isolation errors into normal parameter validation before child commands, including dry-run. Recheck isolation immediately before the existing dump-target remover so direct helper calls cannot bypass it.",
+    "Reject equal/nested new/live roots in atomic_swap before any rename. Keep disjoint default paths, flags, max_workers8, archive-overlay17-field workflow, integrity gates, swap rollback and successful output formats unchanged.",
+    "Add real temporary-file preservation tests for same/equal-normalized/nested/ancestor paths, protected source roots and whole-container pin. Exercise main's early refusal before run_preflight/run_step, helper refusal before remover, and atomic_swap refusal before renamer. Existing valid cleanup and swap tests remain positive controls.",
+    "Test existing symlink/junction aliases where supported, with explicit capability skip only if link creation is unavailable. Symlink races and concurrent writers are not solved by this operator-error validation."
+  ],
+  "validation": [
+    "Show new negative tests fail against the frozen baseline without touching configured providers/lake.",
+    "Run the entire existing daily refresh test file plus new guard test file and related minute refresh files; run changed-file Ruff and configured local CI gates.",
+    "Check UTF-8/no BOM/NUL0 and git diff --check; push a PR, then independent fixed-head Grok CLI review and canonical CI before merge."
+  ],
+  "limits": [
+    "No actual refresh, deletion, swap, default provider promotion, vendor download or market-lake writes outside disposable test sandboxes.",
+    "No claim of completing QL10 deployment or P12 package; no scheduler/manifest schema/default field or trading change.",
+    "This independent MyQuant change does not wait for OSkh PR1275 runner recovery; merge lane keeps exact-head review and CI requirements."
+  ]
+}
