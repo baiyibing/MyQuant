@@ -61,15 +61,16 @@
       {
         "class": "rule_impl",
         "id": "lot_vs_supplement",
-        "detail": "LEBS insufficient_lot skip; BT _buy_size may force 100 shares and book supplementary_used."
+        "detail": "LEBS insufficient_lot skip vs BT 不足一手补 supplementary_used"
       }
-    ]
+    ],
+    "documented_gaps_method": "Gap summaries follow the frozen B run-record; raw statistics file hash remains separately pinned above"
   },
   "conclusions": {
     "A": "historical smoke delivered, 131 days; no strategy promotion claim",
     "B": "list 131/131; other dimensions have documented timing/rule/engine differences; legal endpoint is attributed differences, not equivalence",
     "C": "thresholds remain undecided; no invented numbers",
-    "D": "keep-or-archive decision and any current paper contract remain open; no csv-live revival",
+    "D": "Old csv_v5 line retain/archive decision remains open; v653/turtle acceptance belongs to other strategies and cannot substitute for old D",
     "E": "MyQuant partial backwrite only; no three-repository completion claim"
   },
   "audit_item_closed": false,
