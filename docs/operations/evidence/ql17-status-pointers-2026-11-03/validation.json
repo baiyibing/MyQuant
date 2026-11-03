@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "original_bodies_preserved": [
+    "docs/plan-midterm-m1m4m2m3-2026-09-13.md",
+    "docs/reviews/joint-return-v1/track-b/README.md",
+    "docs/perf-issues-windows-qlib-2026-09-14.md"
+  ],
+  "already_current_etf_unchanged": true,
+  "no_production_diff": true,
+  "new_local_links_checked": [
+    "operations/evidence/ql17-status-pointers-2026-11-03/README.md",
+    "../../../operations/evidence/ql17-status-pointers-2026-11-03/README.md",
+    "operations/evidence/ql17-status-pointers-2026-11-03/README.md"
+  ],
+  "utf8_no_bom_nul0": true,
+  "local_tests": "Not rerun for documentation-only edits; canonical existingCI remains required.",
+  "audit_item_closed": false,
+  "package_closed": false
+}

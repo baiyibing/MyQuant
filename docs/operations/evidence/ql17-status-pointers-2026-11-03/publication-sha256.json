@@ -1,0 +1,12 @@
+{
+  "byte_domain": "Git-published UTF-8 LF bytes; excludes this manifest",
+  "files": {
+    "docs/plan-midterm-m1m4m2m3-2026-09-13.md": "38c96a1b3d858851aa30d8b61b9d956215a475dfa3aac5e3d2cad475b8a4f204",
+    "docs/reviews/joint-return-v1/track-b/README.md": "80e2c7d49b8fadae653dc639a2c7588482bb2077afb8cc2b60a2de6adfd81171",
+    "docs/perf-issues-windows-qlib-2026-09-14.md": "e39d786c26c6ca2d27b9d7d1415c6469899027f08993c693cd1cdf8dcda60761",
+    "docs/operations/evidence/ql17-status-pointers-2026-11-03/acceptance.json": "c99d66c3bccb1ad7d9cdd49e183068a111bb8ec1b4648bbefd10d25ccb505533",
+    "docs/operations/evidence/ql17-status-pointers-2026-11-03/facts.json": "1ca6ea129c044ed305f5ef98153e848942bcdc212e750db52a94d7470a418b9f",
+    "docs/operations/evidence/ql17-status-pointers-2026-11-03/README.md": "8e483798bbd2dcb873d17eef8b2d949a0064a6fbbccb6d3e37a516875a91263e",
+    "docs/operations/evidence/ql17-status-pointers-2026-11-03/validation.json": "ad30f845f9bb14c220c2f8831ca41ff0a4c2b6155e906a3449f11b9ac68fe24d"
+  }
+}

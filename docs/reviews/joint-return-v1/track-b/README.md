@@ -1,5 +1,7 @@
 # Track B: step-local plan hash cache
 
+> **2026-11-03 status reconciliation (QL17)**: The 2026-09-23 line below is a historical snapshot. Selectable cache [#98](https://github.com/baiyibing/MyQuant/commit/b1bca5b191f075e77a77b71b33ea2abbae057484) and follow-up [#99](https://github.com/baiyibing/MyQuant/commit/e5be0a46d887e0b84fb4e8f57a3d007dd9d9f18d) are merged; both CLI defaults were merged in [#102](https://github.com/baiyibing/MyQuant/commit/27541182537e76407e42ce9f41f0e186f968ef6c). This documents merge facts, not a new independent review or host-performance signoff. The literal `TRACK_B_PLAN_HASH_CACHE_PENDING_REVIEW` stamp and all performance/rollout limits below stay unchanged. [Evidence and remaining scope](../../../operations/evidence/ql17-status-pointers-2026-11-03/README.md).
+
 2026-09-23. Research comparison only; Grok CLI 4.7 review and human/qlib merge remain pending.
 
 `_step` previously called `content_hash(plan)` for every candidate validation,

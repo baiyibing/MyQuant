@@ -1,5 +1,7 @@
 # MyQuant 实验 性能问题档案（新机 Windows，2026-09-14）
 
+> **2026-11-03 P6 核对（历史待核，未复现）**：本轮仅核冻结仓内文件：有[合并前 T091013 summary](https://github.com/baiyibing/MyQuant/blob/3b9fdb0edf561619661d673f1bbc12f30e4d89ab/my_scripts/rebacktest_cost_tiers_summary_20260914T091013Z.json)，未找到本页所述 T1125/T1127 两份原始明细包的同条件复核。没有搜索全部宿主或仓外工件，因此不宣称原始包丢失，也不把旧疑点当成已确认的当前回归或已被后继修复。本页原始记录、不可作为结论依据的限制及 N6 保留；[核查范围](operations/evidence/ql17-status-pointers-2026-11-03/README.md)。
+
 - 范围：全市场长窗实验（qlib 0.9.8.dev32 @ commit 79633dd9，editable 装于
   `D:\PycharmProjects\qlib-dev`；Python 3.12 conda env `vanna312`；Windows 10.0.26200）
 - 目的： consolidated 记录 2026-09-13~14 实验中暴露的全部性能问题——来龙去脉、原现场、

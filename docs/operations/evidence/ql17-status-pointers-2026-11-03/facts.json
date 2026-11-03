@@ -1,0 +1,123 @@
+{
+  "observed_at_utc": "2026-11-03T13:42:19.537843+00:00",
+  "frozen_source_commit": "3b9fdb0edf561619661d673f1bbc12f30e4d89ab",
+  "prs": [
+    {
+      "number": 26,
+      "url": "https://github.com/baiyibing/MyQuant/pull/26",
+      "title": "feat(m3d): 截面行业/市值中性化排序侧实现——A 纯模块 / B 市值验证门 / C 导出接线",
+      "state": "closed",
+      "merged_at": "2026-09-13T08:18:50Z",
+      "head": "2c0264a22d15d2de64472669faaa35c0b7b57b1f",
+      "merge_commit": "a032e5a98b668d842452304f82b72215783b13f6"
+    },
+    {
+      "number": 98,
+      "url": "https://github.com/baiyibing/MyQuant/pull/98",
+      "title": "perf: add selectable plan hash cache for joint-return rule intents",
+      "state": "closed",
+      "merged_at": "2026-09-23T03:29:03Z",
+      "head": "77fa0452618a6c07bef9cd00ef86730f8dba8630",
+      "merge_commit": "b1bca5b191f075e77a77b71b33ea2abbae057484"
+    },
+    {
+      "number": 99,
+      "url": "https://github.com/baiyibing/MyQuant/pull/99",
+      "title": "test: 收口 PR #98 的 CI 与 plan-hash cache 三条 nit",
+      "state": "closed",
+      "merged_at": "2026-09-23T03:54:03Z",
+      "head": "fb9d74b5caa93802fcfeaa3e19a9f363c8005d0d",
+      "merge_commit": "e5be0a46d887e0b84fb4e8f57a3d007dd9d9f18d"
+    },
+    {
+      "number": 102,
+      "url": "https://github.com/baiyibing/MyQuant/pull/102",
+      "title": "perf: enable plan-hash cache by default in joint-return rule/portfolio",
+      "state": "closed",
+      "merged_at": "2026-09-25T11:07:57Z",
+      "head": "689fbbe9de0683709f33170cc8236a126113d8a2",
+      "merge_commit": "27541182537e76407e42ce9f41f0e186f968ef6c"
+    },
+    {
+      "number": 114,
+      "url": "https://github.com/baiyibing/MyQuant/pull/114",
+      "title": "fix(etf): purge fit label leakage and close isolated E3/E4 host acceptance",
+      "state": "closed",
+      "merged_at": "2026-11-03T05:27:54Z",
+      "head": "9f894adff64bcb35212f7a5759cf42ddc7150b2d",
+      "merge_commit": "8f65e08685d47f3ed736409336726654a21723ae"
+    }
+  ],
+  "source_files": {
+    "docs/plan-midterm-m1m4m2m3-2026-09-13.md": {
+      "commit": "3b9fdb0edf561619661d673f1bbc12f30e4d89ab",
+      "url": "https://github.com/baiyibing/MyQuant/blob/3b9fdb0edf561619661d673f1bbc12f30e4d89ab/docs/plan-midterm-m1m4m2m3-2026-09-13.md",
+      "git_lf_sha256": "1a93e0bfd86ec08fbb8c8fe29de78a47a507fbbdfbe13163a8d07f78ceb9bfdc"
+    },
+    "docs/plan-etf-qlib-daily-2026-10-14.md": {
+      "commit": "3b9fdb0edf561619661d673f1bbc12f30e4d89ab",
+      "url": "https://github.com/baiyibing/MyQuant/blob/3b9fdb0edf561619661d673f1bbc12f30e4d89ab/docs/plan-etf-qlib-daily-2026-10-14.md",
+      "git_lf_sha256": "f771eecbdb50078aab32dd18d57899d758481d4099a70316d56cdc920e93acba"
+    },
+    "docs/reviews/joint-return-v1/track-b/README.md": {
+      "commit": "3b9fdb0edf561619661d673f1bbc12f30e4d89ab",
+      "url": "https://github.com/baiyibing/MyQuant/blob/3b9fdb0edf561619661d673f1bbc12f30e4d89ab/docs/reviews/joint-return-v1/track-b/README.md",
+      "git_lf_sha256": "478eb346c90ed24b0a419d6ddc9401ef80173b52bde22d90443c2876e2adbe8e"
+    },
+    "docs/perf-issues-windows-qlib-2026-09-14.md": {
+      "commit": "3b9fdb0edf561619661d673f1bbc12f30e4d89ab",
+      "url": "https://github.com/baiyibing/MyQuant/blob/3b9fdb0edf561619661d673f1bbc12f30e4d89ab/docs/perf-issues-windows-qlib-2026-09-14.md",
+      "git_lf_sha256": "8b351fce46a7043204a4de3f84f3a5d228f50198b841663789567721ff7c53a7"
+    },
+    "docs/plan-three-repo-roadmap-2026-09-12.md": {
+      "commit": "3b9fdb0edf561619661d673f1bbc12f30e4d89ab",
+      "url": "https://github.com/baiyibing/MyQuant/blob/3b9fdb0edf561619661d673f1bbc12f30e4d89ab/docs/plan-three-repo-roadmap-2026-09-12.md",
+      "git_lf_sha256": "2e35834a312c9566301831d418cafda38bffc5e46bd5245c6cbe63856e455258"
+    },
+    "docs/operations/evidence/p11-etf-host-acceptance-2026-11-03/acceptance.json": {
+      "commit": "3b9fdb0edf561619661d673f1bbc12f30e4d89ab",
+      "url": "https://github.com/baiyibing/MyQuant/blob/3b9fdb0edf561619661d673f1bbc12f30e4d89ab/docs/operations/evidence/p11-etf-host-acceptance-2026-11-03/acceptance.json",
+      "git_lf_sha256": "9ff5e6aa7db002893e4195a9fddc6aa040fc42984430f9e5e03c98a4ce0be5d2"
+    },
+    "my_scripts/joint_return_rule_intents.py": {
+      "commit": "3b9fdb0edf561619661d673f1bbc12f30e4d89ab",
+      "url": "https://github.com/baiyibing/MyQuant/blob/3b9fdb0edf561619661d673f1bbc12f30e4d89ab/my_scripts/joint_return_rule_intents.py",
+      "git_lf_sha256": "b91e6e5bdf2f0be88c5361a2fb91667e3facbd10494e30e37c9600ac154befa1"
+    },
+    "my_scripts/joint_return_portfolio.py": {
+      "commit": "3b9fdb0edf561619661d673f1bbc12f30e4d89ab",
+      "url": "https://github.com/baiyibing/MyQuant/blob/3b9fdb0edf561619661d673f1bbc12f30e4d89ab/my_scripts/joint_return_portfolio.py",
+      "git_lf_sha256": "766178f75543a2a40739bfe7040fbb16e0f0a5369660bd9860e2e19b304fedee"
+    },
+    "my_scripts/rebacktest_cost_tiers_summary_20260914T091013Z.json": {
+      "commit": "3b9fdb0edf561619661d673f1bbc12f30e4d89ab",
+      "url": "https://github.com/baiyibing/MyQuant/blob/3b9fdb0edf561619661d673f1bbc12f30e4d89ab/my_scripts/rebacktest_cost_tiers_summary_20260914T091013Z.json",
+      "git_lf_sha256": "df3f2769b65f4cb119dcdcef1953b37e72029a0c1956b89e1f959ae2f0fbb62a"
+    }
+  },
+  "p6_tracked_file_query": {
+    "patterns": [
+      "my_scripts/*T091013*",
+      "my_scripts/*T1125*",
+      "my_scripts/*T1127*",
+      "exports/*T1125*",
+      "exports/*T1127*"
+    ],
+    "matches": [
+      "my_scripts/rebacktest_cost_tiers_summary_20260914T091013Z.json"
+    ],
+    "scope": "Tracked repository snapshot only; no claim that all hosts or untracked original packages were searched."
+  },
+  "etf_current_status": {
+    "decision": "PASS_E3_E4_LOCAL_ISOLATED_SMOKE",
+    "already_current": true,
+    "edited": false
+  },
+  "track_b_current_code": {
+    "rule_cli_default_cache": true,
+    "portfolio_cli_default_cache": true,
+    "literal_research_stamp": "TRACK_B_PLAN_HASH_CACHE_PENDING_REVIEW",
+    "stamp_unchanged": true,
+    "production_performance_not_reverified": true
+  }
+}
