@@ -34,3 +34,5 @@ $TASK/myquant原目录布局及冻结SHA，不是产品CLI，输出必须选新�
 P12仍开放：本片是7证券固定窗隔离验收，不是全市场、日频独立刷新或线上部署。
 默认参数的empty-staging/noop报错仍是已知尾项；本片noop显式重放原窗口，不声称该尾项已修。
 旧QL11回执的preserved布尔量只按probe长度判断；本片另外提供完整旧bin前缀与全字段重建比较。
+
+固定实现a997760的[CLI源码复核](implementation-review.json)已APPROVE。后续只追加宿主文档与复核原文，生产/测试blob与复核提交一致。复核未运行宿主；宿主结果由原CLI和独立逐字段校验生成。
