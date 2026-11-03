@@ -7,8 +7,12 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import importlib.metadata
+import json
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -47,7 +51,7 @@ LABEL_RULE = (
     + LABEL_EXPR
     + " 在日期 T 使用之后第 1、第 2 个交易日的收盘。"
     "这两个交易日必须都落在本段内，否则视为跨界或未定义，不进入验收 IC。"
-    "DatasetH 的 learn 仍使用训练段时间切片，段末跨界行若标签有数值会进入拟合；验收不计这些行。"
+    "训练和验证的 DatasetH 分段末日也按相同规则收窄，跨界标签不进入拟合或 early stopping。"
 )
 DEFAULT_QLIB = Path.home() / ".qlib" / "qlib_data" / "my_data_etf"
 DEFAULT_OUT = ROOT / "exports" / "etf_smoke"
@@ -61,14 +65,18 @@ def assert_etf_provider(path: Path, protected: tuple[Path, ...] | None = None) -
     return realpath(resolved)
 
 
+def _normalized_calendar(calendar) -> pd.DatetimeIndex:
+    return cast(Any, pd.DatetimeIndex(pd.to_datetime(list(calendar)))).normalize()
+
+
 def in_segment_label_mask(dates, calendar, seg_start: str, seg_end: str, horizons: tuple[int, ...] = (1, 2)):
-    cal = pd.DatetimeIndex(pd.to_datetime(list(calendar))).normalize().unique().sort_values()
+    cal = _normalized_calendar(calendar).unique().sort_values()
     pos = {ts: i for i, ts in enumerate(cal)}
     start = pd.Timestamp(seg_start)
     end = pd.Timestamp(seg_end)
     mask = []
     for raw in dates:
-        ts = pd.Timestamp(raw).normalize()
+        ts = cast(pd.Timestamp, pd.Timestamp(raw)).normalize()
         index = pos.get(ts)
         if index is None or not (start <= ts <= end):
             mask.append(False)
@@ -125,6 +133,79 @@ def acceptance_ic(pred, label, dates, calendar, seg_start: str, seg_end: str, ho
     }
 
 
+def effective_fit_segments(calendar, segments=None) -> dict:
+    """Purge forward labels from fitting while retaining nominal test dates."""
+    nominal = SEGMENTS if segments is None else segments
+    cal = _normalized_calendar(calendar)
+    if cal.empty or not cal.is_unique or not cal.is_monotonic_increasing:
+        raise BuildEtfError("fit calendar must be nonempty, unique and increasing")
+    effective = dict(nominal)
+    for name in ("train", "valid"):
+        start, end = nominal[name]
+        eligible = cal[in_segment_label_mask(cal, cal, start, end)]
+        if eligible.empty:
+            raise BuildEtfError(f"no in-segment fit labels: {name}")
+        effective[name] = (start, str(cast(pd.Timestamp, eligible[-1]).date()))
+    return effective
+
+
+def fit_sample_summary(dataset, calendar, effective, data_key) -> dict:
+    """Check the actual prepared learn rows, not only the configured cutoffs."""
+    result = {}
+    for name in ("train", "valid"):
+        labels = dataset.prepare(name, col_set="label", data_key=data_key)
+        dates = _dates_of(labels.index)
+        if len(dates) == 0:
+            raise BuildEtfError(f"empty prepared fit segment: {name}")
+        start, end = SEGMENTS[name]
+        allowed = in_segment_label_mask(dates, calendar, start, end)
+        first, last = cast(pd.Timestamp, dates.min()), cast(pd.Timestamp, dates.max())
+        if not allowed.all() or last > cast(pd.Timestamp, pd.Timestamp(effective[name][1])):
+            raise BuildEtfError(f"cross-boundary prepared fit labels: {name}")
+        result[name] = {"rows": len(dates), "first": str(first.date()),
+                        "last": str(last.date()), "all_label_dates_in_nominal_segment": True}
+    return result
+
+
+def prepare_artifact_output(out: Path, provider: Path) -> None:
+    assert_target_allowed(out, (*default_protected(), provider))
+    if out.exists():
+        raise BuildEtfError("acceptance output must be a fresh directory")
+    out.mkdir(parents=True, exist_ok=False)
+
+
+def file_sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def persist_segment(out: Path, model_name: str, segment: str, joined: pd.DataFrame, calendar, report: dict) -> dict:
+    if not joined.index.is_unique:
+        raise BuildEtfError("duplicate prediction/label index")
+    frame = joined.copy()
+    frame["in_segment"] = in_segment_label_mask(_dates_of(frame.index), calendar, *SEGMENTS[segment])
+    frame["finite_pair"] = np.isfinite(frame["pred"].to_numpy(dtype=float)) & np.isfinite(frame["label"].to_numpy(dtype=float))
+    frame["accepted"] = frame["in_segment"] & frame["finite_pair"]
+    if int(frame["accepted"].sum()) != report["n"]:
+        raise BuildEtfError("persisted acceptance count mismatch")
+    path = out / model_name / f"{segment}_pred_label.parquet"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(".parquet.tmp")
+    frame.to_parquet(temporary, index=True)
+    temporary.replace(path)
+    return {"path": path.relative_to(out).as_posix(), "sha256": file_sha256(path),
+            "bytes": path.stat().st_size, "rows": len(frame), "report": report}
+
+
+def package_versions() -> dict:
+    result = {}
+    for name in ("pyqlib", "lightgbm", "pandas", "numpy", "pyarrow"):
+        try:
+            result[name] = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            result[name] = None
+    return result
+
+
 DEFAULT_MODELS = ("lgb", "xgb", "cat", "double", "ols", "ridge", "lasso", "histgb")
 
 
@@ -134,6 +215,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--out-dir", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--num-boost-round", type=int, default=200)
     parser.add_argument("--exp-name", default="etf_daily_models")
+    parser.add_argument("--write-acceptance-artifacts", action="store_true",
+                        help="Write auditable prediction/label Parquet and JSON into a fresh --out-dir.")
     parser.add_argument(
         "--models",
         default=",".join(DEFAULT_MODELS),
@@ -245,9 +328,9 @@ def fit_named(name: str, model, dataset, num_boost_round: int) -> None:
 def _dates_of(index: pd.Index) -> pd.DatetimeIndex:
     if isinstance(index, pd.MultiIndex):
         if "datetime" in index.names:
-            return pd.to_datetime(index.get_level_values("datetime"))
-        return pd.to_datetime(index.get_level_values(0))
-    return pd.to_datetime(index)
+            return pd.DatetimeIndex(index.get_level_values("datetime"))
+        return pd.DatetimeIndex(index.get_level_values(0))
+    return pd.DatetimeIndex(index)
 
 
 def _column(frame_or_series):
@@ -267,9 +350,20 @@ def main(argv=None) -> int:
     from qlib.workflow import R
 
     args = build_parser().parse_args(argv)
+    names = [item.strip() for item in str(args.models).split(",") if item.strip()]
+    if not names:
+        raise BuildEtfError("at least one model is required")
+    unknown = [item for item in names if item not in DEFAULT_MODELS]
+    if unknown:
+        raise BuildEtfError(f"未知模型 {unknown}")
+    if args.write_acceptance_artifacts and len(set(names)) != len(names):
+        raise BuildEtfError("duplicate model names cannot share acceptance artifacts")
     qlib_dir = assert_etf_provider(args.qlib_dir)
     if not (qlib_dir / "calendars" / "day.txt").is_file():
         raise BuildEtfError(f"缺少日历 {qlib_dir / 'calendars' / 'day.txt'}")
+    out = Path(args.out_dir)
+    if args.write_acceptance_artifacts:
+        prepare_artifact_output(out, qlib_dir)
     print(LABEL_RULE, flush=True)
     print(SURVIVORSHIP_NOTE, flush=True)
     print(
@@ -277,7 +371,10 @@ def main(argv=None) -> int:
         "learn/infer processors 只在这段上拟合；验证段和测试段不参与拟合",
         flush=True,
     )
-    qlib.init(provider_uri=str(qlib_dir), region=REG_CN, kernels=1)
+    qlib.init(provider_uri=str(qlib_dir), region=REG_CN, kernels=1, expression_cache=None, dataset_cache=None)
+    calendar = pd.DatetimeIndex(D.calendar(start_time=WINDOW_START, end_time=TEST_END))
+    fit_segments = effective_fit_segments(calendar)
+    print("effective_fit_segments", fit_segments, flush=True)
     threads = 8
     raw_threads = str(__import__("os").environ.get("LGB_NUM_THREADS", "") or "").strip()
     if raw_threads.isdigit() and int(raw_threads) >= 1:
@@ -301,8 +398,9 @@ def main(argv=None) -> int:
     from joblib import parallel_backend
 
     with parallel_backend("threading"):
-        dataset = DatasetH(handler=init_instance_by_config(handler_conf), segments=SEGMENTS)
+        dataset = DatasetH(handler=init_instance_by_config(handler_conf), segments=fit_segments)
     handler = dataset.handler
+    fit_samples = fit_sample_summary(dataset, calendar, fit_segments, DataHandlerLP.DK_L)
     print("handler", type(handler).__name__, "label", handler.get_label_config(), flush=True)
     for kind, procs in (("infer", handler.infer_processors), ("learn", handler.learn_processors)):
         for proc in procs:
@@ -312,17 +410,14 @@ def main(argv=None) -> int:
                 f"fit_end_time={getattr(proc, 'fit_end_time', None)}",
                 flush=True,
             )
-    names = [item.strip() for item in str(args.models).split(",") if item.strip()]
-    unknown = [item for item in names if item not in DEFAULT_MODELS]
-    if unknown:
-        raise BuildEtfError(f"未知模型 {unknown}")
-    calendar = pd.DatetimeIndex(D.calendar(start_time=WINDOW_START, end_time=TEST_END))
-    out = Path(args.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     lines = [LABEL_RULE, SURVIVORSHIP_NOTE, f"fit {TRAIN_START} {TRAIN_END}", f"models {','.join(names)}"]
     summaries = []
+    component_receipts: dict[str, dict[str, Any]] = {}
     for model_name in names:
         print(f"MODEL {model_name}", flush=True)
+        component: dict[str, Any] = {"status": "FAIL", "segments": {}}
+        component_receipts[model_name] = component
         try:
             model = build_named_model(model_name, threads, int(args.num_boost_round))
             with R.start(experiment_name=f"{args.exp_name}_{model_name}"):
@@ -348,12 +443,16 @@ def main(argv=None) -> int:
                 )
                 print(line, flush=True)
                 lines.append(line)
+                if args.write_acceptance_artifacts:
+                    component["segments"][seg_name] = persist_segment(out, model_name, seg_name, joined, calendar, report)
+                    component["segments"][seg_name]["alignment"] = {"prediction_rows": len(pred), "label_rows": len(label), "inner_join_rows": len(joined)}
                 if seg_name == "test":
                     test_report = report
             if test_report is None or test_report["n"] < 2 or test_report["ic"] is None:
                 summaries.append((model_name, None, None, test_report["n"] if test_report else 0))
                 print(f"ACCEPT_IC {model_name} failed", flush=True)
             else:
+                component["status"] = "PASS"
                 summaries.append((model_name, test_report["ic"], test_report["rank_ic"], test_report["n"]))
                 print(
                     f"ACCEPT_IC {model_name} test={test_report['ic']} "
@@ -361,6 +460,7 @@ def main(argv=None) -> int:
                     flush=True,
                 )
         except Exception as exc:
+            component["error_type"] = type(exc).__name__
             print(f"MODEL {model_name} failed: {type(exc).__name__}: {exc}", flush=True)
             lines.append(f"model {model_name} failed {type(exc).__name__}: {exc}")
             summaries.append((model_name, None, None, 0))
@@ -382,6 +482,29 @@ def main(argv=None) -> int:
     report_path = out / "ic_report.txt"
     report_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("report", report_path, flush=True)
+    if args.write_acceptance_artifacts:
+        anchors = {rel: file_sha256(qlib_dir / rel) for rel in
+                   ("calendars/day.txt", "instruments/all.txt", "instruments/etf_full.txt")}
+        passed = sum(item["status"] == "PASS" for item in component_receipts.values())
+        receipt = {
+            "schema_version": "etf-smoke-acceptance.v1", "policy": "purged-fit-h1-h2.v1",
+            "status": "PASS" if passed == len(names) else "PARTIAL" if passed else "FAIL",
+            "nominal_segments": SEGMENTS, "effective_segments": fit_segments, "fit_samples": fit_samples,
+            "label": LABEL_EXPR, "horizons": [1, 2], "mask_bounds": "nominal segments",
+            "ic_method": "pooled Pearson; RankIC is pooled Spearman over accepted finite rows",
+            "processor_fit": [{"group": kind, "class": type(proc).__name__,
+                "fit_start_time": str(getattr(proc, "fit_start_time", None)),
+                "fit_end_time": str(getattr(proc, "fit_end_time", None))}
+                for kind, procs in (("infer", handler.infer_processors), ("learn", handler.learn_processors)) for proc in procs],
+            "provider_anchors_sha256": anchors, "script_sha256": file_sha256(Path(__file__)),
+            "versions": package_versions(), "threads": threads,
+            "seed_policy": "unchanged library/model defaults; no cross-version bitwise retraining guarantee",
+            "models": component_receipts, "survivorship_note": SURVIVORSHIP_NOTE,
+        }
+        receipt_path = out / "acceptance.json"
+        temporary = receipt_path.with_suffix(".json.tmp")
+        temporary.write_text(json.dumps(receipt, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+        temporary.replace(receipt_path)
     if not any(ic is not None for _name, ic, _rank, _count in summaries):
         return 2
     return 0
