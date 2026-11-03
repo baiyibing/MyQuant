@@ -12,13 +12,13 @@
 | valid | 2025-01-02～2025-12-31 | 2025-01-02～2025-12-29 | 137826 | 0.0520968728 | 0.0218612420 |
 | test | 2026-01-05～2026-10-13 | 保持名义区间，验收排除跨界/未定义标签 | 104772 | 0.0435218051 | 0.0169925865 |
 
-只跑一个 LightGBM，最多 80 轮，8 线程，early stopping 选中第 16 轮。官方 Alpha158、标签 `Ref($close,-2)/Ref($close,-1)-1`、#107 已合入的宇宙及名义切分不变；特征处理器仍只在 2020～2024 拟合。指标是有限样本上的**合并 Pearson / Spearman**，不是逐日 IC 均值，不证明策略盈利。front 复权和末日筛选的研究偏差继续保留。
+只跑一个 LightGBM，最多 80 轮，8 线程，early stopping 选中第 16 轮；[实际运行参数](invocation.json)直接读自本次 MLflow 记录。官方 Alpha158、标签 `Ref($close,-2)/Ref($close,-1)-1`、#107 已合入的宇宙及名义切分不变；特征处理器仍只在 2020～2024 拟合。指标是有限样本上的**合并 Pearson / Spearman**，不是逐日 IC 均值，不证明策略盈利。front 复权和末日筛选的研究偏差继续保留。
 
 每段已保存逐行 prediction、raw label、边界/有限值/接受掩码及 SHA256。独立验证器没有复用生产 mask 函数，重新推导未来两个交易日、检查掩码、读取 Parquet 并复算三段样本数与指标；结果逐项一致。训练后再次核对 11406 个 provider 文件和受保护目录锚，均未变化。[宿主验收](acceptance.json)、[运行回执](run-receipt.json)、[IC 文本](ic_report.txt)。原始 Parquet、MLflow、provider 和 staging 仅保留本机，不入库。
 
 `--write-acceptance-artifacts` 为显式开关，要求新的输出目录，并在训练前拒绝与股票/ETF provider 重叠的路径。写盘失败、有效样本不足或非有限 IC 不会生成 PASS 的单模型回执。多模型若部分成功仍可 exit 0，但 JSON 为 PARTIAL；读取方必须检查回执状态。
 
-验证：四个受影响 ETF 测试文件 **34 passed**；仓库 CI 的六文件 data-staging 选择 **68 passed**；Ruff 通过。[方案复核](plan-review.json)在编码之前，[固定提交实现复核](implementation-review.json)为 APPROVE。实际复核工具为 Claude Code CLI 2.1.317，沿用本机配置的 **GLM-5.3**，未冒称原生 Anthropic 模型。Pyright 不是 MyQuant 已配置门禁，额外探索调用因父工作树/导入解析范围失败，没有记为通过。
+验证：四个受影响 ETF 测试文件 **34 passed**；仓库 CI 的六文件 data-staging 选择 **68 passed**；Ruff 通过。[方案复核](plan-review.json)在编码之前，[固定提交实现复核](implementation-review.json)与[宿主证据复核](evidence-review.json)均为 APPROVE。实际复核工具为 Claude Code CLI 2.1.317，沿用本机配置的 **GLM-5.3**，未冒称原生 Anthropic 模型。Pyright 不是 MyQuant 已配置门禁，额外探索调用因父工作树/导入解析范围失败，没有记为通过。
 
 复现命令（使用本机约定的 vanna312；`<new-out>` 必须不存在）：
 

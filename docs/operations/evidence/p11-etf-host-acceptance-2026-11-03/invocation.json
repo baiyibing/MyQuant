@@ -1,0 +1,7 @@
+{
+  "command": "my_scripts/train_etf_smoke.py --qlib-dir D:\\PycharmProjects\\MyQuant-backtrader\\_agent_runs\\three_repo_batch6_20261102\\etf-host\\my_data_etf --out-dir ..\\p11-host\\e4-lgb-purged --models lgb --num-boost-round 80 --exp-name p11_etf_20261103_purged --write-acceptance-artifacts",
+  "original_command_file_sha256": "2b614ec34d934f70faf0ff3110d911a5bba97022a096b20e8d8df48306e5efe1",
+  "recorder_id": "dca84f55d8a24fc790647dc81e0d1da6",
+  "source_commit": "3e4c992b444480071100fbd1fb9ea3f8717320c9",
+  "note": "Read from this run MLflow params, not inferred from CLI defaults."
+}
