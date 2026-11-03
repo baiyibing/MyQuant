@@ -80,7 +80,7 @@ PortAna 第 4 轮用真沪深300 出过烟雾报告。按 §2.3 / §6：**不当
 | 全仓行业对齐重构方案 | 文档 | #996 v1.1；**GO 前禁编码** |
 | 研究脸（向量化 / chip / L2 ETL） | 已迁出 | 2026-09 S1/S2 → MyQuant-backtrader |
 
-1.3 的完成定义仍是 LEBS / MockQMT / 真栈，不是本路线图 R0–R5。L2（名单 → trade_decision → LEBS）未开工。
+1.3 的完成定义仍是 LEBS / MockQMT / 真栈，不是本路线图 R0–R5。旧 L2（名单 → trade_decision → LEBS）A 冒烟 / B 四维对账已随 1.3 #1024 / #1025 合入；C 晋升门和 D 旧研究晋升线去留仍待裁定；v653/turtle 属于其他策略验收，不能替代旧 csv_v5 线的 D。2026-11-03 只回写本仓状态，固定证据及限制见 [QL16 回执](operations/evidence/ql16-ab-status-2026-11-03/README.md)。
 
 ---
 

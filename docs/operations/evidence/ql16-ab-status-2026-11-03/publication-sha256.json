@@ -1,0 +1,10 @@
+{
+  "byte_domain": "Git-published UTF-8 LF bytes; excludes this manifest",
+  "files": {
+    "docs/plan-l2-pipeline-2026-09-13.md": "d6e66651ab2440e59cc6ce94615831645257557fda08b6210e3744bc875a15e9",
+    "docs/plan-three-repo-roadmap-2026-09-12.md": "611e9c7d1ef313aa92efa483c587df7f9966633d51bafa3adcc3d956a0e5d46d",
+    "docs/operations/evidence/ql16-ab-status-2026-11-03/README.md": "b23dc3d72a6a1fed5bfe04c26444380eb12c7d39126307e9bee326f4655e29b7",
+    "docs/operations/evidence/ql16-ab-status-2026-11-03/facts.json": "ffd31640c2c2baa3db6d6efefb190750c873555dd434ab47ed6f47882f8de609",
+    "docs/operations/evidence/ql16-ab-status-2026-11-03/validation.json": "47277756441cb9f098e4c9eb1e6914c664a2a82973e1708bae4fa0e202ae9586"
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "schema": "myquant.ql16-ab-status/1",
+  "observed_on": "2026-11-03",
+  "base_sha": "a509b31cb6cb9901b06885cbc644c4807f31efdb",
+  "scope": "QL16 local E status backwrite only; historical A/B evidence, no C/D decision",
+  "merge_facts_source": "gh api repos/baiyibing/OSkhQuant1.3/pulls/1024 and /1025",
+  "source_file_method": "git show <exact merge SHA>:<path>; SHA256 is Git LF bytes",
+  "pull_requests": [
+    {
+      "number": 1024,
+      "head": "74f3986d396c2beba73e0228277d0f26d3cc7d37",
+      "merge": "6fceccc64f45919476c14aa4322046e66b142a3e",
+      "merged_at": "2026-09-14T05:41:45Z",
+      "path": "docs/run-records/2026-09-14-l2-a-lebs-csv-v5-smoke.md",
+      "repository": "baiyibing/OSkhQuant1.3",
+      "url": "https://github.com/baiyibing/OSkhQuant1.3/pull/1024",
+      "frozen_url": "https://github.com/baiyibing/OSkhQuant1.3/blob/6fceccc64f45919476c14aa4322046e66b142a3e/docs/run-records/2026-09-14-l2-a-lebs-csv-v5-smoke.md",
+      "git_lf_sha256": "3b9616e8e1221add88ef43b3a4186f5a5beb3b07ffc570d057e90c7252695dd1",
+      "git_blob_sha1": "27b5bc2337cb057659410ca3af2f33927afbf9ec"
+    },
+    {
+      "number": 1025,
+      "head": "16cfa6f8019d781df5b4e726c7837389377766b4",
+      "merge": "1ee04a9be370640053800713c12f7bee48d7d730",
+      "merged_at": "2026-09-14T06:06:01Z",
+      "path": "docs/run-records/2026-09-14-l2-b-csv-v5-reconcile.md",
+      "repository": "baiyibing/OSkhQuant1.3",
+      "url": "https://github.com/baiyibing/OSkhQuant1.3/pull/1025",
+      "frozen_url": "https://github.com/baiyibing/OSkhQuant1.3/blob/1ee04a9be370640053800713c12f7bee48d7d730/docs/run-records/2026-09-14-l2-b-csv-v5-reconcile.md",
+      "git_lf_sha256": "cbebbc1b94f9092bc773619c11a8da0b0e3b1cd806dcc0cbb6e9adbbd8516361",
+      "git_blob_sha1": "f6b964953c9a52ab0240b966b83ea5f3d1bacb41"
+    }
+  ],
+  "b_statistics": {
+    "path": "docs/backtest/reports/l2_reconcile_pred_v5/reconcile-four-dims.json",
+    "commit": "1ee04a9be370640053800713c12f7bee48d7d730",
+    "git_lf_sha256": "afb8f0d431b87eaabac0d9bd8ca6bb772d5e964710c110fa411cc6d8df2717d1",
+    "window": [
+      "20260303",
+      "20260908"
+    ],
+    "list_days": 131,
+    "identical_list_days": 131,
+    "list_rate": 1.0,
+    "documented_gaps": [
+      {
+        "class": "engine_semantic",
+        "id": "v5_daily_force_sell",
+        "detail": "BT version5 HELP_LOCK: daily has no minute clock, no force sell; 2% take-profit pending_exit next open. LEBS 1d daily_synthetic injects 14:50 for version5."
+      },
+      {
+        "class": "data_timing",
+        "id": "adj_and_warmup",
+        "detail": "LEBS daily=dividend_type=front, window start=20260303 (no prev). BT daily=dividend_type=none, warmup 10 days so day-1 has prev_close."
+      },
+      {
+        "class": "engine_semantic",
+        "id": "limit_up_chase_vs_skip",
+        "detail": "LEBS skip; BT T+1 chase. version5 reserve_limit_up=false both."
+      },
+      {
+        "class": "rule_impl",
+        "id": "lot_vs_supplement",
+        "detail": "LEBS insufficient_lot skip vs BT 不足一手补 supplementary_used"
+      }
+    ],
+    "documented_gaps_method": "Gap summaries follow the frozen B run-record; raw statistics file hash remains separately pinned above"
+  },
+  "conclusions": {
+    "A": "historical smoke delivered, 131 days; no strategy promotion claim",
+    "B": "list 131/131; other dimensions have documented timing/rule/engine differences; legal endpoint is attributed differences, not equivalence",
+    "C": "thresholds remain undecided; no invented numbers",
+    "D": "Old csv_v5 line retain/archive decision remains open; v653/turtle acceptance belongs to other strategies and cannot substitute for old D",
+    "E": "MyQuant partial backwrite only; no three-repository completion claim"
+  },
+  "audit_item_closed": false,
+  "package_closed": false,
+  "remaining": [
+    "C thresholds require human decision if old line retained",
+    "D retain/archive decision is not supplied by v653/turtle acceptance",
+    "Cross-repository E and QL16/P20 overall closeout remain open"
+  ]
+}
