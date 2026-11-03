@@ -1,0 +1,28 @@
+{
+  "audit_id": "QL17",
+  "package_id": "P20",
+  "scope": "status_pointer_subset",
+  "audit_item_closed": false,
+  "package_closed": false,
+  "source_commit": "3b9fdb0edf561619661d673f1bbc12f30e4d89ab",
+  "changed_pages": [
+    "docs/plan-midterm-m1m4m2m3-2026-09-13.md",
+    "docs/reviews/joint-return-v1/track-b/README.md",
+    "docs/perf-issues-windows-qlib-2026-09-14.md"
+  ],
+  "already_current_no_edit": [
+    "docs/plan-etf-qlib-daily-2026-10-14.md"
+  ],
+  "outcomes": {
+    "M3-D": "Old blocked status linked to merged code and recorded default-off two-window outcome; no experiment repeated.",
+    "ETF": "Already-current historical draft banner and isolated E3/E4 receipt verified; no duplicate edit.",
+    "TrackB": "Historical merge-pending line qualified by actual98/99/102 merge facts; research marker, original review text and host limits retained.",
+    "P6": "Historical unverified item; tracked query finds only premerge summary, no same-condition original-detail comparison."
+  },
+  "limits": [
+    "QL17 and P20 stay open; no audit/package completed receipt added.",
+    "Merged implementation is not proof of separate historical Grok approval or 4090 full-data performance.",
+    "P6 is neither called a confirmed current production bug nor declared fixed/superseded.",
+    "No provider/market writes, downloads, host scans, new experiments, training, trading, policy or code change."
+  ]
+}

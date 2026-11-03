@@ -1,5 +1,7 @@
 # 中期落地计划：M1 全量 bin → M4 manifest → M2 筹码 parity → M3 ranking-only
 
+> **2026-11-03 状态核对（QL17）**：下文保留 2026-09-13 的实施快照，其中 M3-D 的 `blocked` 已被后续工作替代。[实现 #26 已合入](https://github.com/baiyibing/MyQuant/commit/a032e5a98b668d842452304f82b72215783b13f6)；[冻结路线图的两窗记录](https://github.com/baiyibing/MyQuant/blob/3b9fdb0edf561619661d673f1bbc12f30e4d89ab/docs/plan-three-repo-roadmap-2026-09-12.md)已登记“保留实验开关、默认关闭、不改 topk”。本片只补状态指针，没有重跑实验或改规则；[证据与边界](operations/evidence/ql17-status-pointers-2026-11-03/README.md)。
+
 - 日期：2026-09-13
 - 状态：v1；M1 已合 #8；M4+M3-A 已合 #9；M2 已合 #10（不可比关门）；本波 `feat/m3-ranking-only` = M3-B→C 已交，M3-D **blocked**（无行业源）
 - 上游：`docs/plan-three-repo-roadmap-2026-09-12.md` v1.3 §0/§4（本轮 = 中期项落地）；数据现状见 `docs/qlib-data-state-2026-09-13.md`
