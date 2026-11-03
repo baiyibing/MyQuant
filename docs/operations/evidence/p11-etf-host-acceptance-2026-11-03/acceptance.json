@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-11-03T04:39:19.897083+00:00",
+  "decision": "PASS_E3_E4_LOCAL_ISOLATED_SMOKE",
+  "implementation_head": "3e4c992b444480071100fbd1fb9ea3f8717320c9",
+  "runtime_script_sha256": "a8b1f13482c6d22d7affdff1cc9b5eeae18886a18a0cc4a8489adfd564fa005c",
+  "git_blob_sha256": "1458e9f9190daf5664923523f812e40ece43f456b41a3d5d4c5a3a0d1efe40f4",
+  "source_equal_after_lf_normalization": true,
+  "policy": "purged-fit-h1-h2.v1",
+  "historical_policy_ic_not_reused": true,
+  "nominal_segments": {
+    "train": [
+      "2020-01-02",
+      "2024-12-31"
+    ],
+    "valid": [
+      "2025-01-02",
+      "2025-12-31"
+    ],
+    "test": [
+      "2026-01-05",
+      "2026-10-13"
+    ]
+  },
+  "effective_segments": {
+    "train": [
+      "2020-01-02",
+      "2024-12-27"
+    ],
+    "valid": [
+      "2025-01-02",
+      "2025-12-29"
+    ],
+    "test": [
+      "2026-01-05",
+      "2026-10-13"
+    ]
+  },
+  "fit_samples": {
+    "train": {
+      "rows": 583700,
+      "first": "2020-01-02",
+      "last": "2024-12-27",
+      "all_label_dates_in_nominal_segment": true
+    },
+    "valid": {
+      "rows": 137826,
+      "first": "2025-01-02",
+      "last": "2025-12-29",
+      "all_label_dates_in_nominal_segment": true
+    }
+  },
+  "processor_fit": [
+    {
+      "group": "infer",
+      "class": "ProcessInf",
+      "fit_start_time": "None",
+      "fit_end_time": "None"
+    },
+    {
+      "group": "infer",
+      "class": "ZScoreNorm",
+      "fit_start_time": "2020-01-02",
+      "fit_end_time": "2024-12-31"
+    },
+    {
+      "group": "infer",
+      "class": "Fillna",
+      "fit_start_time": "None",
+      "fit_end_time": "None"
+    },
+    {
+      "group": "learn",
+      "class": "DropnaLabel",
+      "fit_start_time": "None",
+      "fit_end_time": "None"
+    },
+    {
+      "group": "learn",
+      "class": "CSZScoreNorm",
+      "fit_start_time": "None",
+      "fit_end_time": "None"
+    }
+  ],
+  "segments": {
+    "train": {
+      "rows": 589944,
+      "accepted": 583700,
+      "ic": 0.19543687032031462,
+      "rank_ic": 0.10436810357367397,
+      "instruments": 573,
+      "first_signal_date": "2020-01-02",
+      "last_signal_date": "2024-12-27",
+      "file_sha256": "b4397893bfafa6c9018e6595c85850b68f9743088980f87996c4721dc5d3e1f2",
+      "independent_mask_and_metrics_match": true
+    },
+    "valid": {
+      "rows": 138093,
+      "accepted": 137826,
+      "ic": 0.05209687278333256,
+      "rank_ic": 0.021861242009160484,
+      "instruments": 573,
+      "first_signal_date": "2025-01-02",
+      "last_signal_date": "2025-12-29",
+      "file_sha256": "a20ba92c91875d1391298948beac2438867a06f7c83ed6f2357e6e43a59ed118",
+      "independent_mask_and_metrics_match": true
+    },
+    "test": {
+      "rows": 106005,
+      "accepted": 104772,
+      "ic": 0.04352180511603148,
+      "rank_ic": 0.01699258654914062,
+      "instruments": 573,
+      "first_signal_date": "2026-01-05",
+      "last_signal_date": "2026-10-13",
+      "file_sha256": "40a00adc64c2d100f115a26f3a33368ca39bbdd2a0d909b1c4ba5d5e1e1ee2f8",
+      "independent_mask_and_metrics_match": true
+    }
+  },
+  "provider_files_verified_unchanged": 11406,
+  "protected_anchors_unchanged": true,
+  "acceptance_json_sha256": "bab2f78a9297b609d225a2ee0ec2552659d693e91353b58f2c15ad0be8aa13fd",
+  "versions": {
+    "pyqlib": "0.0.0",
+    "lightgbm": "4.7.0",
+    "pandas": "2.3.3",
+    "numpy": "2.3.5",
+    "pyarrow": "25.0.0"
+  },
+  "threads": 8,
+  "invocation": {
+    "models": [
+      "lgb"
+    ],
+    "num_boost_round": 80,
+    "exp_name": "p11_etf_20261103_purged",
+    "write_acceptance_artifacts": true,
+    "fresh_mlflow_worktree": "D:\\PycharmProjects\\MyQuant-backtrader\\_agent_runs\\four_repo_consumption_20261103\\myquant"
+  },
+  "limits": [
+    "Fixed historical provider/window, not a newly updated live-lake provider",
+    "Front-adjustment basis and etf_full end-date selection retain the documented research biases",
+    "IC and RankIC are pooled finite-row smoke metrics, not evidence of strategy profitability or daily IC stability",
+    "No default-provider promotion, market writes, QMT login, trading or additional model selection"
+  ],
+  "e3_accepted": true,
+  "e4_accepted": true,
+  "package_closed": true
+}

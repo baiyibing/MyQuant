@@ -1,7 +1,7 @@
 # 任务书：ETF 日线 qlib 实验（独立 bin → 读回 → Alpha158 冒烟）
 
 - 日期：2026-10-14
-- 状态：**草案 v0.2，已补 GO-WITH-NITS 评审意见，待合并**。本 PR 只落本文，不写 staging、不灌 bin、不跑训练。
+- 状态：**历史草案 v0.2**。实现已在 #107 合入，其 etf_full 条件及名义切分以该 PR 代码为准。2026-11-03 已完成 [P11 隔离宿主 E3/E4 验收](operations/evidence/p11-etf-host-acceptance-2026-11-03/README.md)，并修正训练/验证边界标签泄漏；下文保留原草案，不将旧参数冒充现行合同。
 - 风险档：中。新 provider 与股票 `my_data` 隔离；灌错目录会污染股票宇宙。
 - 数据源说明：OSkhQuant1.3 `docs/operations/etf-qmt-download.md`（PR [#1167](https://github.com/baiyibing/OSkhQuant1.3/pull/1167)，`docs(data): record the QMT channel for ETF daily and minute downloads`）。
 - 本机探针：2026-10-14 对 `E:\stock_data`（用户环境变量 `OSKH_SOURCE_PARQUET_ROOT`）的抽样。实现时以当时湖为准重算，下文带「探针」的数字是草案锚，不是永久门禁。

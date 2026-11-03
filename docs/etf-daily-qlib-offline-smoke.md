@@ -1,5 +1,7 @@
 # ETF daily qlib local offline smoke
 
+2026-11-03: separate [P11 isolated host E3/E4 acceptance](operations/evidence/p11-etf-host-acceptance-2026-11-03/README.md) is now available. This page continues to describe only the historical offline-fixture slice and its limits.
+
 PATH: `myquant-etf-daily-qlib-smoke-harden`.
 
 This slice hardens Linux pytest and the local offline fixture smoke for the ETF

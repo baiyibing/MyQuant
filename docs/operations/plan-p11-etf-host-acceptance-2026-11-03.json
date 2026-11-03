@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "status": "IMPLEMENTED_AND_HOST_ACCEPTED",
+  "receipt": "evidence/p11-etf-host-acceptance-2026-11-03/README.md",
+  "plan_review": {"plan_commit": "76a2fd293398697b851520c4817e1688762b83ea", "decision": "APPROVE", "reviewer": "Claude Code CLI 2.1.317", "actual_model": "glm-5.3[1M]", "method": "Read-only inline source/plan bundle; no tools or source edits"},
+  "implementation_nits": ["Assert actual prepared learn dates obey effective bounds", "Offline main wiring test must capture DatasetH segments and actual fit call", "Record library versions, thread count and seed policy", "Artifact masks use nominal segment bounds", "Record calendar hash and boundary derivation dates", "Require a fresh artifact output directory outside protected providers; no stale PASS receipt reuse"],
+  "scope": "P11 ETF E3/E4 acceptance only. No infra migration, live trading, lake writes, provider promotion or new model/label selection.",
+  "base": "524519e459df5520cdd0e5999dac74e430bd28d1",
+  "existing_evidence": "2026-11-02 isolated provider: 1640 days, all1629, etf_full573. E4 LGB exit0/test104772/IC0.04335482069473625 is historical smoke output, not a reproducible row-level acceptance receipt.",
+  "findings": [
+    "train_etf_smoke.py computes IC with in_segment_label_mask but passes unpurged train/valid segments to DatasetH. Last two session labels use following-split closes, including validation early-stop labels touching the test split.",
+    "The historical E4 recorder has code and l2 metrics only. There are no saved prediction/label arrays or model to independently recompute the reported IC."
+  ],
+  "implementation": {
+    "purge_fit_boundaries": "After Qlib init, obtain the fixed calendar before dataset construction. Use the existing in_segment_label_mask with horizons(1,2) to shorten only train and valid DatasetH segment ends to the last eligible signal session; fail if a fit segment has no eligible sessions. Keep nominal SEGMENTS, fixed calendar, official Alpha158, label expression, universe and processor fit_start/end unchanged. Test stays nominal and acceptance IC still masks cross/undefined targets. Record both nominal and effective fit segments and actual processor fit boundaries. No model selection/tuning.",
+    "durable_evidence": "Add opt-in --write-acceptance-artifacts. For each evaluated model/segment save indexed pred/label plus in-segment, finite-pair and accepted masks to Parquet under the explicitly chosen output directory; hash files and save a JSON run receipt with nominal/effective segments, label rule, provider anchors, processor facts, per-segment IC/RankIC/counts and requested-model status. Do not add raw predictions/models/provider binaries to git. A write failure must not produce an accepted component receipt; a single-model run returns nonzero without accepted IC.",
+    "backward_surface": "Existing no-flag text report remains available. Purging the fit/validation boundary is a correctness fix, disclosed as a new run policy; do not relabel the historical IC as recomputed under the corrected policy. The original frozen plan/PR107 universe and train2024/valid2025/test2026 boundaries remain unchanged.",
+    "host_validation": "Read-only hash verification of the existing full provider and its historical manifest; compare readbacks with the frozen staging snapshot, because the live lake advanced after the historical build. Record current-lake drift separately. Rerun only lgb against this immutable isolated provider into a fresh output/MLflow location. Independently reload persisted predictions and labels, enforce boundary masks, recompute IC/counts, and verify provider/protected anchors unchanged. No dump_all/update, lake mutation, QMT or default provider initialization."
+  },
+  "verification": [
+    "Offline synthetic-calendar tests: both future label dates within train/valid; holidays, insufficient sessions and fixed test interval",
+    "Temporary artifact round-trip with finite/NaN/cross-boundary rows; independent correlation/count/hash checks; write failure is explicit",
+    "Affected four ETF offline test files plus new focused tests, syntax/type/lint as configured",
+    "Grok CLI read-only plan and fixed-head implementation review",
+    "Publish small JSON/text receipts and immutable hashes only, record source-policy caveats and host limits"
+  ]
+}
