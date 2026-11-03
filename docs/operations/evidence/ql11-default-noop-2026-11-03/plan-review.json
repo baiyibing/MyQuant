@@ -1,0 +1,11 @@
+{
+  "cli": "Claude Code CLI2.1.317",
+  "configured_models": [
+    "glm-5.3[1m]"
+  ],
+  "provider_note": "Actual backend GLM-5.3, not an Anthropic model.",
+  "mode": "Tools disabled, fixed inline plan/source/test bundle",
+  "session_id": "6c64b32b-dedf-41b4-b82c-7949d3cb8745",
+  "raw_log_sha256": "756c122940bfec84699644a03f03ba20c44e5a4ea681b645ceade6394c71dd60",
+  "verdict_text": "**APPROVE**\n\n- **False success paths fenced**: noop requires ≥1 available history source, zero raw rows in window, zero bad times; rows-present-but-filtered-empty (bad close/time) rejects; empty source and no-source requests reject rather than noop; explicit start / rebuild / skip-stage empty stays erroring.\n- **No masking of real problems**: securities without bins fail pre-noop; old minute axis order/uniqueness and close bin boundaries verified first; full provider file fingerprints must be unchanged after noop; receipt still written in the original schema — no silent success.\n- **Staging outputs preserved**: scan's default public return remains a path list (stats opt-in only), no lake re-reads, no new downloads, no unit/price/dedup/field changes; missing source fails *before* old staging cleanup, so input failures never destroy prior staging.\n- **Roots**: configured roots verified up front with bad-root/unknown-list/empty-source/bad-data negatives in the matrix — no guessed directories.\n- **Scope respected**: only default auto-start empty increments; daily/provider, infra migration, source lake untouched; data quality / market freshness explicitly out of scope.\n\nMinor, non-blocking: pin \"可用来源\" to the scan's available-history metric so a zero-row source can't satisfy the ≥1 condition (the 空源 negative covers it), and let the unchanged-schema receipt carry the zero-rows-in-window count so a noop is auditable against a lost increment later."
+}

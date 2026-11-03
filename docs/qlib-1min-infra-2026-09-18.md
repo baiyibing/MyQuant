@@ -56,3 +56,7 @@ D:\anaconda3\envs\vanna312\python.exe my_scripts/train_1min_smoke.py --label-hor
 ## 2026-11-03 QL11 日历对齐与隔离实测
 
 修复缺分钟时的追加错位；7证券真实湖数据初建→增量→独立重建→noop通过，42旧bin前缀保留、49字段与重建相等。见[固定窗口回执](operations/evidence/ql11-aligned-host-2026-11-03/README.md)。默认provider未切换，全市场和默认参数empty-staging尾项仍开放。
+
+## 2026-11-03 默认空增量补修
+
+默认自动start的empty-staging误报已修：通过来源/已有close-bin结构核验才返回noop，附测量依据；坏根、错/重复/空名单、坏数据仍失败。7证券真实湖无start/end验收及5个拒绝格通过，53个provider文件hash不变。见[固定回执](operations/evidence/ql11-default-noop-2026-11-03/README.md)。上条对这个尾项的开放描述由本片更新，P12其余验收仍开放。

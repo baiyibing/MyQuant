@@ -1,0 +1,33 @@
+{
+  "audit_id": "QL11",
+  "bars_appended": 0,
+  "daily_day_txt_sha256_after": "",
+  "daily_day_txt_sha256_before": "",
+  "daily_day_txt_unchanged": true,
+  "daily_dir": "$USER_HOME\\.qlib\\qlib_data\\my_data",
+  "empty_increment_proof": {
+    "invalid_time_rows": 0,
+    "provider_close_bins_checked": 7,
+    "raw_rows_in_window": 0,
+    "scope": "Configured input request only; not market freshness or full provider quality",
+    "source_partitions_observed": 7,
+    "source_rows": 921101,
+    "usable_history_rows": 921101
+  },
+  "existing_minute_bars_preserved": true,
+  "market_write_performed": false,
+  "minute_calendar_advanced": false,
+  "minute_calendar_last_after": "2026-11-02 15:00:00",
+  "minute_calendar_last_before": "2026-11-02 15:00:00",
+  "minute_calendar_len_after": 1687,
+  "minute_calendar_len_before": 1687,
+  "mode": "noop",
+  "pred_pkl_untouched": true,
+  "probe_bars_after": 1687,
+  "probe_bars_before": 1687,
+  "probe_symbol": "SZ000001",
+  "qlib_1min_dir": "$TASK\\host\\fixed-provider",
+  "recorded_at_utc": "2026-11-03T07:32:32.098842+00:00",
+  "schema_version": "ql11.1min.v1",
+  "symbols_touched": 0
+}
