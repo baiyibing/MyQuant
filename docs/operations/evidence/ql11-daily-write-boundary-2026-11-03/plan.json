@@ -1,0 +1,20 @@
+{
+  "scope": "QL11 minute refresh daily-provider write boundary, independent of QL10 PR117",
+  "base_head": "f343b08b971023de937a38044a4a6cf642ddd3b1",
+  "confirmed_failures": [
+    "Real staging+append accepts --staging-dir equal to DAILY_QLIB and writes minute parquet into daily; calendar-only fingerprint does not see it.",
+    "Real append+receipt accepts --receipt equal to daily/calendars/day.txt, checks the old day fingerprint before receipt write, overwrites the daily calendar and returns0."
+  ],
+  "implementation": [
+    "Extend existing refuse_if_daily to reject resolved equality and either component ancestry direction, with native platform normcase and resolve(strict=False); fail closed on identity errors.",
+    "At main entry, check provider, expanded staging, derived full_staging and optional receipt before any writer. Preserve default sibling directories and existing flags; skip-stage/rebuild do not bypass the daily boundary.",
+    "Recheck receipt target immediately before its existing writer, after the post-append fingerprint. Keep old calendar assertion and receipt schema/data unchanged.",
+    "Use temporary real parquet/provider integration tests for both confirmed failures, sentinels showing writers are not reached, missing/normalized/case/link aliases, derived full_staging and successful disjoint append/receipt preserving all daily/source bytes."
+  ],
+  "merge_contract": "Fixed-head independent Grok CLI implementation review and green canonical CI. Coding does not wait for prior PR CI; no real refresh/promotion or package closeout.",
+  "limits": [
+    "No actual configured daily/minute provider or market-lake writes, vendor downloads, scheduler or trading changes.",
+    "Daily-root boundary only; does not claim a general sandbox, malicious symlink-race prevention, multiwriter atomicity, QL11 deployment acceptance or P12 package closure.",
+    "Existing generic receipt writer stays usable by other callers; this entry validates its own daily-provider contract."
+  ]
+}

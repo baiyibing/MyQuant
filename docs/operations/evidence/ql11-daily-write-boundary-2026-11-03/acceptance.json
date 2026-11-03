@@ -1,0 +1,35 @@
+{
+  "audit_id": "QL11",
+  "package_id": "P12",
+  "audit_item_closed": false,
+  "package_closed": false,
+  "status": "LOCAL_RELATED_PASS_FIXED_HEAD_REVIEW_AND_CANONICAL_CI_PENDING",
+  "initial_base": "f343b08b971023de937a38044a4a6cf642ddd3b1",
+  "integration_base": "d64b415b4443f6f3779cbf05124ba15807003e85",
+  "includes_merged_pr117": true,
+  "plan_commit": "8f294a3",
+  "baseline_negative_tests": {
+    "failed": 25,
+    "passed": 6,
+    "skipped": 3
+  },
+  "related_fixed_tests": {
+    "passed": 79,
+    "skipped": 3,
+    "skips": "Local directory-symlink privilege unavailable; Windows case-alias tests executed."
+  },
+  "ruff_changed_files": "PASS",
+  "diff_check": "PASS",
+  "raw_local_log_sha256": {
+    "baseline-valid-ohlcv.log": "94b767b890978f8212ea09f6c7286d6310c44b85f0d01a6efd0b83a7f2453f25",
+    "baseline-tests.log": "f849f52608e62e5152ee44a36cf90cda980721f11c80472f33574b8ee5a949dd",
+    "fixed-tests.log": "4f92bb5188ff04d21feac64b361dcd11319796086f01e2d9c28674ed0a940692"
+  },
+  "real_writer_positive_control": "Existing minute provider advanced09:31→09:32 and bin0,10,11→0,10,11,12; daily and source full-file snapshots unchanged; separate receipt created.",
+  "limits": [
+    "No actual configured provider or lake writes, promotion, scheduler, download or trading change.",
+    "Only trusted-filesystem daily-root write isolation; no general sandbox/symlink-race/multiwriter guarantee.",
+    "Calendar fingerprint and receipt schema remain unchanged; QL11 deployment/P12 still open.",
+    "Final-head independent implementation review and canonicalCI pending; plan frozen before encoding under the parallel-lane workflow."
+  ]
+}
