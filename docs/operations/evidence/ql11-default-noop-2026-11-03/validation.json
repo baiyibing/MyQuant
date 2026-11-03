@@ -1,0 +1,23 @@
+{
+  "source_commit": "720e42fefaac28d18ea31fecceff35795ebd9c7a",
+  "initial_baseline_matrix": {
+    "failed": 7,
+    "passed": 12,
+    "scope": "Initial19 CLI matrix cases before adding further guards"
+  },
+  "targeted_tests": {
+    "passed": 88,
+    "files": [
+      "my_tests/test_refresh_mydata_1min_noop.py",
+      "my_tests/test_refresh_mydata_1min.py",
+      "tests/test_stage_1min_from_lake.py",
+      "tests/test_ql11_1min_increment_receipt_harness.py",
+      "my_tests/test_dump_bin_highfreq.py"
+    ]
+  },
+  "ruff": "PASS on2 modified production and2 test files",
+  "text": "UTF8/noBOM/NUL0 checked",
+  "review_followup": "First plan CLI call hit response-output cap and produced no verdict; unchanged plan retried and APPROVE.",
+  "host": "Original CLI with neither start nor end; actual old error, corrected noop and5negative host cases",
+  "scope": "P12 remains open; no daily/default-provider deployment/freshness signoff."
+}

@@ -1,0 +1,14 @@
+{
+  "byte_basis": "Committed Git blob UTF-8 LF bytes",
+  "sha256": {
+    "acceptance.json": "f000ea0b6cecbd58af5e1dbc941c917d7b46e2cb9294f078570d4673f4bb6360",
+    "audit-sources/run_host.py": "d0ff056018f24977e1fe969b93a0febf64f5793017120b24ce5be83716484eae",
+    "fixed-receipt.json": "e0377459d0b90ad59bbe1b24b235f09002edc730fc1823cbf5c82db7b3c2af79",
+    "implementation-review.json": "ceb31368c466183ef372ff6edc5ab348c7f2b39ac4292ed50b2eba72ee096675",
+    "plan-review.json": "04d2929695bb2b6f753db501afdc2280cb1a2017c33b43ea78766ec5dd57b29a",
+    "raw-record-hashes.json": "10959160542b49de72cab2d398006b9fb5d2f27b6a026ae82fc3e716d2913fdc",
+    "README.md": "512ff9e62edffe1bc29cdfa435ea1d3d94c15e471762367bfba3fb20bf410e4b",
+    "recipe.json": "3adc9728c1e92bb5f1957021e3669a8b9179d2f0ddc4e9854d20d8c08976b98b",
+    "validation.json": "eca5d1ed8f2e3d40c95fd8eeb96893d2f1b90b8cbb4973a52077cdfb96725fa1"
+  }
+}
