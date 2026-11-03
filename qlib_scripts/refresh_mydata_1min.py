@@ -10,13 +10,16 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Sequence
 
 import pandas as pd
+import numpy as np
 from tqdm import tqdm
 
 from dump_bin import DumpDataAll
@@ -32,7 +35,7 @@ from qlib_1min_increment_receipt import (  # noqa: E402
     snapshot_1min_state,
     write_receipt,
 )
-from stage_1min_from_lake import (
+from stage_1min_from_lake import (  # noqa: E402
     DEFAULT_MAX_WORKERS,
     DEFAULT_STAGING,
     stage_stock_and_index,
@@ -115,6 +118,68 @@ def dump_all_1min(staging_dir: Path, qlib_dir: Path, workers: int) -> None:
     subprocess.run(cmd, check=True)
 
 
+def incremental_calendar(dumper: DumpDataAll, cutoff: pd.Timestamp) -> list[pd.Timestamp]:
+    """Use the same bounded reference union as a high-frequency rebuild."""
+    dates = set()
+    for path in dumper._pick_calendar_ref_files():
+        frame = pd.read_parquet(path, columns=['date'])
+        dates.update(pd.Timestamp(t) for t in pd.to_datetime(frame['date']).unique() if t > cutoff)
+    return sorted(dates)
+
+
+def _append_aligned_symbol(dumper: DumpDataAll, path: Path,
+                           full_cal: list[pd.Timestamp], old_len: int) -> pd.Timestamp | None:
+    frame = dumper._get_source_data(path).drop_duplicates(dumper.date_field_name)
+    frame = frame.loc[frame[dumper.date_field_name] > full_cal[old_len-1]].copy()
+    if frame.empty:
+        return None
+    aligned = dumper.data_merge_calendar(frame, full_cal)
+    if aligned.empty:
+        return None
+    first = full_cal.index(aligned.index.min())
+    code = dumper.get_symbol_from_file(path).upper()
+    directory = dumper._features_dir / code_to_fname(code).lower()
+    plans = []
+    # Validate all existing fields for this symbol before replacing any field.
+    for field in sorted(dumper.get_dump_fields(aligned.columns)):
+        dest = directory / f'{field.lower()}.1min.bin'
+        padding = 0
+        exists = dest.exists()
+        if exists:
+            size = dest.stat().st_size
+            if size < 8 or size % 4:
+                raise ValueError('invalid 1min bin length')
+            header = float(np.fromfile(dest, dtype='<f4', count=1)[0])
+            if not np.isfinite(header) or header < 0 or not header.is_integer():
+                raise ValueError('invalid 1min bin header')
+            stop = int(header) + size // 4 - 1
+            if stop > old_len:
+                raise ValueError('1min bin extends beyond old calendar; rebuild required')
+            padding = first - stop
+        values = pd.to_numeric(aligned[field], errors='coerce').to_numpy(dtype='<f4')
+        plans.append((dest, exists, padding, values))
+    directory.mkdir(parents=True, exist_ok=True)
+    for dest, exists, padding, values in plans:
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(dir=directory, prefix=dest.name+'.', suffix='.tmp', delete=False) as stream:
+                temporary = Path(stream.name)
+                if exists:
+                    with dest.open('rb') as original:
+                        shutil.copyfileobj(original, stream)
+                    np.full(padding, np.nan, dtype='<f4').tofile(stream)
+                else:
+                    np.asarray([first], dtype='<f4').tofile(stream)
+                values.tofile(stream)
+                stream.flush()
+                os.fsync(stream.fileno())
+            os.replace(temporary, dest)
+        finally:
+            if temporary is not None:
+                temporary.unlink(missing_ok=True)
+    return aligned.index.max()
+
+
 def append_new_1min_bars(
     staging_inc: Path,
     staging_full: Path,
@@ -122,18 +187,21 @@ def append_new_1min_bars(
     new_only: list[pd.Timestamp],
     full_cal: list[pd.Timestamp],
 ) -> int:
-    """UPDATE_MODE append for existing bins; ALL_MODE write new symbols from full staging."""
+    """Append by full-axis offsets; publish the calendar after successful feature writes.
+
+    Individual bin replacement is atomic. A multi-file IO failure needs recovery
+    or rebuild; this function does not promise a provider-wide transaction.
+    """
+    old_cal = read_1min_calendar(qlib_dir)
+    axis = pd.DatetimeIndex(full_cal)
+    if (not old_cal or not new_only or axis.hasnans or axis.has_duplicates
+            or not axis.is_monotonic_increasing or full_cal != old_cal + new_only):
+        raise ValueError('invalid 1min append calendar prefix/suffix')
     d = make_dumper(staging_inc, qlib_dir, DumpDataAll.UPDATE_MODE)
     inst_path = d._instruments_dir / "all.txt"
     inst = d._read_instruments(inst_path) if inst_path.exists() else pd.DataFrame(
         columns=[d.symbol_field_name, d.INSTRUMENTS_START_FIELD, d.INSTRUMENTS_END_FIELD]
     )
-    backup_cal = d._calendars_dir / "1min.txt"
-    if backup_cal.exists():
-        shutil.copy2(backup_cal, backup_cal.with_suffix(".txt.bak"))
-    if inst_path.exists():
-        shutil.copy2(inst_path, inst_path.with_suffix(".txt.bak"))
-
     update_files: list[Path] = []
     new_files: list[Path] = []
     for path in d.df_files:
@@ -141,20 +209,30 @@ def append_new_1min_bars(
         bin_path = d._features_dir / code_to_fname(code).lower() / "close.1min.bin"
         (update_files if bin_path.exists() else new_files).append(path)
 
-    d.save_calendars(full_cal)
+    for path in new_files:
+        if not (staging_full / path.name).is_file():
+            raise ValueError('missing full stage for new 1min symbol')
+    backup_cal = d._calendars_dir / '1min.txt'
+    shutil.copy2(backup_cal, backup_cal.with_suffix('.txt.bak'))
+    if inst_path.exists():
+        shutil.copy2(inst_path, inst_path.with_suffix('.txt.bak'))
+    ends = {}
+    touched = 0
     for path in tqdm(update_files, desc="append 1min"):
-        d._dump_bin(path, new_only)
+        last = _append_aligned_symbol(d, path, full_cal, len(old_cal))
+        if last is not None:
+            ends[d.get_symbol_from_file(path).upper()] = d._format_datetime(last)
+            touched += 1
 
     if new_files:
         full = make_dumper(staging_full, qlib_dir, DumpDataAll.ALL_MODE)
         for path in new_files:
             full_path = staging_full / path.name
-            if full_path.exists():
-                full._dump_bin(full_path, full_cal)
-            else:
-                print(f"skip missing full parquet {full_path}", flush=True)
+            full._dump_bin(full_path, full_cal)
+            if not (full._features_dir / code_to_fname(full.get_symbol_from_file(full_path)).lower() / 'close.1min.bin').is_file():
+                raise ValueError('new 1min symbol produced no close bin')
+            touched += 1
 
-    ends = {d.get_symbol_from_file(p).upper(): d._format_datetime(full_cal[-1]) for p in d.df_files}
     if not inst.empty:
         inst[d.symbol_field_name] = inst[d.symbol_field_name].astype(str).str.upper()
         mask = inst[d.symbol_field_name].isin(ends)
@@ -168,19 +246,22 @@ def append_new_1min_bars(
         feat = d._features_dir / code_to_fname(code).lower() / "close.1min.bin"
         if not feat.exists():
             continue
-        src = pd.read_parquet(path, columns=["date"])
+        feature_values = np.fromfile(feat, dtype='<f4')
+        first = int(feature_values[0])
+        last = first + len(feature_values) - 2
         extra.append(
             {
                 d.symbol_field_name: code,
-                d.INSTRUMENTS_START_FIELD: d._format_datetime(pd.to_datetime(src["date"]).min()),
-                d.INSTRUMENTS_END_FIELD: d._format_datetime(full_cal[-1]),
+                d.INSTRUMENTS_START_FIELD: d._format_datetime(full_cal[first]),
+                d.INSTRUMENTS_END_FIELD: d._format_datetime(full_cal[last]),
             }
         )
         have.add(code)
     if extra:
         inst = pd.concat([inst, pd.DataFrame(extra)], ignore_index=True)
     d.save_instruments(inst)
-    return len(update_files) + len(new_files)
+    d.save_calendars(full_cal)
+    return touched
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -257,14 +338,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"staged {len(written)} → {staging}", flush=True)
 
     if incremental:
-        ref = staging / "sz000001.parquet"
-        if not ref.exists():
-            refs = sorted(staging.glob("*.parquet"))
-            ref = refs[0] if refs else None
-        if ref is None:
+        d_probe = make_dumper(staging, qlib_dir, DumpDataAll.UPDATE_MODE)
+        if not d_probe.df_files:
             raise SystemExit("incremental staging empty")
-        dates = sorted(pd.Timestamp(x) for x in pd.to_datetime(pd.read_parquet(ref, columns=["date"])["date"]).unique())
-        new_only = [t for t in dates if cutoff is None or t > cutoff]
+        new_only = incremental_calendar(d_probe, cutoff)
         if not new_only:
             print(f"1min already at {cutoff}; nothing to append", flush=True)
             assert_daily_unchanged(daily_fp)
@@ -273,7 +350,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         full_cal = (old_cal or []) + new_only
         full_staging = staging.parent / (staging.name + "_full_new")
         new_stems = []
-        d_probe = make_dumper(staging, qlib_dir, DumpDataAll.UPDATE_MODE)
         for path in d_probe.df_files:
             code = d_probe.get_symbol_from_file(path).upper()
             if not (d_probe._features_dir / code_to_fname(code).lower() / "close.1min.bin").exists():
@@ -281,7 +357,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         if new_stems:
             full_staging.mkdir(parents=True, exist_ok=True)
             stage_stock_and_index(
-                args.lake_root,
+                lake_root,
                 index_lake,
                 full_staging,
                 symbols=new_stems,
