@@ -1,0 +1,8 @@
+{
+  "first_run": "ql11-host",
+  "result": "audit runner failed before prefix verification",
+  "reason": "Windows relative paths used backslashes; features/ selector returned zero files, not a price-byte mismatch",
+  "correction": "Use Path.as_posix for snapshot keys and include backup files in noop snapshot",
+  "production_code_changed": false,
+  "first_recipe": "ql11-host/recipe.json"
+}

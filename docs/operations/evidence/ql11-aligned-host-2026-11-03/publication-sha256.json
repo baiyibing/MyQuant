@@ -1,0 +1,20 @@
+{
+  "byte_basis": "Committed Git blob UTF-8 LF bytes",
+  "sha256": {
+    "acceptance.json": "82059097b956ef5ce5d869f9501443689ab1c3f64f682df84af869f162c50cdb",
+    "audit-sources/probe_append_alignment_before.py": "c16cc7c89508d7072ff22883961112211ed95ac77ac4a210aca8d88bfcdd141b",
+    "audit-sources/run_ql11_host.py": "58b470a2ba9754d1f1ed40fb7fa4ed47b9865c6ac84c42406bae49506698c28c",
+    "audit-sources/run_ql11_host_r1.py": "08a5710710754251a8c6f4f76421b1eebd06fdab2b04d959467256804d029e87",
+    "baseline-counterexample.json": "8ef6da37213252365e9aac14f5df4b46ab5e391649340a6b78c75211a719a7f4",
+    "host-followup.json": "2e1dc513fde53a7fd7870797fc8fb56e96c279863a1f31772527c19b57b1f207",
+    "incremental-receipt.json": "8d69eeabb067892961c97845698a7a4ce4bd0bb4ec6471555d3072aa443a4389",
+    "noop-receipt.json": "2f526d30abdadc311c42ac4fdc52cea2b125fdec73bdcf1c7ced1a0f4b925a38",
+    "plan-review.json": "9dbab8f3f44d567a0462d55f2b98be42ceb0110333986501075f03437e21c582",
+    "raw-record-hashes.json": "a8f4e00ec0cb33c2d7f9e46f1be172bde3e3df49643a9a4f33a507c9d155cdcb",
+    "README.md": "ed7629418fec43e9c6ff8c6207da22e314c11f313a686517001658e322758126",
+    "rebuild-receipt.json": "07cdc2fb36e96695044384b74f1f8e8a4f8af344b77bd65d8068e4344a5c55d9",
+    "recipe.json": "f1006da15365c88a072e1bde586d69fda1ae40925e775258dc90daa693f527ba",
+    "seed-receipt.json": "58e0cc37fafdf3a7597553f73439897f7680fedf7cee9f6d7386a306a1266128",
+    "validation.json": "92fb3bd49698bdd39485c00f0e6289e4f2f2aeafa2626137ee9925e096b180ff"
+  }
+}

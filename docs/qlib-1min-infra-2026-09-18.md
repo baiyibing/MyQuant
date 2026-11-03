@@ -52,3 +52,7 @@ D:\anaconda3\envs\vanna312\python.exe my_scripts/train_1min_smoke.py --label-hor
 - 日频训练、TopK、PortAna 仍只读 `my_data`。
 - BT 分钟成交已经在跑，不依赖这套 bins。
 - 以后要用 qlib 分钟信号：在 1min 上 train/predict，再聚合成日名单交给 BT。
+
+## 2026-11-03 QL11 日历对齐与隔离实测
+
+修复缺分钟时的追加错位；7证券真实湖数据初建→增量→独立重建→noop通过，42旧bin前缀保留、49字段与重建相等。见[固定窗口回执](operations/evidence/ql11-aligned-host-2026-11-03/README.md)。默认provider未切换，全市场和默认参数empty-staging尾项仍开放。

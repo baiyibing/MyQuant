@@ -1,0 +1,8 @@
+{
+  "recipe.json": "12e9bc165a76de55dd37691f14377c4b4335e6325ed8fc29c0191c62cb1d2116",
+  "acceptance.json": "a028b4d31632e6b9eb216ad9f7fbdc9ed564e8c056b9261524baf0b64225f7d2",
+  "seed-receipt.json": "ccedddbe5dcdd148a64f14c1e7ddd62248c5519d07225f20977ebfc97486f93d",
+  "incremental-receipt.json": "279727018b5691bc2bd059f2167955164493ba1fb6d451d697e9feba7d9db97b",
+  "rebuild-receipt.json": "54ba1d0dd2afff199cb20bd6109df3be2901cfbec2faba08cefe47de1952e360",
+  "noop-receipt.json": "95ac74ad6fa973e29e603d8334d2dabec56a7daad58a7a9cde85463d92da2f2a"
+}
