@@ -1,0 +1,9 @@
+{
+  "base_head": "f343b08b971023de937a38044a4a6cf642ddd3b1",
+  "case": "--new-qlib-dir equals --qlib-dir together with --wipe-new-qlib-dir",
+  "baseline_validation_errors": [],
+  "provider_calendar_sha256_before": "7807f00f489558caa048929957bfc6fb4df9c5c49ef93029488fa239466fd949",
+  "provider_exists_after": false,
+  "provider_calendar_exists_after": false,
+  "scope": "Disposable task-local sandbox only. No configured provider/lake/runtime modified."
+}
