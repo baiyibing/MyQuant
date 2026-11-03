@@ -1,0 +1,42 @@
+{
+  "recorded_at_utc": "2026-11-03T04:41:48.826457+00:00",
+  "implementation_head": "3e4c992b444480071100fbd1fb9ea3f8717320c9",
+  "base": "524519e459df5520cdd0e5999dac74e430bd28d1",
+  "offline_affected_files": {
+    "files": 4,
+    "passed": 34,
+    "exit_code": 0
+  },
+  "exact_ci_data_staging_selection": {
+    "files": 6,
+    "passed": 68,
+    "exit_code": 0
+  },
+  "ruff_touched_source_and_tests": {
+    "exit_code": 0
+  },
+  "host_smoke_exit": {
+    "exit_code": 0,
+    "finished_utc": "2026-11-03T04:37:55.5321059Z",
+    "scope": "one lgb, isolated frozen provider, no lake write"
+  },
+  "independent_host_verification": "PASS_E3_E4_LOCAL_ISOLATED_SMOKE",
+  "optional_pyright": "Not a configured MyQuant gate. Exploratory invocation inherited parent-worktree/import scope and failed; not counted as a passed check.",
+  "local_log_sha256": {
+    "p11-offline-tests.log": "876eb510d61097763c41da644694fa8c04c4df3ccd5025ba98fdd35ca629d20c",
+    "p11-ci-selection.log": "d4affeb5e9f6935240ded335c6d7bd547e48c8456da687dff26f11a73c887aa9",
+    "p11-e4-host.log": "d2d49497011175c911a762788a6f3533aa6d358cba818c0392f7f376bf3c2fc5",
+    "p11-host-verification.log": "455d951193f28e2a43677f090ba6bfa5f888bb70292126cd66543a5b9df0fbe8"
+  },
+  "frozen_provider_manifest_file_sha256": "9f9cd1c8ac934ceb81b886189d315a3e4f8c7847da1ad97e950e1bd4dd38f53f",
+  "raw_local_run_receipt_sha256": "bab2f78a9297b609d225a2ee0ec2552659d693e91353b58f2c15ad0be8aa13fd",
+  "publication_note": "Local original byte hashes, runtime CRLF source hash and normalized Git/publication hashes are distinct. Published JSON is reserialized UTF-8/LF.",
+  "no_market_write": true,
+  "no_default_provider_promotion": true,
+  "qmt_login": false,
+  "archive_script_layout": {
+    "original_audit_root": "D:\\PycharmProjects\\MyQuant-backtrader\\_agent_runs\\four_repo_consumption_20261103",
+    "source_worktree": "myquant",
+    "frozen_historical_batch": "../three_repo_batch6_20261102"
+  }
+}

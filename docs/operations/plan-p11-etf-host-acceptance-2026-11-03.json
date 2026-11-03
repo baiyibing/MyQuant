@@ -1,6 +1,7 @@
 {
   "schema_version": 1,
-  "status": "APPROVED_BEFORE_IMPLEMENTATION",
+  "status": "IMPLEMENTED_AND_HOST_ACCEPTED",
+  "receipt": "evidence/p11-etf-host-acceptance-2026-11-03/README.md",
   "plan_review": {"plan_commit": "76a2fd293398697b851520c4817e1688762b83ea", "decision": "APPROVE", "reviewer": "Claude Code CLI 2.1.317", "actual_model": "glm-5.3[1M]", "method": "Read-only inline source/plan bundle; no tools or source edits"},
   "implementation_nits": ["Assert actual prepared learn dates obey effective bounds", "Offline main wiring test must capture DatasetH segments and actual fit call", "Record library versions, thread count and seed policy", "Artifact masks use nominal segment bounds", "Record calendar hash and boundary derivation dates", "Require a fresh artifact output directory outside protected providers; no stale PASS receipt reuse"],
   "scope": "P11 ETF E3/E4 acceptance only. No infra migration, live trading, lake writes, provider promotion or new model/label selection.",

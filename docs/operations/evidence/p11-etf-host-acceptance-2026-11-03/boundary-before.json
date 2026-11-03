@@ -1,0 +1,110 @@
+{
+  "recorded_at_utc": "2026-11-03T04:13:23.746887+00:00",
+  "source_head": "76a2fd293398697b851520c4817e1688762b83ea",
+  "source_sha256": "6d8b6048946e2817de276a5dcb1fab00e0a85fd810c3af0b1cd610884f099af3",
+  "dataset_uses_unpurged_SEGMENTS": true,
+  "dataset_prepare_impl": "    def _prepare_seg(self, slc, **kwargs):\n        \"\"\"\n        Give a query, retrieve the according data\n\n        Parameters\n        ----------\n        slc : please refer to the docs of `prepare`\n                NOTE: it may not be an instance of slice. It may be a segment of `segments` from `def prepare`\n        \"\"\"\n        if hasattr(self, \"fetch_kwargs\"):\n            return self.handler.fetch(slc, **kwargs, **self.fetch_kwargs)\n        else:\n            return self.handler.fetch(slc, **kwargs)\n",
+  "counterexample_rows": [
+    {
+      "segment": "train",
+      "instrument": "SH510050",
+      "signal_date": "2024-12-30",
+      "nominal_end": "2024-12-31",
+      "label_dates": [
+        "2024-12-31",
+        "2025-01-02"
+      ],
+      "label_is_finite": true,
+      "metric_mask_accepts": false
+    },
+    {
+      "segment": "train",
+      "instrument": "SH510050",
+      "signal_date": "2024-12-31",
+      "nominal_end": "2024-12-31",
+      "label_dates": [
+        "2025-01-02",
+        "2025-01-03"
+      ],
+      "label_is_finite": true,
+      "metric_mask_accepts": false
+    },
+    {
+      "segment": "train",
+      "instrument": "SH510300",
+      "signal_date": "2024-12-30",
+      "nominal_end": "2024-12-31",
+      "label_dates": [
+        "2024-12-31",
+        "2025-01-02"
+      ],
+      "label_is_finite": true,
+      "metric_mask_accepts": false
+    },
+    {
+      "segment": "train",
+      "instrument": "SH510300",
+      "signal_date": "2024-12-31",
+      "nominal_end": "2024-12-31",
+      "label_dates": [
+        "2025-01-02",
+        "2025-01-03"
+      ],
+      "label_is_finite": true,
+      "metric_mask_accepts": false
+    },
+    {
+      "segment": "valid",
+      "instrument": "SH510050",
+      "signal_date": "2025-12-30",
+      "nominal_end": "2025-12-31",
+      "label_dates": [
+        "2025-12-31",
+        "2026-01-05"
+      ],
+      "label_is_finite": true,
+      "metric_mask_accepts": false
+    },
+    {
+      "segment": "valid",
+      "instrument": "SH510050",
+      "signal_date": "2025-12-31",
+      "nominal_end": "2025-12-31",
+      "label_dates": [
+        "2026-01-05",
+        "2026-01-06"
+      ],
+      "label_is_finite": true,
+      "metric_mask_accepts": false
+    },
+    {
+      "segment": "valid",
+      "instrument": "SH510300",
+      "signal_date": "2025-12-30",
+      "nominal_end": "2025-12-31",
+      "label_dates": [
+        "2025-12-31",
+        "2026-01-05"
+      ],
+      "label_is_finite": true,
+      "metric_mask_accepts": false
+    },
+    {
+      "segment": "valid",
+      "instrument": "SH510300",
+      "signal_date": "2025-12-31",
+      "nominal_end": "2025-12-31",
+      "label_dates": [
+        "2026-01-05",
+        "2026-01-06"
+      ],
+      "label_is_finite": true,
+      "metric_mask_accepts": false
+    }
+  ],
+  "all_boundary_labels_finite": true,
+  "all_rejected_only_at_metric_stage": true,
+  "network_called": false,
+  "trained": false,
+  "market_write_performed": false
+}

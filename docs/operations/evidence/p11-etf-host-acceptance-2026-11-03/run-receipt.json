@@ -1,0 +1,166 @@
+{
+  "schema_version": "etf-smoke-acceptance.v1",
+  "policy": "purged-fit-h1-h2.v1",
+  "status": "PASS",
+  "nominal_segments": {
+    "train": [
+      "2020-01-02",
+      "2024-12-31"
+    ],
+    "valid": [
+      "2025-01-02",
+      "2025-12-31"
+    ],
+    "test": [
+      "2026-01-05",
+      "2026-10-13"
+    ]
+  },
+  "effective_segments": {
+    "train": [
+      "2020-01-02",
+      "2024-12-27"
+    ],
+    "valid": [
+      "2025-01-02",
+      "2025-12-29"
+    ],
+    "test": [
+      "2026-01-05",
+      "2026-10-13"
+    ]
+  },
+  "fit_samples": {
+    "train": {
+      "rows": 583700,
+      "first": "2020-01-02",
+      "last": "2024-12-27",
+      "all_label_dates_in_nominal_segment": true
+    },
+    "valid": {
+      "rows": 137826,
+      "first": "2025-01-02",
+      "last": "2025-12-29",
+      "all_label_dates_in_nominal_segment": true
+    }
+  },
+  "label": "Ref($close, -2)/Ref($close, -1) - 1",
+  "horizons": [
+    1,
+    2
+  ],
+  "mask_bounds": "nominal segments",
+  "ic_method": "pooled Pearson; RankIC is pooled Spearman over accepted finite rows",
+  "processor_fit": [
+    {
+      "group": "infer",
+      "class": "ProcessInf",
+      "fit_start_time": "None",
+      "fit_end_time": "None"
+    },
+    {
+      "group": "infer",
+      "class": "ZScoreNorm",
+      "fit_start_time": "2020-01-02",
+      "fit_end_time": "2024-12-31"
+    },
+    {
+      "group": "infer",
+      "class": "Fillna",
+      "fit_start_time": "None",
+      "fit_end_time": "None"
+    },
+    {
+      "group": "learn",
+      "class": "DropnaLabel",
+      "fit_start_time": "None",
+      "fit_end_time": "None"
+    },
+    {
+      "group": "learn",
+      "class": "CSZScoreNorm",
+      "fit_start_time": "None",
+      "fit_end_time": "None"
+    }
+  ],
+  "provider_anchors_sha256": {
+    "calendars/day.txt": "193d414a9027499c024ff40dfa8e04dd6e7ed8588db46d30d0883e9716016640",
+    "instruments/all.txt": "811327535fea53d08df7efd9d4b34e56750f626a69784f4cb75694ea2def79b5",
+    "instruments/etf_full.txt": "ab4d0a5f45694ba1163b26bf9c8daa334afec51b5074f04e7ec0e909cd5fbb6b"
+  },
+  "script_sha256": "a8b1f13482c6d22d7affdff1cc9b5eeae18886a18a0cc4a8489adfd564fa005c",
+  "versions": {
+    "pyqlib": "0.0.0",
+    "lightgbm": "4.7.0",
+    "pandas": "2.3.3",
+    "numpy": "2.3.5",
+    "pyarrow": "25.0.0"
+  },
+  "threads": 8,
+  "seed_policy": "unchanged library/model defaults; no cross-version bitwise retraining guarantee",
+  "models": {
+    "lgb": {
+      "status": "PASS",
+      "segments": {
+        "train": {
+          "path": "lgb/train_pred_label.parquet",
+          "sha256": "b4397893bfafa6c9018e6595c85850b68f9743088980f87996c4721dc5d3e1f2",
+          "bytes": 3927949,
+          "rows": 589944,
+          "report": {
+            "ic": 0.19543687032031462,
+            "rank_ic": 0.10436810357367397,
+            "n": 583700,
+            "rows": 589944,
+            "kept": 589944,
+            "cross_or_undefined": 0
+          },
+          "alignment": {
+            "prediction_rows": 589944,
+            "label_rows": 589944,
+            "inner_join_rows": 589944
+          }
+        },
+        "valid": {
+          "path": "lgb/valid_pred_label.parquet",
+          "sha256": "a20ba92c91875d1391298948beac2438867a06f7c83ed6f2357e6e43a59ed118",
+          "bytes": 980602,
+          "rows": 138093,
+          "report": {
+            "ic": 0.05209687278333256,
+            "rank_ic": 0.021861242009160484,
+            "n": 137826,
+            "rows": 138093,
+            "kept": 138093,
+            "cross_or_undefined": 0
+          },
+          "alignment": {
+            "prediction_rows": 138093,
+            "label_rows": 138093,
+            "inner_join_rows": 138093
+          }
+        },
+        "test": {
+          "path": "lgb/test_pred_label.parquet",
+          "sha256": "40a00adc64c2d100f115a26f3a33368ca39bbdd2a0d909b1c4ba5d5e1e1ee2f8",
+          "bytes": 871542,
+          "rows": 106005,
+          "report": {
+            "ic": 0.04352180511603148,
+            "rank_ic": 0.01699258654914062,
+            "n": 104772,
+            "rows": 106005,
+            "kept": 104859,
+            "cross_or_undefined": 1146
+          },
+          "alignment": {
+            "prediction_rows": 106005,
+            "label_rows": 106005,
+            "inner_join_rows": 106005
+          }
+        }
+      }
+    }
+  },
+  "survivorship_note": "etf_full 要求 2022-01-01 前已上市、窗口内至少 500 根、末日仍在 2026-10-01 及之后。更晚上市和更早停止交易的 ETF 被排除，末日条件带来幸存者偏差。"
+}

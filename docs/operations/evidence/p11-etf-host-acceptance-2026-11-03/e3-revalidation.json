@@ -1,0 +1,267 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-11-03T04:10:42.813686+00:00",
+  "decision": "PASS_FROZEN_PROVIDER_READBACK",
+  "window": [
+    "2020-01-02",
+    "2026-10-13"
+  ],
+  "provider": "D:\\PycharmProjects\\MyQuant-backtrader\\_agent_runs\\three_repo_batch6_20261102\\etf-host\\my_data_etf",
+  "provider_files_verified": 11406,
+  "provider_changed_files": [],
+  "provider_extra_files": [],
+  "calendar_days": 1640,
+  "all_count": 1629,
+  "etf_full_count": 573,
+  "four_full_window_seven_field_readbacks": [
+    {
+      "code": "SH510050",
+      "rows": 1640,
+      "fields": {
+        "open": {
+          "max_absolute_error": 1.1825561552214481e-07,
+          "max_relative_error": 5.398156492039727e-08
+        },
+        "high": {
+          "max_absolute_error": 1.1825561552214481e-07,
+          "max_relative_error": 5.377699639747867e-08
+        },
+        "low": {
+          "max_absolute_error": 1.1825561552214481e-07,
+          "max_relative_error": 5.548319817677325e-08
+        },
+        "close": {
+          "max_absolute_error": 1.1825561552214481e-07,
+          "max_relative_error": 5.2512164782958525e-08
+        },
+        "volume": {
+          "max_absolute_error": 2.0,
+          "max_relative_error": 5.906446727128599e-08
+        },
+        "amount": {
+          "max_absolute_error": 908.0,
+          "max_relative_error": 5.8766725052631346e-08
+        },
+        "vwap": {
+          "max_absolute_error": 1.1916473274808936e-07,
+          "max_relative_error": 5.4938878401874816e-08
+        }
+      }
+    },
+    {
+      "code": "SH510300",
+      "rows": 1640,
+      "fields": {
+        "open": {
+          "max_absolute_error": 2.3651123104428962e-07,
+          "max_relative_error": 5.7657540478861446e-08
+        },
+        "high": {
+          "max_absolute_error": 2.3651123104428962e-07,
+          "max_relative_error": 5.878976638232941e-08
+        },
+        "low": {
+          "max_absolute_error": 2.3651123104428962e-07,
+          "max_relative_error": 5.718764638815114e-08
+        },
+        "close": {
+          "max_absolute_error": 2.3651123104428962e-07,
+          "max_relative_error": 5.7657540478861446e-08
+        },
+        "volume": {
+          "max_absolute_error": 3.0,
+          "max_relative_error": 5.9333141766396285e-08
+        },
+        "amount": {
+          "max_absolute_error": 1977.0,
+          "max_relative_error": 5.8027827941223146e-08
+        },
+        "vwap": {
+          "max_absolute_error": 2.3794902137552754e-07,
+          "max_relative_error": 5.9468670951875346e-08
+        }
+      }
+    },
+    {
+      "code": "SZ159915",
+      "rows": 1639,
+      "fields": {
+        "open": {
+          "max_absolute_error": 2.2125244125703603e-07,
+          "max_relative_error": 5.7370940126574706e-08
+        },
+        "high": {
+          "max_absolute_error": 2.365112301561112e-07,
+          "max_relative_error": 5.765754026233817e-08
+        },
+        "low": {
+          "max_absolute_error": 2.2888183615066282e-07,
+          "max_relative_error": 5.7370940126574706e-08
+        },
+        "close": {
+          "max_absolute_error": 2.32696533153387e-07,
+          "max_relative_error": 5.7370940126574706e-08
+        },
+        "volume": {
+          "max_absolute_error": 4.0,
+          "max_relative_error": 5.9586030817775964e-08
+        },
+        "amount": {
+          "max_absolute_error": 1552.0,
+          "max_relative_error": 5.884412831809535e-08
+        },
+        "vwap": {
+          "max_absolute_error": 2.3772012891498662e-07,
+          "max_relative_error": 5.785131037932448e-08
+        }
+      }
+    },
+    {
+      "code": "SH518880",
+      "rows": 1640,
+      "fields": {
+        "open": {
+          "max_absolute_error": 4.730224603122224e-07,
+          "max_relative_error": 5.765754026233817e-08
+        },
+        "high": {
+          "max_absolute_error": 4.730224603122224e-07,
+          "max_relative_error": 5.878976638232941e-08
+        },
+        "low": {
+          "max_absolute_error": 4.730224603122224e-07,
+          "max_relative_error": 5.7370940126574706e-08
+        },
+        "close": {
+          "max_absolute_error": 4.730224603122224e-07,
+          "max_relative_error": 5.7370940126574706e-08
+        },
+        "volume": {
+          "max_absolute_error": 1.0,
+          "max_relative_error": 5.238219832895549e-08
+        },
+        "amount": {
+          "max_absolute_error": 996.0,
+          "max_relative_error": 5.9225955846220754e-08
+        },
+        "vwap": {
+          "max_absolute_error": 4.7409430337097547e-07,
+          "max_relative_error": 5.8531018606136104e-08
+        }
+      }
+    }
+  ],
+  "protected_anchors_before": {
+    "C:\\Users\\Stock\\.qlib\\qlib_data\\my_data": {
+      "calendars/day.txt": {
+        "exists": false,
+        "sha256": null
+      },
+      "calendars/1min.txt": {
+        "exists": false,
+        "sha256": null
+      },
+      "instruments/all.txt": {
+        "exists": false,
+        "sha256": null
+      }
+    },
+    "C:\\Users\\Stock\\.qlib\\qlib_data\\my_data_1min": {
+      "calendars/day.txt": {
+        "exists": false,
+        "sha256": null
+      },
+      "calendars/1min.txt": {
+        "exists": false,
+        "sha256": null
+      },
+      "instruments/all.txt": {
+        "exists": false,
+        "sha256": null
+      }
+    }
+  },
+  "protected_anchors_after": {
+    "C:\\Users\\Stock\\.qlib\\qlib_data\\my_data": {
+      "calendars/day.txt": {
+        "exists": false,
+        "sha256": null
+      },
+      "calendars/1min.txt": {
+        "exists": false,
+        "sha256": null
+      },
+      "instruments/all.txt": {
+        "exists": false,
+        "sha256": null
+      }
+    },
+    "C:\\Users\\Stock\\.qlib\\qlib_data\\my_data_1min": {
+      "calendars/day.txt": {
+        "exists": false,
+        "sha256": null
+      },
+      "calendars/1min.txt": {
+        "exists": false,
+        "sha256": null
+      },
+      "instruments/all.txt": {
+        "exists": false,
+        "sha256": null
+      }
+    }
+  },
+  "live_source_drift": [
+    {
+      "path": "E:\\stock_data\\etf\\period=1d\\dividend_type=front\\symbol=510050_SH\\data.parquet",
+      "historical_sha256": "57254b39d07fd9997aa998a123255c0d600daae80f2ae43f4cce6bc23fe6c3b9",
+      "current_sha256": "c6d28b4c7594a04aeec0963ce7bf5873d982d4c1129d604a50a310864b574db5",
+      "changed_since_build": true
+    },
+    {
+      "path": "E:\\stock_data\\etf\\period=1d\\dividend_type=none\\symbol=510050_SH\\data.parquet",
+      "historical_sha256": "95d1457b166456530662c27c79a4eec774926f4be3635b172688a33fd7b7fe9f",
+      "current_sha256": "63a62908026481d84f9add11ad4de679e29ff66081c249b4d64477838b9312ad",
+      "changed_since_build": true
+    },
+    {
+      "path": "E:\\stock_data\\etf\\period=1d\\dividend_type=front\\symbol=510300_SH\\data.parquet",
+      "historical_sha256": "a83a67c31e0be54b0e82e7554e7987c8199f11ee92724d088cb7308c4fad6c6b",
+      "current_sha256": "340b58dda8bb42f58ae6aa43e005da2d0197c93685da8b73c1a91a0720eed7fa",
+      "changed_since_build": true
+    },
+    {
+      "path": "E:\\stock_data\\etf\\period=1d\\dividend_type=none\\symbol=510300_SH\\data.parquet",
+      "historical_sha256": "18d82b8b64c478705ee3cf63c05ddc82cb4b40be633a3c43e15a1474bec4c795",
+      "current_sha256": "9874644e9aa42f21ea03388b5e4244c227b57d002163f71684fc618e42801610",
+      "changed_since_build": true
+    },
+    {
+      "path": "E:\\stock_data\\etf\\period=1d\\dividend_type=front\\symbol=159915_SZ\\data.parquet",
+      "historical_sha256": "cb666488503329c60328e45491c807800dde28061c1eda56abde2c75acf0d57a",
+      "current_sha256": "a5f142890e07b3585dacb9bc7be21d99f71fcf464478ca0c596cb92032d3d678",
+      "changed_since_build": true
+    },
+    {
+      "path": "E:\\stock_data\\etf\\period=1d\\dividend_type=none\\symbol=159915_SZ\\data.parquet",
+      "historical_sha256": "cb666488503329c60328e45491c807800dde28061c1eda56abde2c75acf0d57a",
+      "current_sha256": "a5f142890e07b3585dacb9bc7be21d99f71fcf464478ca0c596cb92032d3d678",
+      "changed_since_build": true
+    },
+    {
+      "path": "E:\\stock_data\\etf\\period=1d\\dividend_type=front\\symbol=518880_SH\\data.parquet",
+      "historical_sha256": "585f2ad35afa7c31c392f3202d33b8db6c9e72b73f0b07d90ad2a02fd5056580",
+      "current_sha256": "da940d59dbcf0ad6589d56cc02f5266ef21ca8bd4016a84dd41ef10eaf07e54c",
+      "changed_since_build": true
+    },
+    {
+      "path": "E:\\stock_data\\etf\\period=1d\\dividend_type=none\\symbol=518880_SH\\data.parquet",
+      "historical_sha256": "585f2ad35afa7c31c392f3202d33b8db6c9e72b73f0b07d90ad2a02fd5056580",
+      "current_sha256": "da940d59dbcf0ad6589d56cc02f5266ef21ca8bd4016a84dd41ef10eaf07e54c",
+      "changed_since_build": true
+    }
+  ],
+  "market_writes": false,
+  "provider_writes": false,
+  "scope": "Existing frozen staging/provider snapshot. Current live-lake advancement is reported separately; no current-lake snapshot or production-provider promotion claim."
+}
