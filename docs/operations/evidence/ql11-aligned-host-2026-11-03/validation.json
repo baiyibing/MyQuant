@@ -1,0 +1,22 @@
+{
+  "targeted_tests": {
+    "passed": 60,
+    "selection": [
+      "my_tests/test_refresh_mydata_1min.py",
+      "my_tests/test_dump_bin_highfreq.py",
+      "tests/test_ql11_1min_increment_receipt_harness.py",
+      "tests/test_stage_1min_from_lake.py"
+    ]
+  },
+  "baseline_new_regressions": {
+    "failed": 14,
+    "existing_passed": 4
+  },
+  "ruff": "PASS affected production/test files",
+  "source_commit": "a997760a6baaa893d5f5081a6e08910371754ef9",
+  "ci": "Existing main pytest job selects all my_tests automatically; remote final head must pass before merge.",
+  "notes": [
+    "All baseline failures are the specified new alignment/validation cases.",
+    "Host r1 failed because Windows snapshot path keys did not match features/ selector; source not changed, corrected runner reran fresh r2."
+  ]
+}

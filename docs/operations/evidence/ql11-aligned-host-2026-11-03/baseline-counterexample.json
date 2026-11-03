@@ -1,0 +1,33 @@
+{
+  "baseline_source": "8f65e08685d47f3ed736409336726654a21723ae",
+  "expected": [
+    {
+      "time": "2026-10-30 09:30:00",
+      "close": 10.0
+    },
+    {
+      "time": "2026-10-30 09:31:00",
+      "close": null
+    },
+    {
+      "time": "2026-10-30 09:32:00",
+      "close": null
+    },
+    {
+      "time": "2026-10-30 09:33:00",
+      "close": 11.0
+    }
+  ],
+  "actual": [
+    {
+      "time": "2026-10-30 09:30:00",
+      "close": 10.0
+    },
+    {
+      "time": "2026-10-30 09:31:00",
+      "close": 11.0
+    }
+  ],
+  "defect_reproduced": true,
+  "scope": "Synthetic counterexample only, no lake/default-provider writes"
+}

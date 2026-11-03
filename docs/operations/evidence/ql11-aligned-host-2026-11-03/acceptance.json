@@ -1,0 +1,432 @@
+{
+  "audit_id": "QL11",
+  "package": "P12",
+  "package_closed": false,
+  "status": "PASS_LOCAL_ISOLATED_REAL_LAKE",
+  "source_commit": "a997760a6baaa893d5f5081a6e08910371754ef9",
+  "commands": [
+    [
+      "$PYTHON_ENV\\python.exe",
+      "$REPO\\qlib_scripts\\refresh_mydata_1min.py",
+      "--qlib-dir",
+      "$TASK\\ql11-host-r2\\incremental",
+      "--staging-dir",
+      "$TASK\\ql11-host-r2\\stage-seed",
+      "--start",
+      "2026-10-23",
+      "--end",
+      "2026-10-29",
+      "--max-workers",
+      "2",
+      "--receipt",
+      "$TASK\\ql11-host-r2\\seed-receipt.json",
+      "--symbols",
+      "SZ000001",
+      "SH600000",
+      "SZ300750",
+      "SH688981",
+      "BJ920002",
+      "SH000001",
+      "--rebuild"
+    ],
+    [
+      "$PYTHON_ENV\\python.exe",
+      "$REPO\\qlib_scripts\\refresh_mydata_1min.py",
+      "--qlib-dir",
+      "$TASK\\ql11-host-r2\\incremental",
+      "--staging-dir",
+      "$TASK\\ql11-host-r2\\stage-incremental",
+      "--start",
+      "2026-10-23",
+      "--end",
+      "2026-11-02",
+      "--max-workers",
+      "2",
+      "--receipt",
+      "$TASK\\ql11-host-r2\\incremental-receipt.json",
+      "--symbols",
+      "SZ000001",
+      "SH600000",
+      "SZ300750",
+      "SH688981",
+      "BJ920002",
+      "SH000001",
+      "SH000300"
+    ],
+    [
+      "$PYTHON_ENV\\python.exe",
+      "$REPO\\qlib_scripts\\refresh_mydata_1min.py",
+      "--qlib-dir",
+      "$TASK\\ql11-host-r2\\rebuild",
+      "--staging-dir",
+      "$TASK\\ql11-host-r2\\stage-rebuild",
+      "--start",
+      "2026-10-23",
+      "--end",
+      "2026-11-02",
+      "--max-workers",
+      "2",
+      "--receipt",
+      "$TASK\\ql11-host-r2\\rebuild-receipt.json",
+      "--symbols",
+      "SZ000001",
+      "SH600000",
+      "SZ300750",
+      "SH688981",
+      "BJ920002",
+      "SH000001",
+      "SH000300",
+      "--rebuild"
+    ],
+    [
+      "$PYTHON_ENV\\python.exe",
+      "$REPO\\qlib_scripts\\refresh_mydata_1min.py",
+      "--qlib-dir",
+      "$TASK\\ql11-host-r2\\incremental",
+      "--staging-dir",
+      "$TASK\\ql11-host-r2\\stage-noop",
+      "--start",
+      "2026-10-23",
+      "--end",
+      "2026-11-02",
+      "--max-workers",
+      "2",
+      "--receipt",
+      "$TASK\\ql11-host-r2\\noop-receipt.json",
+      "--symbols",
+      "SZ000001",
+      "SH600000",
+      "SZ300750",
+      "SH688981",
+      "BJ920002",
+      "SH000001",
+      "SH000300"
+    ]
+  ],
+  "window": [
+    "2026-10-23",
+    "2026-11-02"
+  ],
+  "codes": [
+    "SZ000001",
+    "SH600000",
+    "SZ300750",
+    "SH688981",
+    "BJ920002",
+    "SH000001",
+    "SH000300"
+  ],
+  "fields_compared": [
+    {
+      "symbol": "SZ000001",
+      "field": "open",
+      "values": 1687,
+      "bin_sha256": "e28142c71341ce0267ca98d3beaa55a501b15f779fe9837696bceeaad8b583e6"
+    },
+    {
+      "symbol": "SZ000001",
+      "field": "high",
+      "values": 1687,
+      "bin_sha256": "d2ee5a48ae9c43dc7ff3aad6ab391dbbc68966a96353a2898ce2b0f54fa60ec4"
+    },
+    {
+      "symbol": "SZ000001",
+      "field": "low",
+      "values": 1687,
+      "bin_sha256": "6d720433212aca9bb3d6575cc789176065a6af5b6694b3f15204a78322f6f343"
+    },
+    {
+      "symbol": "SZ000001",
+      "field": "close",
+      "values": 1687,
+      "bin_sha256": "18d513eabd6239d8c3450e7fd4565b322d4c16c237d20fd5f64dfb2812a8a861"
+    },
+    {
+      "symbol": "SZ000001",
+      "field": "volume",
+      "values": 1687,
+      "bin_sha256": "a79972b32e53dabdda99edad2004e9704283d17f8f2f334df4d3c790d50c9c2c"
+    },
+    {
+      "symbol": "SZ000001",
+      "field": "amount",
+      "values": 1687,
+      "bin_sha256": "e3959ef05dc8f24749eeb7914f537f8d537bb89681916560ad9ad4a62fa7d362"
+    },
+    {
+      "symbol": "SZ000001",
+      "field": "vwap",
+      "values": 1687,
+      "bin_sha256": "083e30286b2e79e5361ae78f1d518956c5f5cc7c23270e3bf8c87c46e801dda5"
+    },
+    {
+      "symbol": "SH600000",
+      "field": "open",
+      "values": 1687,
+      "bin_sha256": "1c1a9c7c1ea0f767635a7db8d9cc9d2b61f5c03bb4bf90fbaf89153011e209b5"
+    },
+    {
+      "symbol": "SH600000",
+      "field": "high",
+      "values": 1687,
+      "bin_sha256": "7b89e37226d1559ff2f8a5c2688d41ee50002d093cbbc3ce8dcba3ca0858fb63"
+    },
+    {
+      "symbol": "SH600000",
+      "field": "low",
+      "values": 1687,
+      "bin_sha256": "15e2eb6cf7ea156424f1876bf291112e7238720115c71ebf0f546ab71c6c8b9e"
+    },
+    {
+      "symbol": "SH600000",
+      "field": "close",
+      "values": 1687,
+      "bin_sha256": "58475c118cfd7f43735699c1f0697ae7b982b4ff1f8189ac9dd19f49e7e99cf2"
+    },
+    {
+      "symbol": "SH600000",
+      "field": "volume",
+      "values": 1687,
+      "bin_sha256": "6552723c9da23f3274168f1f497c055b56f94f35354c74cda078e9b78df049b7"
+    },
+    {
+      "symbol": "SH600000",
+      "field": "amount",
+      "values": 1687,
+      "bin_sha256": "5d223a389fc3abf4fde059331690ec33f0aa59b60e1c46dec43e823d817e0b12"
+    },
+    {
+      "symbol": "SH600000",
+      "field": "vwap",
+      "values": 1687,
+      "bin_sha256": "deeaac34d901540367df7f0960333037797f440188cb89458891b869733bbc26"
+    },
+    {
+      "symbol": "SZ300750",
+      "field": "open",
+      "values": 1687,
+      "bin_sha256": "594458642313a992ae42eea0d60ef5c160e90c9f60b4dd49ff94ed0851d18278"
+    },
+    {
+      "symbol": "SZ300750",
+      "field": "high",
+      "values": 1687,
+      "bin_sha256": "e87d355f62f58f7624b1195da0947e4e5cfd7f41bfe143347e2d4c0ebaee2e1d"
+    },
+    {
+      "symbol": "SZ300750",
+      "field": "low",
+      "values": 1687,
+      "bin_sha256": "4cae56204d216232f4bec76c3ea25d1c8a321c76b929d5825ee57b84ff7718c9"
+    },
+    {
+      "symbol": "SZ300750",
+      "field": "close",
+      "values": 1687,
+      "bin_sha256": "bd21662f13f06942b647361c95a447e752d533994c4a26dd56a775b0c84e42bc"
+    },
+    {
+      "symbol": "SZ300750",
+      "field": "volume",
+      "values": 1687,
+      "bin_sha256": "93a60f9c0a8c91b4a013a59f8a442ad6521d2c2eab0f1f2600e294e65a49253c"
+    },
+    {
+      "symbol": "SZ300750",
+      "field": "amount",
+      "values": 1687,
+      "bin_sha256": "bb4b612740a0c10dcdf49171a1d1138f6101c8680fd371070cd6ea1bacbdbb1b"
+    },
+    {
+      "symbol": "SZ300750",
+      "field": "vwap",
+      "values": 1687,
+      "bin_sha256": "20ff17e244b08dbbbf2e2292182f3421bd0fb181708ca1956419af7de021938e"
+    },
+    {
+      "symbol": "SH688981",
+      "field": "open",
+      "values": 1687,
+      "bin_sha256": "b022175628fca7fa3e3664a825b890fd0b6301deae045c7a63d3f8d493b4f9c6"
+    },
+    {
+      "symbol": "SH688981",
+      "field": "high",
+      "values": 1687,
+      "bin_sha256": "bdb4803d7b2ff062665e0cd63d710ac879eb5857ec8a02a3a16e6c24c9476ea4"
+    },
+    {
+      "symbol": "SH688981",
+      "field": "low",
+      "values": 1687,
+      "bin_sha256": "d1afa181677d24bbbf8127352b668b48986c716a8c3fe7a4688ee9c6f2c19f99"
+    },
+    {
+      "symbol": "SH688981",
+      "field": "close",
+      "values": 1687,
+      "bin_sha256": "8a9b00c7570fe06eac83ae8d77f789afc7fe28101d59485d3c0a142a48f97f87"
+    },
+    {
+      "symbol": "SH688981",
+      "field": "volume",
+      "values": 1687,
+      "bin_sha256": "10d77fed81df141e8565faf277d014f689148731daaf06da7209eca8de7cee91"
+    },
+    {
+      "symbol": "SH688981",
+      "field": "amount",
+      "values": 1687,
+      "bin_sha256": "ec752454357bba86e30e239e6959886bed9bcacb2febfd240b08a315b20c2214"
+    },
+    {
+      "symbol": "SH688981",
+      "field": "vwap",
+      "values": 1687,
+      "bin_sha256": "49bc592b08f7c002844707feb4a996986bd778f0b68ffb178d4241febf9c09fc"
+    },
+    {
+      "symbol": "BJ920002",
+      "field": "open",
+      "values": 1687,
+      "bin_sha256": "6edd60b08711822e7337b8016aeacfc0fbf856855f56d77e16a1b8319d211f82"
+    },
+    {
+      "symbol": "BJ920002",
+      "field": "high",
+      "values": 1687,
+      "bin_sha256": "560afc5ed576bc4c72e16e79d8b5621e94e6c1e26f41fb62ee5da93bbd963c03"
+    },
+    {
+      "symbol": "BJ920002",
+      "field": "low",
+      "values": 1687,
+      "bin_sha256": "e9cab94b9ec7724eded217eddb5c4ccd0b96a2b137553effaf6214c297db09ba"
+    },
+    {
+      "symbol": "BJ920002",
+      "field": "close",
+      "values": 1687,
+      "bin_sha256": "11c086a3dd4a34a5e654c72e5bd7d74da37a739fe566e6532a1f932468a7e175"
+    },
+    {
+      "symbol": "BJ920002",
+      "field": "volume",
+      "values": 1687,
+      "bin_sha256": "8056e0924f940673d21a861c9d0bfe31abfaea2b4390f09a4458ebcb5afd4123"
+    },
+    {
+      "symbol": "BJ920002",
+      "field": "amount",
+      "values": 1687,
+      "bin_sha256": "7e98fc1e013f8a00123680e8cc402ee1f3b6f3ae0d7a0d4c6a5c39bfe7844bf9"
+    },
+    {
+      "symbol": "BJ920002",
+      "field": "vwap",
+      "values": 1687,
+      "bin_sha256": "c26a0330f5526a96054e84ce586abed90e8d814a111dc5255271eb32547193b1"
+    },
+    {
+      "symbol": "SH000001",
+      "field": "open",
+      "values": 1687,
+      "bin_sha256": "024dab2337cb0f1a37f630a8ce907894829ca7e943192bfa83527de7ba9a96dd"
+    },
+    {
+      "symbol": "SH000001",
+      "field": "high",
+      "values": 1687,
+      "bin_sha256": "1d2b3d549b3af8fa1ce065ad7bb55683dea234bc01e3961049d2df100d86de2c"
+    },
+    {
+      "symbol": "SH000001",
+      "field": "low",
+      "values": 1687,
+      "bin_sha256": "52777b0c905a2fd6b246526cecced712eb37477c6bfdca9de929f5d0660acda3"
+    },
+    {
+      "symbol": "SH000001",
+      "field": "close",
+      "values": 1687,
+      "bin_sha256": "ef264b7a0536faa75bcd7d3126eb306c12b91c4d75566d8413ee1c2c266c99cf"
+    },
+    {
+      "symbol": "SH000001",
+      "field": "volume",
+      "values": 1687,
+      "bin_sha256": "293117ca16f7f33ebbfc4d7a520f817c69902eb14bfbd1ea67fbb580bb161585"
+    },
+    {
+      "symbol": "SH000001",
+      "field": "amount",
+      "values": 1687,
+      "bin_sha256": "2b5f35b6100362e0f678950ccb4ec9b937a8ae383a8f5d556566cf6bcfe8079f"
+    },
+    {
+      "symbol": "SH000001",
+      "field": "vwap",
+      "values": 1687,
+      "bin_sha256": "3e8f035c48c3dc0a6bd95f1c9868bcb5a944a215d1d0f01f449f4ff67c07d83b"
+    },
+    {
+      "symbol": "SH000300",
+      "field": "open",
+      "values": 1687,
+      "bin_sha256": "21cd0982c651c07756ff379ae6cb62fa3082e9aef1febcd13e2e6ac36a51a1f9"
+    },
+    {
+      "symbol": "SH000300",
+      "field": "high",
+      "values": 1687,
+      "bin_sha256": "4d7a4c47a88259a0e7f3385d6be6a6ee095b968e2c28307590f94128b0e7fa35"
+    },
+    {
+      "symbol": "SH000300",
+      "field": "low",
+      "values": 1687,
+      "bin_sha256": "86010abc26df89ec818e2b379a0b8b566d7a82cc5b0203e48f5618756a037aea"
+    },
+    {
+      "symbol": "SH000300",
+      "field": "close",
+      "values": 1687,
+      "bin_sha256": "b040d8c00c0df8dd643bb3331fee6582898ad19de3e0c686b2bc7e59938f1980"
+    },
+    {
+      "symbol": "SH000300",
+      "field": "volume",
+      "values": 1687,
+      "bin_sha256": "f40de9c7f77ef1e1c158f1282a772f8fd25601eb345262a79401ae3790377a86"
+    },
+    {
+      "symbol": "SH000300",
+      "field": "amount",
+      "values": 1687,
+      "bin_sha256": "e7666f6be9297a29059ba76dc2cecf5ad8d8260c1a69ccc9e6b5e62e02a8673d"
+    },
+    {
+      "symbol": "SH000300",
+      "field": "vwap",
+      "values": 1687,
+      "bin_sha256": "03114c1f5e4355ce42b13197c961598bbcb05b2e838bb387372b0b247a86edb3"
+    }
+  ],
+  "seed_calendar_rows": 1205,
+  "final_calendar_rows": 1687,
+  "final_calendar_last": "2026-11-02 15:00:00",
+  "new_calendar_rows": 482,
+  "existing_bin_prefix_files_preserved": 42,
+  "increment_rebuild_features_byte_equal": 49,
+  "instruments_equal": true,
+  "noop_provider_bytes_unchanged": true,
+  "measured_source_files_unchanged": true,
+  "protected_anchor_states_unchanged": true,
+  "protected_anchors_were_absent": true,
+  "limits": [
+    "Seven-symbol/window acceptance, not full-market default-provider refresh.",
+    "No default provider promotion, daily refresh, model training or trading.",
+    "Default-param empty-staging/noop error remains separate; this noop explicitly restages original window.",
+    "Per-file writes atomic; interrupted multi-file updates require backup recovery/rebuild."
+  ]
+}

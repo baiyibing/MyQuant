@@ -1,0 +1,10 @@
+{
+  "cli": "Claude Code CLI2.1.317",
+  "configured_models": [
+    "glm-5.3[1m]"
+  ],
+  "provider_note": "Configured GLM-5.3, not an Anthropic model.",
+  "raw_log_sha256": "c82a0e3eeee6d9a56937a3566ad1be9a8884a1659022c216417cb80486674781",
+  "session_id": "25f6862d-15f9-4302-bcb6-c5ed1c7b80fc",
+  "verdict_text": "**APPROVE**\n\n- Counterexample is concrete and reproduced (index-10 value read as 09:31 instead of 09:33); the fix — position appends by full-axis calendar indices, NaN-pad gaps, keep old byte prefixes untouched — directly addresses it and matches dump_bin's segment-header semantics.\n- Validation set is adequate: old calendar must be a prefix of full_cal, strict ordering, 4-byte alignment, bounded non-negative headers, new instruments require full-stage with explicit failure.\n- Verification criterion upgrades from probe-count/length to byte-level comparison against an independent full rebuild plus per-field float32 readback against lake/staging — this closes exactly the blindness the old receipt had.\n- Scope is properly knifed: single-file temp+replace with honest, explicit non-promises on cross-file transactions and whole-provider refresh; no touching dump_bin, daily, VWAP, or strategies. Isolated provider dir for acceptance, default provider's nonexistence recorded honestly rather than claimed as protection.\n- Noop defined as real same-window re-run requiring an actual noop receipt; default-param empty-staging behavior correctly deferred as a tail item.\n\nNon-blocking note: observed new timestamps falling outside the anchor-union calendar inherit dump_all's semantics (consistency with rebuild is the SSOT); fine for this slice.\n\nReviewer identity for the record: GLM5.3, local Claude Code CLI configuration."
+}
