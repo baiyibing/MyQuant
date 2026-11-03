@@ -1,0 +1,13 @@
+{
+  "verdict": "APPROVE",
+  "reviewed_plan_commit": "141f752f075d4250ddd58d2c59e7fd5d71c9501c",
+  "requested_model": "grok-4.7",
+  "actual_models": [
+    "grok-4.7-build"
+  ],
+  "session_id": "01a1a178-891f-7300-a331-bfe3011a03a8",
+  "raw_response_sha256": "3e57b713a050f0e391a7c2f27c08582c65e62ea855b61446cbfb72d393210114",
+  "bundle_sha256": "796f8a8b93e80f24ee4ce15b81082aa8a2793d60d7239701abc181f94a160e35",
+  "result": "APPROVE\n\nThe plan matches the frozen baseline failure and the daily-refresh guard scope. `validate_params` currently returns no errors for `new_qlib_dir == qlib_dir`, and `ensure_dump_target_clean` then calls `remover` when wipe is set. The plan closes that path without encoding production changes.\n\nThe shared helper is specified as `expanduser` plus `resolve(strict=False)` plus `os.path.normcase`, with component `is_relative_to` in both directions. Missing default staging and new directories stay legal. Symlink loops and resolution errors fail closed. POSIX paths are not globally lowercased. `WindowsPath` case-insensitivity is left to the platform, with `normcase` only making that intent explicit. Shared-prefix siblings (`my_data`, `my_data_new_DATE`, `my_data_staging_DATE`, backup names) stay legal, with real sandbox wipe and swap as the positive control.\n\n`OSKH_SOURCE_PARQUET_ROOT` is captured once into a trailing optional `RefreshConfig` field. Validation and the remover read that field only. The full role map runs before wipe advice and again immediately before `remover`, including wipe false, so archive, CSV, index, whole SOURCE, live, and staging cannot be dismissed with a wipe suggestion. `skip_dump` still returns before any delete. `atomic_swap` keeps its signature and calls the same helper with only the new and live roots it already receives. `skip_swap`, `force`, and wipe do not bypass `require_valid`, which stays before preflight, dry-run output, and child steps.\n\nPlanned tests cover equal, normalized, nested, and ancestor aliases at validation, remover, and swap. They include main-before-children refusal, zero remover and zero renamer calls, missing output directories, SOURCE pin and sibling allowance, and Windows case aliases without link privileges. QL12/QL13 stay closed. Limits keep the work off configured providers, lake writes, deployment, and P12 completion. No blocker.",
+  "scope": "Frozen plan snapshot only, no reviewer host tests"
+}
