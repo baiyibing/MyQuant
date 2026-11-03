@@ -1,0 +1,29 @@
+{
+  "base_head": "f343b08b971023de937a38044a4a6cf642ddd3b1",
+  "cases": [
+    {
+      "case": "staging_in_daily",
+      "returncode": 0,
+      "daily_files_before": {
+        "calendars/day.txt": "7807f00f489558caa048929957bfc6fb4df9c5c49ef93029488fa239466fd949"
+      },
+      "daily_files_after": {
+        "sz000001.parquet": "4ca8021954cf640a736b9f26704cbb6f09e129af2a4f0cc5f3f9aecf9875484e",
+        "calendars/day.txt": "7807f00f489558caa048929957bfc6fb4df9c5c49ef93029488fa239466fd949"
+      },
+      "daily_calendar_changed": false
+    },
+    {
+      "case": "receipt_overwrites_day",
+      "returncode": 0,
+      "daily_files_before": {
+        "calendars/day.txt": "7807f00f489558caa048929957bfc6fb4df9c5c49ef93029488fa239466fd949"
+      },
+      "daily_files_after": {
+        "calendars/day.txt": "dc2ed83db33f3dcd3a4be419b52910afb25beedf6925b25f828f016a955442c5"
+      },
+      "daily_calendar_changed": true
+    }
+  ],
+  "scope": "Actual staging, append and receipt writers, task-local synthetic bars/providers only. No configured provider/lake modified."
+}

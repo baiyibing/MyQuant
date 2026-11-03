@@ -51,7 +51,12 @@ RECEIPT_PROBE_SYMBOL = "SZ000001"
 
 
 def refuse_if_daily(qlib_dir: Path) -> None:
-    if Path(qlib_dir).expanduser().resolve() == DAILY_QLIB.resolve():
+    try:
+        target = Path(os.path.normcase(str(Path(qlib_dir).expanduser().resolve(strict=False))))
+        daily = Path(os.path.normcase(str(DAILY_QLIB.expanduser().resolve(strict=False))))
+    except (OSError, RuntimeError, ValueError) as exc:
+        raise SystemExit(f"cannot resolve daily write boundary: {type(exc).__name__}") from exc
+    if target.is_relative_to(daily) or daily.is_relative_to(target):
         raise SystemExit("refusing to write daily my_data")
 
 
@@ -359,7 +364,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     requested_codes(args.symbols)
     qlib_dir = args.qlib_dir.expanduser()
-    refuse_if_daily(qlib_dir)
+    staging = args.staging_dir.expanduser()
+    full_staging = staging.parent / (staging.name + "_full_new")
+    for target in (qlib_dir, staging, full_staging):
+        refuse_if_daily(target)
+    if args.receipt is not None:
+        args.receipt = args.receipt.expanduser()
+        refuse_if_daily(args.receipt)
     workers = clamp_workers(args.max_workers)
     daily_fp = daily_calendar_fingerprint()
     state_before = (
@@ -383,12 +394,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         if empty_proof is not None:
             receipt['empty_increment_proof'] = empty_proof
+        refuse_if_daily(args.receipt)
         write_receipt(args.receipt, receipt)
         print(f"receipt → {args.receipt}", flush=True)
 
     lake_root = args.lake_root or resolve_stock_1min_none()
     index_lake = None if args.skip_index else (args.index_lake or resolve_index_1min_none())
-    staging = Path(args.staging_dir)
     symbols = args.symbols
 
     incremental = existing_1min_ready(qlib_dir) and not args.rebuild
@@ -437,7 +448,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             emit_receipt("noop", 0, 0)
             return 0
         full_cal = (old_cal or []) + new_only
-        full_staging = staging.parent / (staging.name + "_full_new")
         new_stems = []
         for path in d_probe.df_files:
             code = d_probe.get_symbol_from_file(path).upper()
