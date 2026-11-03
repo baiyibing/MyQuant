@@ -1,6 +1,8 @@
 {
   "schema_version": 1,
-  "status": "PLAN_FOR_GROK_REVIEW_BEFORE_IMPLEMENTATION",
+  "status": "APPROVED_BEFORE_IMPLEMENTATION",
+  "plan_review": {"plan_commit": "76a2fd293398697b851520c4817e1688762b83ea", "decision": "APPROVE", "reviewer": "Claude Code CLI 2.1.317", "actual_model": "glm-5.3[1M]", "method": "Read-only inline source/plan bundle; no tools or source edits"},
+  "implementation_nits": ["Assert actual prepared learn dates obey effective bounds", "Offline main wiring test must capture DatasetH segments and actual fit call", "Record library versions, thread count and seed policy", "Artifact masks use nominal segment bounds", "Record calendar hash and boundary derivation dates", "Require a fresh artifact output directory outside protected providers; no stale PASS receipt reuse"],
   "scope": "P11 ETF E3/E4 acceptance only. No infra migration, live trading, lake writes, provider promotion or new model/label selection.",
   "base": "524519e459df5520cdd0e5999dac74e430bd28d1",
   "existing_evidence": "2026-11-02 isolated provider: 1640 days, all1629, etf_full573. E4 LGB exit0/test104772/IC0.04335482069473625 is historical smoke output, not a reproducible row-level acceptance receipt.",
