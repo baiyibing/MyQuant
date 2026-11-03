@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "base_sha": "a509b31cb6cb9901b06885cbc644c4807f31efdb",
+  "original_plan_body_preserved_byte_for_byte": true,
+  "roadmap_exactly_one_sentence_replaced": true,
+  "production_cli_defaults_data_unchanged": true,
+  "utf8_no_bom_nul0": true,
+  "introduced_relative_links_exist": true,
+  "json_parse": "PASS",
+  "git_diff_check": "PASS",
+  "source_evidence": "Historical exact merge Git objects plus freshly queried GitHub PR metadata; no host/model rerun",
+  "canonical_ci": "pending at publication",
+  "fixed_head_grok_review": "pending at publication",
+  "audit_item_closed": false,
+  "package_closed": false
+}

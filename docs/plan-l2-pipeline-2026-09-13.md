@@ -1,5 +1,7 @@
 # L2 贯通：名单 → trade_decision → LEBS → MockQMT paper
 
+> 2026-11-03 状态回写（QL16 局部）：本页下文保留 2026-09-13 任务书。A 冒烟和 B 四维对账已分别随 1.3 [#1024](https://github.com/baiyibing/OSkhQuant1.3/pull/1024)、[#1025](https://github.com/baiyibing/OSkhQuant1.3/pull/1025) 合入；B 的名单 131/131 一致，其余维度保留原报告的差异归因及合法关门结论，不是规则完全一致。C 的晋升门数值、D 旧研究晋升线的保留或归档仍待裁定；本次只补本仓 E 的状态指针，不代表三仓 E 全闭合。当前 v653/turtle paper 验收不能替代旧 D，也不据此恢复 csv-live。固定 SHA、原域报告和边界见[证据回执](operations/evidence/ql16-ab-status-2026-11-03/README.md)；QL16/P20 保持开放。
+
 - 日期：2026-09-13
 - 状态：草案（任务书；切片/验收/预锁齐后开 PR）
 - 上游：docs/pipeline-collab-2026-09-13.md（流水线 SSOT）；硬约束见中期计划 §0 十五条；路线图 §1 晋升链 / §0.3「L2 未开工」（**本计划修订该记录**）
