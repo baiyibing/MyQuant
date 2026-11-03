@@ -32,9 +32,9 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
-from typing import Callable, Iterable, Sequence
+from typing import Callable, Sequence
 
 import numpy as np
 import pandas as pd
@@ -46,7 +46,11 @@ DEFAULT_ARCHIVE_DIR = Path.home() / ".qlib/qlib_data/my_data_20260410_archived"
 DEFAULT_QLIB_DIR = Path.home() / ".qlib/qlib_data/my_data"
 if str(REPO_ROOT / "my_scripts") not in sys.path:
     sys.path.insert(0, str(REPO_ROOT / "my_scripts"))
-from data_root import resolve_index_1d_none, resolve_qlib_csv_dir  # noqa: E402
+from data_root import (  # noqa: E402
+    SOURCE_PARQUET_ENV,
+    resolve_index_1d_none,
+    resolve_qlib_csv_dir,
+)
 
 DEFAULT_LAKE_SYMBOL = "000001_SH"
 DEFAULT_MAX_WORKERS = 8  # 硬约束：禁止 16
@@ -94,6 +98,7 @@ class RefreshConfig:
     skip_csv_scan: bool = False
     min_dump_free_gb: float = MIN_DUMP_FREE_GB
     min_staging_free_gb: float = MIN_STAGING_FREE_GB
+    source_parquet_root: Path | None = None
 
     def resolve_paths(self) -> None:
         """补齐 staging / new_qlib 默认路径（相对 qlib_dir 父目录）。"""
@@ -114,6 +119,50 @@ class RefreshConfig:
         self.offsite_dirs = tuple(Path(p).expanduser() for p in self.offsite_dirs)
         if self.seven_zip is not None:
             self.seven_zip = self.seven_zip.expanduser()
+        if self.source_parquet_root is not None:
+            self.source_parquet_root = self.source_parquet_root.expanduser()
+
+
+def _path_isolation_errors(
+    outputs: dict[str, Path | None], protected: dict[str, Path | None]
+) -> list[str]:
+    """Compare resolved components; missing output suffixes are legal."""
+    resolved: dict[str, Path] = {}
+    errors: list[str] = []
+    for role, path in {**protected, **outputs}.items():
+        if path is None:
+            continue
+        try:
+            identity = Path(path).expanduser().resolve(strict=False)
+            resolved[role] = Path(os.path.normcase(str(identity)))
+        except (OSError, RuntimeError, ValueError) as exc:
+            errors.append(f"path isolation: cannot resolve {role} ({type(exc).__name__})")
+    if errors:
+        return errors
+    pairs = [(left, right) for left in outputs for right in protected]
+    names = list(outputs)
+    pairs.extend((left, right) for i, left in enumerate(names) for right in names[i + 1:])
+    for left, right in pairs:
+        if left not in resolved or right not in resolved:
+            continue
+        a, b = resolved[left], resolved[right]
+        if a.is_relative_to(b) or b.is_relative_to(a):
+            errors.append(f"path isolation: {left} overlaps {right}")
+    return errors
+
+
+def _refresh_path_isolation_errors(cfg: RefreshConfig) -> list[str]:
+    return _path_isolation_errors(
+        {"staging_dir": cfg.staging_dir, "new_qlib_dir": cfg.new_qlib_dir},
+        {"qlib_dir": cfg.qlib_dir, "archive_dir": cfg.archive_dir, "csv_dir": cfg.csv_dir,
+         "lake_index_root": cfg.lake_index_root, "source_parquet_root": cfg.source_parquet_root},
+    )
+
+
+def _require_isolated_refresh_paths(cfg: RefreshConfig) -> None:
+    errors = _refresh_path_isolation_errors(cfg)
+    if errors:
+        raise RefreshError("\n".join(errors))
 
 
 def validate_params(cfg: RefreshConfig) -> list[str]:
@@ -131,6 +180,7 @@ def validate_params(cfg: RefreshConfig) -> list[str]:
         errors.append("--offsite 需要至少一个 --offsite-dir（不猜 F:/G:）")
     if cfg.python and not str(cfg.python).strip():
         errors.append("python 解释器路径不能为空")
+    errors.extend(_refresh_path_isolation_errors(cfg))
     return errors
 
 
@@ -387,6 +437,7 @@ def ensure_dump_target_clean(cfg: RefreshConfig, *, remover=shutil.rmtree) -> No
     """半成品 dump 目录必须先删再 dump_all，禁止往未完成目录上续写。"""
     if cfg.skip_dump:
         return
+    _require_isolated_refresh_paths(cfg)
     target = Path(cfg.new_qlib_dir)
     if not dump_target_is_dirty(target):
         return
@@ -395,6 +446,7 @@ def ensure_dump_target_clean(cfg: RefreshConfig, *, remover=shutil.rmtree) -> No
             f"dump 目标已存在且非空: {target}。半成品必须先删干净再 dump_all，"
             "加 --wipe-new-qlib-dir 才会删除后重灌（禁止往半成品上继续 dump）"
         )
+    _require_isolated_refresh_paths(cfg)
     print(f"[pre] wipe dump 目标 {target}")
     remover(target)
 
@@ -881,6 +933,9 @@ def atomic_swap(
     today = today or date.today()
     qlib_dir = Path(qlib_dir)
     new_qlib_dir = Path(new_qlib_dir)
+    errors = _path_isolation_errors({"new_qlib_dir": new_qlib_dir}, {"qlib_dir": qlib_dir})
+    if errors:
+        raise RefreshError("\n".join(errors))
     if not new_qlib_dir.is_dir():
         raise RefreshError(f"new_qlib_dir 不存在，拒绝 swap: {new_qlib_dir}")
     backup = backup_name(qlib_dir, today)
@@ -1084,6 +1139,7 @@ def build_parser() -> argparse.ArgumentParser:
 def config_from_args(args: argparse.Namespace, *, today: date | None = None) -> RefreshConfig:
     offsite = tuple(Path(p) for p in args.offsite_dir) if args.offsite_dir else ()
     samples = tuple(s.strip().upper() for s in (args.sample_symbol or []) if s.strip())
+    source_pin = str(os.environ.get(SOURCE_PARQUET_ENV) or "").strip()
     cfg = RefreshConfig(
         archive_dir=Path(args.archive_dir),
         csv_dir=resolve_qlib_csv_dir(explicit_root=args.csv_dir or None),
@@ -1112,6 +1168,7 @@ def config_from_args(args: argparse.Namespace, *, today: date | None = None) -> 
         skip_csv_scan=bool(args.skip_csv_scan),
         min_dump_free_gb=float(args.min_dump_free_gb),
         min_staging_free_gb=float(args.min_staging_free_gb),
+        source_parquet_root=Path(source_pin) if source_pin else None,
     )
     cfg.resolve_paths()
     return cfg

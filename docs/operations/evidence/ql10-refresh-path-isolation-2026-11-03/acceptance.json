@@ -1,0 +1,41 @@
+{
+  "status": "LOCAL_PASS_REMOTE_CI_AND_FIXED_HEAD_REVIEW_PENDING",
+  "audit_id": "QL10",
+  "package_id": "P12",
+  "audit_item_closed": false,
+  "package_closed": false,
+  "base_head": "f343b08b971023de937a38044a4a6cf642ddd3b1",
+  "plan_commit": "141f752f075d4250ddd58d2c59e7fd5d71c9501c",
+  "plan_review": "plan-review.json",
+  "baseline_final_negative_matrix": {
+    "failed": 56,
+    "passed": 2,
+    "skipped": 3
+  },
+  "initial_test_harness": "An earlier local invocation failed49fixture setups because inherited pytest basetemp parent was absent; the explicit task-local basetemp rerun is the baseline above.",
+  "related_fixed_regression": {
+    "passed": 147,
+    "skipped": 3,
+    "skip_reason": "This Windows host cannot create directory symlinks; Windows case alias tests executed and passed. Linux canonicalCI must exercise symlink cases."
+  },
+  "ruff": "PASS changed source and new test file",
+  "diff_check": "PASS",
+  "raw_local_logs_sha256": {
+    "baseline-tests.log": "31ebb331e06cbbee3c343dc2db774e58d5666b59aa7ccd87ecaa50e37ba31e7d",
+    "baseline-tests-ready.log": "a4edcc4274fd1906ebfae9a77b17253957b0180b8b59402485c31335d56a5fd9",
+    "baseline-final-tests.log": "5c0bf3f939616c551e25261302bd590f32e5a5dc9be1a64b08d9006910ac4fd1",
+    "fixed-tests.log": "0cb392aea7cddf0489c27ebd9d3776259b92b64753d166157471c5ff0f3ce818"
+  },
+  "behavior": [
+    "Normal validation refuses equal/ancestor/descendant output-input aliases before children or dry-run output.",
+    "Remover checks full configured identities before wipe advice and immediately before deletion; skip_dump deletes nothing.",
+    "Swap checks its supplied new/live roots using the same resolver before any rename.",
+    "Missing output directories and shared-prefix sibling defaults remain legal; SOURCE pin is captured into config once."
+  ],
+  "limits": [
+    "Only task-local disposable files were deleted/renamed in tests; configured providers, lake and runtime were not modified.",
+    "No scheduler, refresh, provider promotion, field schema, trading change or P12/QL10 deployment signoff.",
+    "Operator-error guard on a trusted filesystem; symlink races, concurrent writers and broader refresh architecture remain separate.",
+    "QL12 and QL13 remain already closed; no repeated implementation or receipt."
+  ]
+}
