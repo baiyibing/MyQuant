@@ -47,9 +47,10 @@ def load_pool() -> pd.DataFrame:
                buyord10w_vol bov, saleord10w_vol sov,
                buyord10w_amt bam, saleord10w_amt sam,
                buyord10w_active_amt baam, saleord10w_active_amt saam,
-               bov / lag(bov) OVER (PARTITION BY stock_code ORDER BY d) c1x
+               bov / lag(bov) OVER (PARTITION BY stock_code ORDER BY d) c1x,
+               CASE WHEN lag(bov) OVER (PARTITION BY stock_code ORDER BY d) > 0 THEN 1 ELSE 0 END prev_bov_pos
         FROM read_parquet('{BLAYER}') ORDER BY stock_code, d""").fetchdf()
-    pool = big[(big["c1x"] >= 2.0) & (big["d"] >= GAP)].copy()
+    pool = big[(big["c1x"] >= 2.0) & (big["prev_bov_pos"] == 1) & (big["d"] >= GAP)].copy()
 
     px = con.execute(f"""
         SELECT stock_code, CAST(d AS DATE) d, close_px, total_amt,
@@ -88,6 +89,11 @@ def load_pool() -> pd.DataFrame:
     df["win"] = (df["t1_close"] > df["close_px"]).astype(int)
     df["ret1"] = df["t1_close"] / df["close_px"] - 1
     df["h2"] = pd.to_datetime(df["d"]) >= MID
+    # 可交易过滤：KMID==0 即 open==close（一字/T 字板），买方基本无法成交。
+    # 一字板连板会伪装成 HIGH wr（LOW0 高 + RSQR5 高正是其指纹），默认剔除。
+    n_all = len(df)
+    df = df[df["KMID"] != 0].copy()
+    print(f"[tradable] 剔除一字/T字板(KMID==0): {n_all - len(df):,} 行，余 {len(df):,}")
     return df
 
 
