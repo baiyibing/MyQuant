@@ -69,8 +69,9 @@ def export(name: str, df: pd.DataFrame, out_dir: str):
     }
     if sig.get("deprecated"):
         print(f"  [警告] 该信号已废弃：{sig['desc']}")
-    else:
-        assert stats["wr_h2"] > 0.5, "H2 验证失败，不该导出"
+    elif stats["wr_h2"] <= 0.5:
+        # explicit raise: `assert` vanishes under `python -O`
+        raise ValueError(f"H2 验证失败（wr_h2={stats['wr_h2']:.4f}），不该导出: {name}")
 
     os.makedirs(out_dir, exist_ok=True)
     csv_path = os.path.join(out_dir, sig["file"])
@@ -88,7 +89,8 @@ def export(name: str, df: pd.DataFrame, out_dir: str):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--signal", default="QUIET_LOW_TREND", choices=sorted(SIGNALS))
+    ap.add_argument("--signal", default=None, choices=sorted(SIGNALS),
+                    help="必填（原默认 QUIET_LOW_TREND 已废弃，见 --list）")
     ap.add_argument("--out-dir", default=OUT_DIR)
     ap.add_argument("--list", action="store_true")
     args = ap.parse_args()
@@ -96,6 +98,8 @@ def main():
         for k, v in SIGNALS.items():
             print(f"{k}: {v['desc']}")
         return
+    if args.signal is None:
+        ap.error("--signal 必填（默认值已随 QUIET_LOW_TREND 废弃而移除；--list 看全部）")
     df = S.load_pool()
     export(args.signal, df, args.out_dir)
 

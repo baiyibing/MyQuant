@@ -16,7 +16,7 @@ import sys
 
 import pandas as pd
 
-BT_REPO = "D:/PycharmProjects/MyQuant-backtrader"
+BT_REPO = os.environ.get("MYQUANT_BT_REPO")  # 显式指定；不再默认写死另一仓树
 DEFAULT_CSV = "E:/stock_data/l2_research/signals/stab_low_trend_2026.csv"
 
 
@@ -52,11 +52,14 @@ def check_coverage(bare_codes):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--csv", default=DEFAULT_CSV, help="信号明细 CSV（export_signal.py 产物）")
-    ap.add_argument("--bt-repo", default=BT_REPO)
+    ap.add_argument("--bt-repo", default=BT_REPO,
+                    help="目标 BT 仓根（或 env MYQUANT_BT_REPO）；不再默认写死路径")
     ap.add_argument("--min-n", type=int, default=0, help="当日信号数 <N 则跳过该日（0=全量）")
     ap.add_argument("--tag", default=None, help="池目录标签（默认 stab_low_trend[_nN]）")
     args = ap.parse_args()
 
+    if not args.bt_repo:
+        ap.error("需要 --bt-repo 或 env MYQUANT_BT_REPO（写入另一仓树必须显式指定）")
     df = pd.read_csv(args.csv, parse_dates=["d"])
     day_counts = df.groupby("d")["stock_code"].agg(["count", "unique"])
     if args.min_n > 0:
