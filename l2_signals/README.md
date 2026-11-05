@@ -51,7 +51,6 @@ gen0 六族索引与定义卡：[`docs/l2_signals/2026-11-04-gen0-signal-family-
 | `alpha158_build.py` | core rollup OHLCV → 158 因子 parquet（pandas 复刻 qlib 语义） |
 | `search_alpha158.py` | C1 池（大单量≥2×前日）+ 大单特征 + 168 维贪心搜索（H1/H2 切分） |
 | `baseline_signal_search.py` | grok-bot-ops 初代搜索脚本存档（六信号族条件定义的原始出处） |
-| `archive_single_trade_1m/` | 归档：单笔≥100万放量×主动买验证（ops 删前脚本；反指结论） |
 | `export_signal.py` | 命名信号导出（`--signal STAB_LOW_TREND`） |
 | `validate_cross_year.py` | 冻结阈值跨年打分 |
 
