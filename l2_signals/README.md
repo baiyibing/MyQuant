@@ -1,12 +1,23 @@
 # l2_signals — L2 大单 × Alpha158 联合信号研究
 
 > 建线：2026-11-04 · 从 grok-bot-ops PR #105 的信号探索（6 信号族、安静吸筹洞察）延续而来。
-> 定位遵循三仓分工：**MyQuant 出信号**，backtrader 向量化研究，1.3 执行验收。
+
+## 四仓分工（L2）
+
+| 仓 | 职责 |
+|---|---|
+| **MyQuant-infra** | L2 **数据处理**（写侧 + 湖工具 + `l2/research` 读侧探索脚手架；可摸原始湖） |
+| **MyQuant**（本模块） | L2 **数据利用**（信号研究、定义卡、跨年验证、池导出；只吃 rollup / B 层等成品表） |
+| **MyQuant-backtrader** | **回测执行**（如 stab_t1 书；跨引擎契约） |
+| **grok-bot-ops** | **全局配置 / 湖口径与历程 SSOT 文档**（研究脚本已全部迁出） |
+
+判据：要碰湖的原始格式 / 分区 / 增量机制 → infra；只消费成品表出信号代号与定义卡 → MyQuant。  
+infra `l2/research` 可做贴湖假说探查，但**不是 signals**；命名信号与定义卡只落本仓。
 
 ## 定位与边界
 
-- **读侧研究**：只读消费 `J:/l2_lake`（core rollup + bigorder B 层），不写湖。
-- 湖写侧、跑批、修湖归 grok-bot-ops / myquant_infra；本模块只出信号与研究成果。
+- **读侧研究**：只读消费 `J:/l2_lake`（core rollup + bigorder B 层），不写湖、不扫逐笔 `l2_parquet`。
+- 湖写侧、跑批、修湖、贴湖 research CLI → MyQuant-infra；本模块只出信号与研究成果。
 - 研究产出（parquet/csv）写 `E:/stock_data/l2_research/`，数据文件不入库。
 
 ## 数据依赖
