@@ -61,6 +61,7 @@ gen0 六族索引与定义卡：[`docs/l2_signals/2026-11-04-gen0-signal-family-
 | `alpha158_spec.json` | 官方 158 因子表达式（从 `qlib.contrib.data.loader.Alpha158DL` 导出，作为对齐基准） |
 | `alpha158_build.py` | core rollup OHLCV → 158 因子 parquet（pandas 复刻 qlib 语义） |
 | `search_alpha158.py` | C1 池（大单量≥2×前日）+ 大单特征 + 168 维贪心搜索（H1/H2 切分） |
+| `search_ma20_mega.py` | gen2 池（净大单量/流通>2% × MA20 上穿）+ Alpha158 贪心搜索 + 内置跨年冻结诊断（→ [MEGA_MA20_BREAK 候选](../docs/l2_signals/2026-11-05-ma20-mega-gen2-search.md)） |
 | `baseline_signal_search.py` | grok-bot-ops 初代搜索脚本存档（六信号族条件定义的原始出处） |
 | `export_signal.py` | 命名信号导出（`--signal STAB_LOW_TREND`） |
 | `validate_cross_year.py` | 冻结阈值跨年打分 |
