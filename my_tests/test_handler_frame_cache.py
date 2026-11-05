@@ -7,6 +7,8 @@ import pickle
 import sys
 from pathlib import Path
 
+import pytest
+
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _MY_SCRIPTS = os.path.join(_ROOT, "my_scripts")
 if _MY_SCRIPTS not in sys.path:
@@ -52,6 +54,7 @@ def _payload(**overrides):
     return make_handler_cache_payload(**base)
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_digest_stable_and_isolated():
     a = _payload()
     b = _payload()
@@ -66,6 +69,7 @@ def test_digest_stable_and_isolated():
     assert handler_cache_digest(_payload(drop_limit_up_learn_on=True)) != handler_cache_digest(a)
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_ops_source_hash_changes_digest(tmp_path):
     ops_a = tmp_path / "ops_a.py"
     ops_b = tmp_path / "ops_b.py"
@@ -98,7 +102,9 @@ class _DummyHandler:
         Path(path).write_bytes(pickle.dumps(self))
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_load_or_build_round_trip(tmp_path, monkeypatch, capsys):
+    pytest.importorskip("qlib", reason="optional Qlib handler reload integration")
     monkeypatch.setenv("OSKH_HANDLER_CACHE_DIR", str(tmp_path))
     payload = _payload()
     digest = handler_cache_digest(payload)
@@ -134,6 +140,7 @@ def test_load_or_build_round_trip(tmp_path, monkeypatch, capsys):
     assert "HANDLER_CACHE MISS" in out2 and "reason=load_failed" in out2
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_cache_hit_skips_builder(tmp_path, monkeypatch, capsys):
     cached = _DummyHandler(9)
     monkeypatch.setattr(
@@ -165,6 +172,7 @@ def test_cache_hit_skips_builder(tmp_path, monkeypatch, capsys):
     assert "HANDLER_CACHE HIT" in out and f"key={digest[:16]}" in out and "reason=None" in out
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_save_dummy_and_disabled_skips_disk(tmp_path, capsys):
     payload = _payload()
     digest = handler_cache_digest(payload)
@@ -196,6 +204,7 @@ def test_resolve_handler_cache_warn_mb_default_and_override(monkeypatch):
     assert resolve_handler_cache_warn_mb() == float(DEFAULT_HANDLER_CACHE_WARN_MB)
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_save_warns_when_size_exceeds_threshold(tmp_path, monkeypatch, capsys):
     """Over-threshold pickle size → stdout WARN; file still written (warn-only)."""
     monkeypatch.setenv("OSKH_HANDLER_CACHE_WARN_MB", "0.000001")
@@ -209,6 +218,7 @@ def test_save_warns_when_size_exceeds_threshold(tmp_path, monkeypatch, capsys):
     assert "warn-only" in out
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_load_or_build_warns_and_exposes_peak_rss(tmp_path, monkeypatch, capsys):
     monkeypatch.setenv("OSKH_HANDLER_CACHE_DIR", str(tmp_path))
     monkeypatch.setenv("OSKH_HANDLER_CACHE_WARN_MB", "0.000001")

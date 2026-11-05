@@ -6,6 +6,8 @@ import pytest
 
 from myquant_contract import build_signal_bundle, canonical_json_bytes, validate_signal_bundle
 
+pytestmark = pytest.mark.usefixtures("infra_signal_bundle")
+
 
 def _row(asof="2026-03-02", target="2026-03-05"):
     payload = b"000001\n"

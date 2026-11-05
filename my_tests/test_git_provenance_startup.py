@@ -10,6 +10,10 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("infra_provenance")
+
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _MY_SCRIPTS = os.path.join(_ROOT, "my_scripts")
 if _MY_SCRIPTS not in sys.path:
@@ -23,7 +27,9 @@ from run_manifest import (  # noqa: E402
 
 
 def _fake_check_output_factory(state: dict[str, Any]):
-    def _fake(cmd, cwd=None, stderr=None, text=True):  # noqa: ANN001
+    def _fake(cmd, cwd=None, stderr=None, text=True, timeout=None):  # noqa: ANN001
+        assert timeout == 5
+        assert cwd == _ROOT
         if not isinstance(cmd, (list, tuple)):
             raise TypeError(cmd)
         # Track every rev-parse HEAD so we can flip after startup capture.
@@ -32,7 +38,7 @@ def _fake_check_output_factory(state: dict[str, Any]):
             return state["head"] + "\n"
         if list(cmd[:3]) == ["git", "rev-parse", "--abbrev-ref"]:
             return state["branch"] + "\n"
-        if list(cmd[:3]) == ["git", "status", "--porcelain"]:
+        if list(cmd) == ["git", "--no-optional-locks", "status", "--porcelain"]:
             return state.get("porcelain", " M dirty.txt\n")
         raise AssertionError(f"unexpected git cmd: {cmd}")
 
@@ -47,7 +53,7 @@ def test_manifest_keeps_startup_git_provenance(tmp_path: Path):
         "porcelain": " M my_scripts/host_env.py\n",
         "rev_parse_calls": 0,
     }
-    with patch("run_manifest.subprocess.check_output", side_effect=_fake_check_output_factory(state)):
+    with patch("myquant_infra.artifacts.provenance.subprocess.check_output", side_effect=_fake_check_output_factory(state)):
         prov = capture_git_provenance(repo_root=_ROOT)
         assert prov["git_commit"] == "startupaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
         assert prov["git_branch"] == "feat/followups-env-manifest"
@@ -75,7 +81,7 @@ def test_manifest_keeps_startup_git_provenance(tmp_path: Path):
     assert man["git_branch"] == "feat/followups-env-manifest"
     assert man["git_dirty"] is True
     # 证明若未传入启动值、收尾再读会得到 later…（对照）
-    with patch("run_manifest.subprocess.check_output", side_effect=_fake_check_output_factory(state)):
+    with patch("myquant_infra.artifacts.provenance.subprocess.check_output", side_effect=_fake_check_output_factory(state)):
         drifted = capture_git_provenance(repo_root=_ROOT)
     assert drifted["git_commit"] == "laterbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
     assert drifted["git_commit"] != man["git_commit"]

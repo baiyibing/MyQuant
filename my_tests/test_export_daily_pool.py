@@ -158,6 +158,7 @@ def _run_export(tmp_path: Path, monkeypatch, argv: list[str]) -> tuple[Path, dic
     return out, json.loads(manifests[0].read_text(encoding="utf-8"))["config"]
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_default_path_is_unchanged_and_manifest_records_no_neutralize(tmp_path, monkeypatch):
     pred = _write(tmp_path / "pred.csv", _NEUTRALIZE_PRED)
 
@@ -168,6 +169,7 @@ def test_default_path_is_unchanged_and_manifest_records_no_neutralize(tmp_path, 
     assert "neutralize_industry_map" not in config
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_industry_neutralize_reranks_before_topn_and_keeps_the_byte_contract(tmp_path, monkeypatch):
     pred = _write(tmp_path / "pred.csv", _NEUTRALIZE_PRED)
     industry_map = _industry_map(tmp_path)
@@ -189,6 +191,7 @@ def test_industry_neutralize_reranks_before_topn_and_keeps_the_byte_contract(tmp
     assert config["neutralize_industry_bypass_rows"] == 0
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_industry_neutralize_counts_unmapped_names_in_the_manifest(tmp_path, monkeypatch):
     pred = _write(tmp_path / "pred.csv", _NEUTRALIZE_PRED + "2026-03-02,SZ301999,1\n")
     industry_map = _industry_map(tmp_path)
@@ -203,6 +206,7 @@ def test_industry_neutralize_counts_unmapped_names_in_the_manifest(tmp_path, mon
     assert config["neutralize_industry_bypass_instruments"] == 1
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_size_neutralize_runs_when_the_cap_gate_passes(tmp_path, monkeypatch):
     pred = _write(tmp_path / "pred.csv", _SIZE_PRED)
     cap = _float_cap(tmp_path)
@@ -276,6 +280,7 @@ def test_neutralize_requires_its_inputs(tmp_path):
         apply_neutralization(predictions, method="both")
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_float_cap_input_accepts_raw_bin16_fields(tmp_path, monkeypatch):
     pred = _write(tmp_path / "pred.csv", _SIZE_PRED)
     lines = ["datetime,instrument,$close,$adfadfbasiccurhold,$amount"]
@@ -310,6 +315,7 @@ def test_refuses_stock_pool_output(tmp_path):
 
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_export_manifest_includes_pred_md5(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     from export_daily_pool import main
     from run_manifest import load_manifest, md5_file
@@ -423,6 +429,7 @@ def test_scores_sidecar_shares_identity_asof(tmp_path):
     )
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_scores_only_does_not_overwrite_existing_topk(tmp_path, monkeypatch):
     """--scores-only must not clobber TopK files (cat_50_raw_* safety)."""
     pred = _write(
@@ -460,6 +467,7 @@ def test_scores_only_does_not_overwrite_existing_topk(tmp_path, monkeypatch):
     assert "000001" not in scores  # last pred day skipped under pred_minus_one
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_no_scores_flag_skips_sidecar(tmp_path, monkeypatch):
     pred = _write(
         tmp_path / "pred.csv",

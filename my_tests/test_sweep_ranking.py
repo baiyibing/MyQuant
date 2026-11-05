@@ -53,6 +53,7 @@ def test_iter_config_grid_rejects_empty():
         iter_config_grid([], [1], [1])
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_run_sweep_injects_fake_and_writes_manifests(tmp_path: Path):
     calls = []
 
@@ -111,6 +112,7 @@ def test_live_default_raises():
         default_live_train_predict(SweepConfig(10, 3, 1).with_id())
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_cli_limit_2_dry_smoke(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.chdir(tmp_path)
     out = tmp_path / "sweep_out"
@@ -218,6 +220,7 @@ def test_sweep_config_has_no_window_fields():
     assert "segments" not in cfg
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_default_adapter_path_does_not_call_set_segments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """缺省不调 set_segments（向后兼容：adapter 用三月窗常量）。"""
     import importlib
@@ -268,6 +271,7 @@ def test_default_adapter_path_does_not_call_set_segments(tmp_path: Path, monkeyp
     assert calls == []
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_adapter_path_calls_set_segments_when_any_window_given(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):
@@ -329,6 +333,7 @@ def test_adapter_path_calls_set_segments_when_any_window_given(
     assert calls[0]["test"] == ("2026-04-01", "2026-08-31")
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_dry_run_fake_with_windows_does_not_need_adapter(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """--dry-run-fake 不走 adapter，传窗口也不调 set_segments，冒烟不受影响。"""
     monkeypatch.chdir(tmp_path)
@@ -369,6 +374,7 @@ def test_dry_run_fake_with_windows_does_not_need_adapter(tmp_path: Path, monkeyp
     assert "segments" not in data["config"]
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_run_one_missing_timings_marks_unknown(tmp_path: Path):
     """缺 timings 时不写假零秒，标 unknown（adapter 应必给 timings）。"""
 
@@ -395,6 +401,7 @@ def test_run_one_missing_timings_marks_unknown(tmp_path: Path):
     assert man["timings"]["total_seconds"] is None
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_run_sweep_parent_manifest_three_arms(tmp_path: Path):
     """P0-5: 1 parent + 3 arms; arms ref parent_id; parent owns shared init; no arm re-amortizes init."""
     calls = {"n": 0}
@@ -487,6 +494,7 @@ def test_run_sweep_parent_manifest_three_arms(tmp_path: Path):
     assert any(n["name"] == "arm_only" for n in m1["timings"]["nodes"])
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_parent_total_seconds_does_not_double_count_init_aliases(tmp_path: Path):
     """handler_init + init_once are aliases of one wall clock — parent must not sum."""
 
@@ -549,6 +557,7 @@ def test_run_sweep_parent_skipped_when_no_manifests(tmp_path: Path):
     assert list(man_dir.glob("train_sweep_*.json")) == []
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_run_sweep_parent_unknown_when_no_shared_timings(tmp_path: Path):
     """缺共享 timings 时父 manifest 标 unknown，无假 0。"""
 

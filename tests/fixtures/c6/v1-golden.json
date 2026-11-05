@@ -1,0 +1,694 @@
+{
+  "host_base": "b0cdb421f49e109e892c4a192b4791695b383f37",
+  "infra_pin": "3c377e9718e811112993579b6d91a603395db699",
+  "bundles": [
+    {
+      "name": "empty",
+      "rows": [],
+      "kwargs": {},
+      "bundle": {
+        "schema": "myquant.signal-bundle/1",
+        "signal_asof_policy": "pred_minus_one",
+        "availability": "unproven",
+        "available_at": null,
+        "calendar_id": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
+        "price_domain": "unspecified",
+        "rows": [],
+        "bundle_sha256": "9f21203c5e6163e4dc8d0d2463fe7b3ec854ecb1b0c7791dbb172811be625abc"
+      },
+      "canonical": "{\"availability\":\"unproven\",\"available_at\":null,\"bundle_sha256\":\"9f21203c5e6163e4dc8d0d2463fe7b3ec854ecb1b0c7791dbb172811be625abc\",\"calendar_id\":\"37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570\",\"price_domain\":\"unspecified\",\"rows\":[],\"schema\":\"myquant.signal-bundle/1\",\"signal_asof_policy\":\"pred_minus_one\"}\n"
+    },
+    {
+      "name": "pred_unproven",
+      "rows": [
+        {
+          "signal_asof": "2026-03-02",
+          "target_session": "2026-03-05",
+          "pool_file": "20260305.csv",
+          "pool_md5": "dad7ed099a55e15d6ea44dc72dea9db7",
+          "pool_sha256": "e4d41c9c162f24503176ac341d2108b0b063e4db0f0df4fe51ec7ed69b6fbf8b"
+        }
+      ],
+      "kwargs": {},
+      "bundle": {
+        "schema": "myquant.signal-bundle/1",
+        "signal_asof_policy": "pred_minus_one",
+        "availability": "unproven",
+        "available_at": null,
+        "calendar_id": "fa6e7d44f4d49b091586385bccac120c53fb1efadf2c4c29220983a9554f386a",
+        "price_domain": "unspecified",
+        "rows": [
+          {
+            "signal_asof": "2026-03-02",
+            "target_session": "2026-03-05",
+            "pool_file": "20260305.csv",
+            "pool_md5": "dad7ed099a55e15d6ea44dc72dea9db7",
+            "pool_sha256": "e4d41c9c162f24503176ac341d2108b0b063e4db0f0df4fe51ec7ed69b6fbf8b"
+          }
+        ],
+        "bundle_sha256": "8c26c35aab1dd4c1c11968ef97e0f6761b5b9aa5ef6821b13ae0563dbc72f58e"
+      },
+      "canonical": "{\"availability\":\"unproven\",\"available_at\":null,\"bundle_sha256\":\"8c26c35aab1dd4c1c11968ef97e0f6761b5b9aa5ef6821b13ae0563dbc72f58e\",\"calendar_id\":\"fa6e7d44f4d49b091586385bccac120c53fb1efadf2c4c29220983a9554f386a\",\"price_domain\":\"unspecified\",\"rows\":[{\"pool_file\":\"20260305.csv\",\"pool_md5\":\"dad7ed099a55e15d6ea44dc72dea9db7\",\"pool_sha256\":\"e4d41c9c162f24503176ac341d2108b0b063e4db0f0df4fe51ec7ed69b6fbf8b\",\"signal_asof\":\"2026-03-02\",\"target_session\":\"2026-03-05\"}],\"schema\":\"myquant.signal-bundle/1\",\"signal_asof_policy\":\"pred_minus_one\"}\n"
+    },
+    {
+      "name": "pred_declared_unsorted",
+      "rows": [
+        {
+          "signal_asof": "2026-03-05",
+          "target_session": "2026-03-09",
+          "pool_file": "20260309.csv",
+          "pool_md5": "dad7ed099a55e15d6ea44dc72dea9db7",
+          "pool_sha256": "e4d41c9c162f24503176ac341d2108b0b063e4db0f0df4fe51ec7ed69b6fbf8b"
+        },
+        {
+          "signal_asof": "2026-03-02",
+          "target_session": "2026-03-05",
+          "pool_file": "20260305.csv",
+          "pool_md5": "dad7ed099a55e15d6ea44dc72dea9db7",
+          "pool_sha256": "e4d41c9c162f24503176ac341d2108b0b063e4db0f0df4fe51ec7ed69b6fbf8b"
+        }
+      ],
+      "kwargs": {
+        "availability": "declared",
+        "available_at": "2026-03-02T15:30:00+08:00",
+        "price_domain": "front"
+      },
+      "bundle": {
+        "schema": "myquant.signal-bundle/1",
+        "signal_asof_policy": "pred_minus_one",
+        "availability": "declared",
+        "available_at": "2026-03-02T15:30:00+08:00",
+        "calendar_id": "a828cd5f93562b5a9cde1bdb82895029c7c38a1173c61c3c4fa2bf07459a76e8",
+        "price_domain": "front",
+        "rows": [
+          {
+            "signal_asof": "2026-03-05",
+            "target_session": "2026-03-09",
+            "pool_file": "20260309.csv",
+            "pool_md5": "dad7ed099a55e15d6ea44dc72dea9db7",
+            "pool_sha256": "e4d41c9c162f24503176ac341d2108b0b063e4db0f0df4fe51ec7ed69b6fbf8b"
+          },
+          {
+            "signal_asof": "2026-03-02",
+            "target_session": "2026-03-05",
+            "pool_file": "20260305.csv",
+            "pool_md5": "dad7ed099a55e15d6ea44dc72dea9db7",
+            "pool_sha256": "e4d41c9c162f24503176ac341d2108b0b063e4db0f0df4fe51ec7ed69b6fbf8b"
+          }
+        ],
+        "bundle_sha256": "ba5d739213b51ade97c61d6f077aa74f77d565f115a6947ddc5ae8bd2f86fe78"
+      },
+      "canonical": "{\"availability\":\"declared\",\"available_at\":\"2026-03-02T15:30:00+08:00\",\"bundle_sha256\":\"ba5d739213b51ade97c61d6f077aa74f77d565f115a6947ddc5ae8bd2f86fe78\",\"calendar_id\":\"a828cd5f93562b5a9cde1bdb82895029c7c38a1173c61c3c4fa2bf07459a76e8\",\"price_domain\":\"front\",\"rows\":[{\"pool_file\":\"20260309.csv\",\"pool_md5\":\"dad7ed099a55e15d6ea44dc72dea9db7\",\"pool_sha256\":\"e4d41c9c162f24503176ac341d2108b0b063e4db0f0df4fe51ec7ed69b6fbf8b\",\"signal_asof\":\"2026-03-05\",\"target_session\":\"2026-03-09\"},{\"pool_file\":\"20260305.csv\",\"pool_md5\":\"dad7ed099a55e15d6ea44dc72dea9db7\",\"pool_sha256\":\"e4d41c9c162f24503176ac341d2108b0b063e4db0f0df4fe51ec7ed69b6fbf8b\",\"signal_asof\":\"2026-03-02\",\"target_session\":\"2026-03-05\"}],\"schema\":\"myquant.signal-bundle/1\",\"signal_asof_policy\":\"pred_minus_one\"}\n"
+    },
+    {
+      "name": "identity",
+      "rows": [
+        {
+          "signal_asof": "2026-03-02",
+          "target_session": "2026-03-02",
+          "pool_file": "20260302.csv",
+          "pool_md5": "dad7ed099a55e15d6ea44dc72dea9db7",
+          "pool_sha256": "e4d41c9c162f24503176ac341d2108b0b063e4db0f0df4fe51ec7ed69b6fbf8b"
+        }
+      ],
+      "kwargs": {
+        "signal_asof_policy": "identity",
+        "price_domain": "back"
+      },
+      "bundle": {
+        "schema": "myquant.signal-bundle/1",
+        "signal_asof_policy": "identity",
+        "availability": "unproven",
+        "available_at": null,
+        "calendar_id": "a9c38ebf33d017174e39ae704e4094c36dad49146398c2d28f662c83cf22e3d4",
+        "price_domain": "back",
+        "rows": [
+          {
+            "signal_asof": "2026-03-02",
+            "target_session": "2026-03-02",
+            "pool_file": "20260302.csv",
+            "pool_md5": "dad7ed099a55e15d6ea44dc72dea9db7",
+            "pool_sha256": "e4d41c9c162f24503176ac341d2108b0b063e4db0f0df4fe51ec7ed69b6fbf8b"
+          }
+        ],
+        "bundle_sha256": "e5e4400c91dde1d64d4c96570edaddd2638387744786b3d4962622507d2a7c10"
+      },
+      "canonical": "{\"availability\":\"unproven\",\"available_at\":null,\"bundle_sha256\":\"e5e4400c91dde1d64d4c96570edaddd2638387744786b3d4962622507d2a7c10\",\"calendar_id\":\"a9c38ebf33d017174e39ae704e4094c36dad49146398c2d28f662c83cf22e3d4\",\"price_domain\":\"back\",\"rows\":[{\"pool_file\":\"20260302.csv\",\"pool_md5\":\"dad7ed099a55e15d6ea44dc72dea9db7\",\"pool_sha256\":\"e4d41c9c162f24503176ac341d2108b0b063e4db0f0df4fe51ec7ed69b6fbf8b\",\"signal_asof\":\"2026-03-02\",\"target_session\":\"2026-03-02\"}],\"schema\":\"myquant.signal-bundle/1\",\"signal_asof_policy\":\"identity\"}\n"
+    }
+  ],
+  "configs": [
+    {
+      "config": {},
+      "canonical": "{}",
+      "config_hash": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "config": {
+        "topk": 10,
+        "n_drop": 3,
+        "segments": {
+          "train": [
+            "2026-01-01",
+            "2026-01-31"
+          ]
+        }
+      },
+      "canonical": "{\"n_drop\":3,\"segments\":{\"train\":[\"2026-01-01\",\"2026-01-31\"]},\"topk\":10}",
+      "config_hash": "b655607f771afd4a5b0abf779a31f7de4c3de9a3778dec339f4b192006db37a8"
+    },
+    {
+      "config": {
+        "z": "信号",
+        "a": [
+          null,
+          true,
+          false,
+          0,
+          -1,
+          1.25,
+          -0.0
+        ],
+        "nested": {
+          "b": 2,
+          "a": "预测"
+        }
+      },
+      "canonical": "{\"a\":[null,true,false,0,-1,1.25,-0.0],\"nested\":{\"a\":\"预测\",\"b\":2},\"z\":\"信号\"}",
+      "config_hash": "9912d1f202269d29a5e3cfc1ebf8aa3dfbb73c13b5a584538e0fe4d90e2bc453"
+    },
+    {
+      "config": {
+        "config_hash": "ignored",
+        "nested": {
+          "config_hash": "retained"
+        },
+        "topk": 5
+      },
+      "canonical": "{\"config_hash\":\"ignored\",\"nested\":{\"config_hash\":\"retained\"},\"topk\":5}",
+      "config_hash": "af26e3a9a34f7ca9d12a63af974e2900b20f5257644d950c215dd207b6089b43"
+    }
+  ],
+  "manifests": [
+    {
+      "kwargs": {
+        "stage": "train",
+        "config": {
+          "z": "信号",
+          "a": [
+            null,
+            true,
+            false,
+            0,
+            -1,
+            1.25,
+            -0.0
+          ],
+          "nested": {
+            "b": 2,
+            "a": "预测"
+          }
+        },
+        "data": {
+          "source": "synthetic"
+        },
+        "artifacts": [
+          {
+            "path": "预测.csv",
+            "md5": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "rows": 2
+          }
+        ],
+        "timings": {
+          "total_seconds": null,
+          "nodes": [],
+          "unknown": true
+        },
+        "git_commit_sha": "0123456789abcdef0123456789abcdef01234567",
+        "git_branch": "unit",
+        "git_dirty": false,
+        "created_utc": "2026-09-13T01:02:03Z"
+      },
+      "manifest": {
+        "schema": "myquant.run-manifest/1",
+        "stage": "train",
+        "git_commit": "0123456789abcdef0123456789abcdef01234567",
+        "created_utc": "2026-09-13T01:02:03Z",
+        "config": {
+          "z": "信号",
+          "a": [
+            null,
+            true,
+            false,
+            0,
+            -1,
+            1.25,
+            -0.0
+          ],
+          "nested": {
+            "b": 2,
+            "a": "预测"
+          },
+          "config_hash": "9912d1f202269d29a5e3cfc1ebf8aa3dfbb73c13b5a584538e0fe4d90e2bc453"
+        },
+        "data": {
+          "source": "synthetic"
+        },
+        "artifacts": [
+          {
+            "path": "预测.csv",
+            "md5": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "rows": 2
+          }
+        ],
+        "timings": {
+          "total_seconds": null,
+          "nodes": [],
+          "unknown": true
+        },
+        "git_branch": "unit",
+        "git_dirty": false
+      },
+      "json": "{\n  \"schema\": \"myquant.run-manifest/1\",\n  \"stage\": \"train\",\n  \"git_commit\": \"0123456789abcdef0123456789abcdef01234567\",\n  \"created_utc\": \"2026-09-13T01:02:03Z\",\n  \"config\": {\n    \"z\": \"信号\",\n    \"a\": [\n      null,\n      true,\n      false,\n      0,\n      -1,\n      1.25,\n      -0.0\n    ],\n    \"nested\": {\n      \"b\": 2,\n      \"a\": \"预测\"\n    },\n    \"config_hash\": \"9912d1f202269d29a5e3cfc1ebf8aa3dfbb73c13b5a584538e0fe4d90e2bc453\"\n  },\n  \"data\": {\n    \"source\": \"synthetic\"\n  },\n  \"artifacts\": [\n    {\n      \"path\": \"预测.csv\",\n      \"md5\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n      \"rows\": 2\n    }\n  ],\n  \"timings\": {\n    \"total_seconds\": null,\n    \"nodes\": [],\n    \"unknown\": true\n  },\n  \"git_branch\": \"unit\",\n  \"git_dirty\": false\n}\n"
+    },
+    {
+      "kwargs": {
+        "stage": "export",
+        "config": {
+          "z": "信号",
+          "a": [
+            null,
+            true,
+            false,
+            0,
+            -1,
+            1.25,
+            -0.0
+          ],
+          "nested": {
+            "b": 2,
+            "a": "预测"
+          }
+        },
+        "data": {
+          "source": "synthetic"
+        },
+        "artifacts": [
+          {
+            "path": "预测.csv",
+            "md5": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "rows": 2
+          }
+        ],
+        "timings": {
+          "total_seconds": null,
+          "nodes": [],
+          "unknown": true
+        },
+        "git_commit_sha": "0123456789abcdef0123456789abcdef01234567",
+        "git_branch": "unit",
+        "git_dirty": false,
+        "created_utc": "2026-09-13T01:02:03Z"
+      },
+      "manifest": {
+        "schema": "myquant.run-manifest/1",
+        "stage": "export",
+        "git_commit": "0123456789abcdef0123456789abcdef01234567",
+        "created_utc": "2026-09-13T01:02:03Z",
+        "config": {
+          "z": "信号",
+          "a": [
+            null,
+            true,
+            false,
+            0,
+            -1,
+            1.25,
+            -0.0
+          ],
+          "nested": {
+            "b": 2,
+            "a": "预测"
+          },
+          "config_hash": "9912d1f202269d29a5e3cfc1ebf8aa3dfbb73c13b5a584538e0fe4d90e2bc453"
+        },
+        "data": {
+          "source": "synthetic"
+        },
+        "artifacts": [
+          {
+            "path": "预测.csv",
+            "md5": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "rows": 2
+          }
+        ],
+        "timings": {
+          "total_seconds": null,
+          "nodes": [],
+          "unknown": true
+        },
+        "git_branch": "unit",
+        "git_dirty": false
+      },
+      "json": "{\n  \"schema\": \"myquant.run-manifest/1\",\n  \"stage\": \"export\",\n  \"git_commit\": \"0123456789abcdef0123456789abcdef01234567\",\n  \"created_utc\": \"2026-09-13T01:02:03Z\",\n  \"config\": {\n    \"z\": \"信号\",\n    \"a\": [\n      null,\n      true,\n      false,\n      0,\n      -1,\n      1.25,\n      -0.0\n    ],\n    \"nested\": {\n      \"b\": 2,\n      \"a\": \"预测\"\n    },\n    \"config_hash\": \"9912d1f202269d29a5e3cfc1ebf8aa3dfbb73c13b5a584538e0fe4d90e2bc453\"\n  },\n  \"data\": {\n    \"source\": \"synthetic\"\n  },\n  \"artifacts\": [\n    {\n      \"path\": \"预测.csv\",\n      \"md5\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n      \"rows\": 2\n    }\n  ],\n  \"timings\": {\n    \"total_seconds\": null,\n    \"nodes\": [],\n    \"unknown\": true\n  },\n  \"git_branch\": \"unit\",\n  \"git_dirty\": false\n}\n"
+    },
+    {
+      "kwargs": {
+        "stage": "refresh",
+        "config": {
+          "z": "信号",
+          "a": [
+            null,
+            true,
+            false,
+            0,
+            -1,
+            1.25,
+            -0.0
+          ],
+          "nested": {
+            "b": 2,
+            "a": "预测"
+          }
+        },
+        "data": {
+          "source": "synthetic"
+        },
+        "artifacts": [
+          {
+            "path": "预测.csv",
+            "md5": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "rows": 2
+          }
+        ],
+        "timings": {
+          "total_seconds": null,
+          "nodes": [],
+          "unknown": true
+        },
+        "git_commit_sha": "0123456789abcdef0123456789abcdef01234567",
+        "git_branch": "unit",
+        "git_dirty": false,
+        "created_utc": "2026-09-13T01:02:03Z"
+      },
+      "manifest": {
+        "schema": "myquant.run-manifest/1",
+        "stage": "refresh",
+        "git_commit": "0123456789abcdef0123456789abcdef01234567",
+        "created_utc": "2026-09-13T01:02:03Z",
+        "config": {
+          "z": "信号",
+          "a": [
+            null,
+            true,
+            false,
+            0,
+            -1,
+            1.25,
+            -0.0
+          ],
+          "nested": {
+            "b": 2,
+            "a": "预测"
+          },
+          "config_hash": "9912d1f202269d29a5e3cfc1ebf8aa3dfbb73c13b5a584538e0fe4d90e2bc453"
+        },
+        "data": {
+          "source": "synthetic"
+        },
+        "artifacts": [
+          {
+            "path": "预测.csv",
+            "md5": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "rows": 2
+          }
+        ],
+        "timings": {
+          "total_seconds": null,
+          "nodes": [],
+          "unknown": true
+        },
+        "git_branch": "unit",
+        "git_dirty": false
+      },
+      "json": "{\n  \"schema\": \"myquant.run-manifest/1\",\n  \"stage\": \"refresh\",\n  \"git_commit\": \"0123456789abcdef0123456789abcdef01234567\",\n  \"created_utc\": \"2026-09-13T01:02:03Z\",\n  \"config\": {\n    \"z\": \"信号\",\n    \"a\": [\n      null,\n      true,\n      false,\n      0,\n      -1,\n      1.25,\n      -0.0\n    ],\n    \"nested\": {\n      \"b\": 2,\n      \"a\": \"预测\"\n    },\n    \"config_hash\": \"9912d1f202269d29a5e3cfc1ebf8aa3dfbb73c13b5a584538e0fe4d90e2bc453\"\n  },\n  \"data\": {\n    \"source\": \"synthetic\"\n  },\n  \"artifacts\": [\n    {\n      \"path\": \"预测.csv\",\n      \"md5\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n      \"rows\": 2\n    }\n  ],\n  \"timings\": {\n    \"total_seconds\": null,\n    \"nodes\": [],\n    \"unknown\": true\n  },\n  \"git_branch\": \"unit\",\n  \"git_dirty\": false\n}\n"
+    },
+    {
+      "kwargs": {
+        "stage": "sweep_parent",
+        "config": {
+          "z": "信号",
+          "a": [
+            null,
+            true,
+            false,
+            0,
+            -1,
+            1.25,
+            -0.0
+          ],
+          "nested": {
+            "b": 2,
+            "a": "预测"
+          }
+        },
+        "data": {
+          "source": "synthetic"
+        },
+        "artifacts": [
+          {
+            "path": "预测.csv",
+            "md5": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "rows": 2
+          }
+        ],
+        "timings": {
+          "total_seconds": null,
+          "nodes": [],
+          "unknown": true
+        },
+        "git_commit_sha": "0123456789abcdef0123456789abcdef01234567",
+        "git_branch": "unit",
+        "git_dirty": false,
+        "created_utc": "2026-09-13T01:02:03Z"
+      },
+      "manifest": {
+        "schema": "myquant.run-manifest/1",
+        "stage": "sweep_parent",
+        "git_commit": "0123456789abcdef0123456789abcdef01234567",
+        "created_utc": "2026-09-13T01:02:03Z",
+        "config": {
+          "z": "信号",
+          "a": [
+            null,
+            true,
+            false,
+            0,
+            -1,
+            1.25,
+            -0.0
+          ],
+          "nested": {
+            "b": 2,
+            "a": "预测"
+          },
+          "config_hash": "9912d1f202269d29a5e3cfc1ebf8aa3dfbb73c13b5a584538e0fe4d90e2bc453"
+        },
+        "data": {
+          "source": "synthetic"
+        },
+        "artifacts": [
+          {
+            "path": "预测.csv",
+            "md5": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "rows": 2
+          }
+        ],
+        "timings": {
+          "total_seconds": null,
+          "nodes": [],
+          "unknown": true
+        },
+        "git_branch": "unit",
+        "git_dirty": false
+      },
+      "json": "{\n  \"schema\": \"myquant.run-manifest/1\",\n  \"stage\": \"sweep_parent\",\n  \"git_commit\": \"0123456789abcdef0123456789abcdef01234567\",\n  \"created_utc\": \"2026-09-13T01:02:03Z\",\n  \"config\": {\n    \"z\": \"信号\",\n    \"a\": [\n      null,\n      true,\n      false,\n      0,\n      -1,\n      1.25,\n      -0.0\n    ],\n    \"nested\": {\n      \"b\": 2,\n      \"a\": \"预测\"\n    },\n    \"config_hash\": \"9912d1f202269d29a5e3cfc1ebf8aa3dfbb73c13b5a584538e0fe4d90e2bc453\"\n  },\n  \"data\": {\n    \"source\": \"synthetic\"\n  },\n  \"artifacts\": [\n    {\n      \"path\": \"预测.csv\",\n      \"md5\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n      \"rows\": 2\n    }\n  ],\n  \"timings\": {\n    \"total_seconds\": null,\n    \"nodes\": [],\n    \"unknown\": true\n  },\n  \"git_branch\": \"unit\",\n  \"git_dirty\": false\n}\n"
+    }
+  ],
+  "helper_manifests": [
+    {
+      "helper": "write_train_manifest",
+      "kwargs": {
+        "config": {
+          "topk": 5,
+          "note": "预测"
+        },
+        "git_commit_sha": "unitsha",
+        "created_utc": "2026-09-13T01:02:03Z",
+        "data": {
+          "calendar_days": 2
+        },
+        "timings": {
+          "total_seconds": 1.25,
+          "nodes": []
+        },
+        "extra_artifacts": [
+          {
+            "path": "metrics.json",
+            "md5": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ],
+        "git_branch": "unit",
+        "git_dirty": false,
+        "pred_rows": 2
+      },
+      "filename": "train_20260913T010203Z.json",
+      "manifest": {
+        "schema": "myquant.run-manifest/1",
+        "stage": "train",
+        "git_commit": "unitsha",
+        "created_utc": "2026-09-13T01:02:03Z",
+        "config": {
+          "topk": 5,
+          "note": "预测",
+          "config_hash": "fe7b99153914d4765e946f482b112198fb9be52bf89ae45001e8e6cbe2863a72"
+        },
+        "data": {
+          "calendar_days": 2
+        },
+        "artifacts": [
+          {
+            "path": "预测.csv",
+            "md5": "fc32ef0672775f3304d44f6c460e92e2",
+            "rows": 2
+          },
+          {
+            "path": "metrics.json",
+            "md5": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        ],
+        "timings": {
+          "total_seconds": 1.25,
+          "nodes": []
+        },
+        "git_branch": "unit",
+        "git_dirty": false
+      },
+      "json": "{\n  \"schema\": \"myquant.run-manifest/1\",\n  \"stage\": \"train\",\n  \"git_commit\": \"unitsha\",\n  \"created_utc\": \"2026-09-13T01:02:03Z\",\n  \"config\": {\n    \"topk\": 5,\n    \"note\": \"预测\",\n    \"config_hash\": \"fe7b99153914d4765e946f482b112198fb9be52bf89ae45001e8e6cbe2863a72\"\n  },\n  \"data\": {\n    \"calendar_days\": 2\n  },\n  \"artifacts\": [\n    {\n      \"path\": \"预测.csv\",\n      \"md5\": \"fc32ef0672775f3304d44f6c460e92e2\",\n      \"rows\": 2\n    },\n    {\n      \"path\": \"metrics.json\",\n      \"md5\": \"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"\n    }\n  ],\n  \"timings\": {\n    \"total_seconds\": 1.25,\n    \"nodes\": []\n  },\n  \"git_branch\": \"unit\",\n  \"git_dirty\": false\n}\n"
+    },
+    {
+      "helper": "write_export_manifest",
+      "kwargs": {
+        "config": {
+          "topk": 5,
+          "note": "预测"
+        },
+        "git_commit_sha": "unitsha",
+        "created_utc": "2026-09-13T01:02:03Z",
+        "data": {
+          "calendar_days": 2
+        },
+        "timings": {
+          "total_seconds": 2.5,
+          "nodes": []
+        },
+        "output_file_count": 2,
+        "pred_rows": 2
+      },
+      "filename": "export_20260913T010203Z.json",
+      "manifest": {
+        "schema": "myquant.run-manifest/1",
+        "stage": "export",
+        "git_commit": "unitsha",
+        "created_utc": "2026-09-13T01:02:03Z",
+        "config": {
+          "topk": 5,
+          "note": "预测",
+          "output_file_count": 2,
+          "config_hash": "3a20199a2a1c4c7cae8f7763fcffa533f1b06ea6f50fff2bbc6207ac1adbe1c7"
+        },
+        "data": {
+          "calendar_days": 2
+        },
+        "artifacts": [
+          {
+            "path": "预测.csv",
+            "md5": "fc32ef0672775f3304d44f6c460e92e2",
+            "rows": 2
+          }
+        ],
+        "timings": {
+          "total_seconds": 2.5,
+          "nodes": []
+        }
+      },
+      "json": "{\n  \"schema\": \"myquant.run-manifest/1\",\n  \"stage\": \"export\",\n  \"git_commit\": \"unitsha\",\n  \"created_utc\": \"2026-09-13T01:02:03Z\",\n  \"config\": {\n    \"topk\": 5,\n    \"note\": \"预测\",\n    \"output_file_count\": 2,\n    \"config_hash\": \"3a20199a2a1c4c7cae8f7763fcffa533f1b06ea6f50fff2bbc6207ac1adbe1c7\"\n  },\n  \"data\": {\n    \"calendar_days\": 2\n  },\n  \"artifacts\": [\n    {\n      \"path\": \"预测.csv\",\n      \"md5\": \"fc32ef0672775f3304d44f6c460e92e2\",\n      \"rows\": 2\n    }\n  ],\n  \"timings\": {\n    \"total_seconds\": 2.5,\n    \"nodes\": []\n  }\n}\n"
+    },
+    {
+      "helper": "write_sweep_parent_manifest",
+      "kwargs": {
+        "config": {
+          "topk": 5,
+          "note": "预测"
+        },
+        "git_commit_sha": "unitsha",
+        "created_utc": "2026-09-13T01:02:03Z",
+        "parent_id": "unit-parent",
+        "shared_handler_cache_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "arm_ids": [
+          {
+            "grid_id": "arm1",
+            "manifest_path": "train_arm1.json"
+          }
+        ],
+        "segments": {
+          "test": [
+            "2026-03-02",
+            "2026-03-05"
+          ]
+        },
+        "timings": {
+          "total_seconds": 0,
+          "nodes": [],
+          "unknown": true
+        }
+      },
+      "filename": "sweep_parent_unit-parent.json",
+      "manifest": {
+        "schema": "myquant.run-manifest/1",
+        "stage": "sweep_parent",
+        "git_commit": "unitsha",
+        "created_utc": "2026-09-13T01:02:03Z",
+        "config": {
+          "topk": 5,
+          "note": "预测",
+          "stage_kind": "ranking_sweep_parent",
+          "parent_id": "unit-parent",
+          "segments": {
+            "test": [
+              "2026-03-02",
+              "2026-03-05"
+            ]
+          },
+          "config_hash": "695affe8006f323a81a6c0fa179cbde4ff6adfbc7e2fd0608d43534e74ffbce1"
+        },
+        "data": {
+          "parent_id": "unit-parent",
+          "shared_handler_cache_key": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "arm_ids": [
+            {
+              "grid_id": "arm1",
+              "manifest_path": "train_arm1.json"
+            }
+          ]
+        },
+        "artifacts": [],
+        "timings": {
+          "total_seconds": null,
+          "nodes": [],
+          "unknown": true
+        }
+      },
+      "json": "{\n  \"schema\": \"myquant.run-manifest/1\",\n  \"stage\": \"sweep_parent\",\n  \"git_commit\": \"unitsha\",\n  \"created_utc\": \"2026-09-13T01:02:03Z\",\n  \"config\": {\n    \"topk\": 5,\n    \"note\": \"预测\",\n    \"stage_kind\": \"ranking_sweep_parent\",\n    \"parent_id\": \"unit-parent\",\n    \"segments\": {\n      \"test\": [\n        \"2026-03-02\",\n        \"2026-03-05\"\n      ]\n    },\n    \"config_hash\": \"695affe8006f323a81a6c0fa179cbde4ff6adfbc7e2fd0608d43534e74ffbce1\"\n  },\n  \"data\": {\n    \"parent_id\": \"unit-parent\",\n    \"shared_handler_cache_key\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n    \"arm_ids\": [\n      {\n        \"grid_id\": \"arm1\",\n        \"manifest_path\": \"train_arm1.json\"\n      }\n    ]\n  },\n  \"artifacts\": [],\n  \"timings\": {\n    \"total_seconds\": null,\n    \"nodes\": [],\n    \"unknown\": true\n  }\n}\n"
+    }
+  ]
+}

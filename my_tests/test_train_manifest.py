@@ -10,21 +10,21 @@ import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
+pytestmark = pytest.mark.usefixtures("infra_provenance")
+
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _MY_SCRIPTS = os.path.join(_ROOT, "my_scripts")
 if _MY_SCRIPTS not in sys.path:
     sys.path.insert(0, _MY_SCRIPTS)
 
-from custom_utils import TimerRecorder  # noqa: E402
 from run_manifest import load_manifest, write_train_manifest  # noqa: E402
 
 
 class _FakeTimer:
     def __init__(self):
         self.nodes = [{"name": "handler_init", "seconds": 1.25}, {"name": "model_fit", "seconds": 0.5}]
-        self._t0 = 0.0
-
-    # timings_from_recorder uses timeit.default_timer()-_t0; stub _t0 near now via real TimerRecorder instead
 
 
 def test_write_train_manifest_with_pred_and_timer(tmp_path: Path):
@@ -33,11 +33,7 @@ def test_write_train_manifest_with_pred_and_timer(tmp_path: Path):
         "datetime,instrument,score\n2026-03-02,SH600000,0.1\n2026-03-02,SZ000001,0.2\n",
         encoding="utf-8",
     )
-    rec = TimerRecorder()
-    with rec.timer("handler_init"):
-        pass
-    with rec.timer("model_fit"):
-        pass
+    rec = _FakeTimer()
 
     cfg = {
         "exp_name": "unit",
@@ -125,6 +121,7 @@ def test_train_terminal_phase_requires_manifest_before_completion(tmp_path: Path
 
 
 def test_train_required_manifest_failure_stops_completion(tmp_path: Path):
+    pytest.importorskip("qlib.workflow", reason="optional Qlib recorder integration")
     blocked = tmp_path / "manifests"
     blocked.write_bytes(b"existing file must remain intact")
     code = '''
