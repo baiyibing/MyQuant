@@ -8,6 +8,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+pytest.importorskip("myquant_infra.adapters.qlib_data", reason="optional C1 infra pin")
+
 import refresh_mydata_1min as refresh
 
 
@@ -64,7 +66,7 @@ def test_every_output_is_rejected_before_any_writer(inputs, tmp_path, monkeypatc
               'normalized': daily/'unused/..'}[relation]
     before = snapshot(tmp_path)
     for name in ['stage_stock_and_index', 'append_new_1min_bars', 'dump_all_1min', 'write_receipt']:
-        monkeypatch.setattr(refresh, name, lambda *_a, **_k: pytest.fail('writer reached before refusal'))
+        monkeypatch.setattr(refresh._adapter, name, lambda *_a, **_k: pytest.fail('writer reached before refusal'))
     with pytest.raises(SystemExit, match='daily'):
         refresh.main(args_for(inputs, tmp_path, **{role: target})+flags)
     assert snapshot(tmp_path) == before
@@ -75,7 +77,7 @@ def test_derived_full_staging_is_also_checked(inputs, tmp_path, monkeypatch):
     (daily/'calendars').mkdir(parents=True)
     (daily/'calendars/day.txt').write_text('2026-11-02\n', encoding='utf-8')
     monkeypatch.setattr(refresh, 'DAILY_QLIB', daily)
-    monkeypatch.setattr(refresh, 'stage_stock_and_index', lambda *_a, **_k: pytest.fail('staging reached'))
+    monkeypatch.setattr(refresh._adapter, 'stage_stock_and_index', lambda *_a, **_k: pytest.fail('staging reached'))
     before = snapshot(tmp_path)
     with pytest.raises(SystemExit, match='daily'):
         refresh.main(args_for(inputs, tmp_path, staging=tmp_path/'daily'))

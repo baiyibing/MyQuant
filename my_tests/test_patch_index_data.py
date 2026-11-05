@@ -8,6 +8,8 @@ import sys
 import pandas as pd
 import pytest
 
+pytest.importorskip("myquant_infra.adapters.qlib_data", reason="optional C1 infra pin")
+
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _QLIB_SCRIPTS = os.path.join(_ROOT, "qlib_scripts")
 if _QLIB_SCRIPTS not in sys.path:

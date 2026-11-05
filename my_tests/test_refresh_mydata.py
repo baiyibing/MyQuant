@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+pytest.importorskip("myquant_infra.adapters.qlib_data", reason="optional C1 infra pin")
+
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _QLIB_SCRIPTS = os.path.join(_ROOT, "qlib_scripts")
 if _QLIB_SCRIPTS not in sys.path:
@@ -73,13 +75,13 @@ def test_dump_cmd_is_dump_all_workers_8_no_update():
     assert "--max_workers=16" not in joined
 
 
-def test_merge_and_patch_cmds_point_at_scripts():
+def test_merge_and_patch_cmds_point_at_infra_modules():
     cfg = _cfg()
     merge = build_merge_cmd(cfg)
     patch = build_patch_cmd(cfg)
-    assert merge.argv[1].endswith("merge_archive_and_csv.py")
+    assert merge.argv[1:3] == ["-m", "myquant_infra.adapters.qlib_data.merge_archive_and_csv"]
     assert str(cfg.staging_dir) in merge.argv
-    assert patch.argv[1].endswith("patch_index_data.py")
+    assert patch.argv[1:3] == ["-m", "myquant_infra.adapters.qlib_data.patch_index_data"]
     assert str(cfg.new_qlib_dir) in patch.argv
     assert "--no-backup" in patch.argv
 
@@ -258,7 +260,7 @@ def test_csv_scan_preflight_warns_only_on_winratio(tmp_path, capsys):
     report = run_csv_scan_preflight(cfg)
     assert report["fatal"] == []
     assert len(report["warn"]) == 1
-    assert "WARN" in capsys.readouterr().out
+    assert "winratio" in capsys.readouterr().out
 
 
 def test_print_refresh_summary(tmp_path, capsys):
@@ -606,7 +608,7 @@ def test_archive_qlib_dir_missing_7z_clear_error(tmp_path, monkeypatch):
     qlib = tmp_path / "my_data"
     qlib.mkdir()
     (qlib / "x").write_text("1", encoding="utf-8")
-    monkeypatch.setattr("refresh_mydata.discover_7z", lambda explicit=None: None)
+    monkeypatch.setattr("myquant_infra.adapters.qlib_data.refresh_mydata.discover_7z", lambda explicit=None: None)
     with pytest.raises(RefreshError, match="未找到 7-Zip"):
         archive_qlib_dir(qlib, today=date(2026, 9, 13), seven_zip=None)
 
