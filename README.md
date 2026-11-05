@@ -37,9 +37,16 @@ pip install -e .
 
 自有 CSV 行情数据经 `qlib_scripts/dump_bin.py` 转换为 Qlib 二进制格式后使用。数据文件不入库。
 
-## 相关项目
+## 相关项目（L2 四仓分工）
 
-- [MyQuant-backtrader](https://github.com/baiyibing/MyQuant-backtrader) — 向量化研究回测（Cerebro 已于 2026-09-16 退役）；本仓库输出信号，不运行该回测账本。
+| 仓 | 职责 |
+|---|---|
+| [MyQuant-infra](https://github.com/baiyibing/MyQuant-infra) | L2 数据处理（写侧 + 湖工具 + research 读侧探索脚手架） |
+| **本仓** | L2 数据利用（`l2_signals/`：信号、定义卡、跨年验证、池导出） |
+| [MyQuant-backtrader](https://github.com/baiyibing/MyQuant-backtrader) | 回测执行（stab_t1 等；跨引擎契约）。Cerebro 已于 2026-09-16 退役 |
+| [grok-bot-ops](https://github.com/baiyibing/grok-bot-ops) | 全局配置与湖口径/历程文档；研究脚本已迁出 |
+
+细则见 [`l2_signals/README.md`](l2_signals/README.md)。
 
 ## 免责声明
 
