@@ -17,11 +17,12 @@ if str(_MY_SCRIPTS) not in sys.path:
 from handler_frame_cache import resolve_qlib_kernels  # noqa: E402
 
 # Production / near-production entrypoints that must pass kernels= explicitly.
+# build_winner_ratio delegates initialization to infra; C3's integration tests
+# check --kernels/default 1 at the existing open_local_provider boundary.
 _PROD_INIT_FILES = [
     _ROOT / "my_scripts" / "predict_extended.py",
     _ROOT / "my_scripts" / "sweep_live_adapter.py",
     _ROOT / "my_scripts" / "feature_experiments.py",
-    _ROOT / "my_scripts" / "build_winner_ratio.py",
     _ROOT / "my_scripts" / "calibrate_winner_ratio_proxy.py",
     _ROOT / "my_scripts" / "custom_train_backtest.py",
 ]
