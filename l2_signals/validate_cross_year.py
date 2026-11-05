@@ -65,9 +65,12 @@ def load_pool(year_gap: str, blayer: str = None) -> pd.DataFrame:
 
 
 def score(df: pd.DataFrame, th: dict, label: str):
-    m = (df["IMIN10"] <= th["IMIN10__le__q20"]) & \
-        (df["QTLD30"] >= th["QTLD30__ge__q80"]) & \
-        (df["RSQR5"] >= th["RSQR5__ge__q80"])
+    # 阈值来自 meta.json 的 6 位圆整，而因子在 parquet 中为 float32（如 0.2 → 0.2000000030），
+    # 直接比较会错杀边界行；与 2026 发现时（未圆整分位数）口径对齐需加容差。
+    eps = 1e-6
+    m = (df["IMIN10"] <= th["IMIN10__le__q20"] + eps) & \
+        (df["QTLD30"] >= th["QTLD30__ge__q80"] - eps) & \
+        (df["RSQR5"] >= th["RSQR5__ge__q80"] - eps)
     sub = df[m].copy()
     if not len(sub):
         print(f"[{label}] 0 触发")
