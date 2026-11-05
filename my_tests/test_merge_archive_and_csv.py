@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import os
+import pytest
+
+pytest.importorskip("myquant_infra.adapters.qlib_data", reason="optional C1 infra pin")
+
 import sys
 
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

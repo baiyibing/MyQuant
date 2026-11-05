@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("myquant_infra.adapters.qlib_data", reason="optional C1 infra pin")
+
 import sys
 from pathlib import Path
 

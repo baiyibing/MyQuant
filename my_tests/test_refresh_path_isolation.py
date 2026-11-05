@@ -8,6 +8,8 @@ import sys
 
 import pytest
 
+pytest.importorskip("myquant_infra.adapters.qlib_data", reason="optional C1 infra pin")
+
 import refresh_mydata as refresh
 
 
@@ -121,8 +123,8 @@ def cli_args(config):
 def test_main_refuses_alias_before_preflight_or_steps(config, tmp_path, monkeypatch, flags):
     config.new_qlib_dir = config.qlib_dir
     before = snapshot(tmp_path)
-    monkeypatch.setattr(refresh, 'run_preflight', lambda *_a: pytest.fail('preflight ran before refusal'))
-    monkeypatch.setattr(refresh, 'run_step', lambda *_a: pytest.fail('child command ran before refusal'))
+    monkeypatch.setattr(refresh._adapter, 'run_preflight', lambda *_a: pytest.fail('preflight ran before refusal'))
+    monkeypatch.setattr(refresh._adapter, 'run_step', lambda *_a: pytest.fail('child command ran before refusal'))
     with pytest.raises(refresh.RefreshError, match='path isolation'):
         refresh.main(cli_args(config)+flags)
     assert snapshot(tmp_path) == before

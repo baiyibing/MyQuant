@@ -5,6 +5,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+pytest.importorskip("myquant_infra.adapters.qlib_data", reason="optional C1 infra pin")
+
 SCRIPTS = Path(__file__).resolve().parents[1] / 'qlib_scripts'
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))

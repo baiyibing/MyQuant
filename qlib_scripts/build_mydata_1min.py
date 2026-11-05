@@ -1,94 +1,46 @@
 # -*- coding: utf-8 -*-
-"""First-time / smoke dump of ~/.qlib/qlib_data/my_data_1min.
+"""MQ compatibility caller; production implementation lives in myquant-infra."""
 
-Writes my_data_1min only. Never touches my_data / pred.pkl.
-Daily updates of an existing 1min provider: refresh_mydata_1min.py (incremental).
-"""
-
-from __future__ import annotations
-
-import argparse
-import sys
 from pathlib import Path
-from typing import Sequence
 
-_MY_SCRIPTS = Path(__file__).resolve().parents[1] / "my_scripts"
-if str(_MY_SCRIPTS) not in sys.path:
-    sys.path.insert(0, str(_MY_SCRIPTS))
-from data_root import resolve_index_1min_none, resolve_stock_1min_none  # noqa: E402
-from refresh_mydata_1min import clamp_workers, dump_all_1min, refuse_if_daily  # noqa: E402
-from stage_1min_from_lake import (
-    DEFAULT_MAX_WORKERS,
-    DEFAULT_STAGING,
-    stage_stock_and_index,
-)
+if __package__:
+    from . import _infra_qlib as host
+else:
+    import _infra_qlib as host
 
-DEFAULT_QLIB_DIR = Path.home() / ".qlib" / "qlib_data" / "my_data_1min"
-SMOKE_SYMBOLS = (
-    "SZ000001",
-    "SH600000",
-    "SZ000002",
-    "SH600519",
-    "SZ000858",
-    "SZ300750",
-    "SH601318",
-    "SZ000725",
-    "SH600036",
-    "SH601166",
-    "SZ002415",
-    "SZ000063",
-    "SH600276",
-    "SZ300059",
-    "SZ002594",
-    "SH601012",
-    "SZ000333",
-    "SH600900",
-    "SZ002714",
-    "SH601888",
-    "SH000300",
-)
+_adapter = host.adapter("build_mydata_1min")
+
+DEFAULT_STAGING = Path(r"D:\qlib_data\_staging_1min")
+DEFAULT_QLIB_DIR = Path.home() / ".qlib/qlib_data/my_data_1min"
+DAILY_QLIB = Path.home() / ".qlib/qlib_data/my_data"
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Stage + dump qlib 1min bins (not my_data)")
-    parser.add_argument("--lake-root", type=Path, default=None)
-    parser.add_argument("--index-lake", type=Path, default=None)
-    parser.add_argument("--skip-index", action="store_true")
-    parser.add_argument("--staging-dir", type=Path, default=DEFAULT_STAGING)
-    parser.add_argument("--qlib-dir", type=Path, default=DEFAULT_QLIB_DIR)
-    parser.add_argument("--start")
-    parser.add_argument("--end")
-    parser.add_argument("--symbols", nargs="*")
-    parser.add_argument("--all-symbols", action="store_true", help="Dump every lake partition (large)")
-    parser.add_argument("--max-workers", type=int, default=DEFAULT_MAX_WORKERS)
-    parser.add_argument("--skip-stage", action="store_true")
-    return parser
+def build_parser():
+    return host.parser_with_defaults(
+        _adapter.build_parser(), lake_root=None, staging_dir=DEFAULT_STAGING,
+        qlib_dir=DEFAULT_QLIB_DIR, daily_dir=DAILY_QLIB,
+    )
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    qlib_dir = args.qlib_dir.expanduser()
-    refuse_if_daily(qlib_dir)
-    workers = clamp_workers(args.max_workers)
-    if int(args.max_workers) > DEFAULT_MAX_WORKERS:
-        print(f"clamped --max-workers {args.max_workers} → {workers}", flush=True)
-    symbols = None if args.all_symbols else (args.symbols or list(SMOKE_SYMBOLS))
-    if not args.skip_stage:
-        written = stage_stock_and_index(
-            args.lake_root or resolve_stock_1min_none(),
-            None if args.skip_index else (args.index_lake or resolve_index_1min_none()),
-            args.staging_dir,
-            symbols=symbols,
-            start=args.start,
-            end=args.end,
-            max_workers=workers,
-        )
-        if not written:
-            raise SystemExit("no 1m parquet staged; check lake path / symbols / window")
-        print(f"staged {len(written)} → {args.staging_dir}")
-    dump_all_1min(args.staging_dir, qlib_dir, workers)
-    print(f"qlib 1min dir → {qlib_dir}")
-    return 0
+def main(argv=None):
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    _adapter.refuse_if_daily(args.qlib_dir, args.daily_dir)
+    _adapter.refuse_if_daily(args.staging_dir, args.daily_dir)
+    if args.skip_stage:
+        # A prepared staging batch needs no lake configuration.
+        _adapter.require_disjoint([args.qlib_dir, args.staging_dir],
+                                  [args.daily_dir, args.lake_root, args.index_lake])
+        workers = _adapter.clamp_workers(args.max_workers)
+        _adapter.dump_all_1min(args.staging_dir, args.qlib_dir.expanduser(), workers)
+        print("qlib 1min dir → " + str(args.qlib_dir.expanduser()))
+        return 0
+    args = host.minute_paths(args)
+    return _adapter.main(host.arguments(parser, args))
+
+
+def __getattr__(name):
+    return getattr(_adapter, name)
 
 
 if __name__ == "__main__":
