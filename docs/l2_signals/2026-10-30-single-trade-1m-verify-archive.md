@@ -1,6 +1,6 @@
 # 归档：单笔≥100万「放量×主动买」验证（2026-10-30）
 
-> 历史反指实验。脚本已从 ops 迁入 `l2_signals/archive_single_trade_1m/`。
+> 历史反指实验。脚本已迁入 MyQuant-infra `scripts/l2/archive_single_trade_1m/`（L2 数据处理归 infra）。
 > 全文数字与过程见 ops：`docs/ops/l2-bigorder-signal-verify-20261030.md`。
 
 ## 口径（≠ 现行信号 SSOT）
@@ -24,4 +24,4 @@
 
 ## 复现入口
 
-见 `l2_signals/archive_single_trade_1m/README.md`。
+见 MyQuant-infra `scripts/l2/archive_single_trade_1m/README.md`。
