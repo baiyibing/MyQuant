@@ -128,14 +128,19 @@ def test_load_extra_exclude_missing_file():
     assert load_extra_exclude("Z:/definitely/not/exist.txt") == set()
 
 
-def test_drop_excluded():
+@pytest.fixture
+def universe_infra():
+    return pytest.importorskip("myquant_infra.adapters.qlib_data.universe", reason="optional C4 infra pin")
+
+
+def test_drop_excluded(universe_infra):
     lines = ["sz000001\t2020-01-02\t2026-09-08", "SH600000\t2020-01-02\t2026-09-08"]
     keep, dropped = drop_excluded(lines, {"SZ000001"})
     assert keep == ["SH600000\t2020-01-02\t2026-09-08"]
     assert dropped == ["SZ000001"]  # 大小写不敏感
 
 
-def test_shift_start_for_age():
+def test_shift_start_for_age(universe_infra):
     cal = pd.DatetimeIndex(pd.to_datetime([d.strftime("%Y-%m-%d") for d in CAL]))
     lines = [
         "SH600000\t2020-01-02\t2026-09-08",   # 日历外起始（老股）→ 不动
@@ -148,7 +153,7 @@ def test_shift_start_for_age():
     assert out[2] == "SZ300002\t9999-12-31\t2026-09-08"
 
 
-def test_shift_start_matches_strategy_age_map():
+def test_shift_start_matches_strategy_age_map(universe_infra):
     """构建器顺延结果与 BuyEligibilityFilter 的最早可买日一致（同一日历同一偏移）。"""
     cal = pd.DatetimeIndex(pd.to_datetime([d.strftime("%Y-%m-%d") for d in CAL]))
     lines = ["SZ300001\t2026-01-05\t2026-09-08"]
