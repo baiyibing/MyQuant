@@ -238,6 +238,7 @@ def test_assert_disk_space_refuses_small_dump_drive(tmp_path):
 
 
 def test_csv_scan_preflight_rejects_ohlc_junk(tmp_path):
+    pytest.importorskip("myquant_infra.data_validation.csv_float")
     csv_dir = tmp_path / "csv"
     csv_dir.mkdir()
     (csv_dir / "SH600000.csv").write_text("date,close\n2020-01-02,-1.#J\n", encoding="utf-8")
@@ -247,6 +248,7 @@ def test_csv_scan_preflight_rejects_ohlc_junk(tmp_path):
 
 
 def test_csv_scan_preflight_warns_only_on_winratio(tmp_path, capsys):
+    pytest.importorskip("myquant_infra.data_validation.csv_float")
     csv_dir = tmp_path / "csv"
     csv_dir.mkdir()
     (csv_dir / "SH600157.csv").write_text(
