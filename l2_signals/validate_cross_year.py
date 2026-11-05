@@ -16,18 +16,20 @@ import numpy as np
 import pandas as pd
 
 A158 = "E:/stock_data/l2_research/alpha158_daily.parquet"
-BLAYER = "J:/l2_lake/rollup/bigorder_daily_2025.parquet"
 FF = "E:/stock_data/free_float_shares.parquet"
 ROLLUP = "J:/l2_lake/rollup/daily_stock/version=l2-daily-v3/params=a2e3a427af892982d0ce/date=*/part.parquet"
 META = "E:/stock_data/l2_research/signals/stab_low_trend_2026.meta.json"
-OUT_CSV = "E:/stock_data/l2_research/signals/stab_low_trend_2025.csv"
 
-GAP = "2025-01-02"
-MID = pd.Timestamp("2025-07-01")
+YEAR = 2025
+BLAYER = "J:/l2_lake/rollup/bigorder_daily_{YEAR}.parquet"
+GAP = "{YEAR}-01-02"
+MID = "{YEAR}-07-01"
+OUT_CSV = "E:/stock_data/l2_research/signals/stab_low_trend_{YEAR}.csv"
 COST = 0.0012
 
 
-def load_pool(year_gap: str) -> pd.DataFrame:
+def load_pool(year_gap: str, blayer: str = None) -> pd.DataFrame:
+    blayer = blayer or BLAYER.format(YEAR=YEAR)
     con = duckdb.connect()
     big = con.execute(f"""
         SELECT CAST(d AS DATE) d, stock_code,
@@ -36,7 +38,7 @@ def load_pool(year_gap: str) -> pd.DataFrame:
                buyord10w_active_amt baam, saleord10w_active_amt saam,
                bov / lag(bov) OVER (PARTITION BY stock_code ORDER BY d) c1x,
                CASE WHEN lag(bov) OVER (PARTITION BY stock_code ORDER BY d) > 0 THEN 1 ELSE 0 END prev_bov_pos
-        FROM read_parquet('{BLAYER}') ORDER BY stock_code, d""").fetchdf()
+        FROM read_parquet('{blayer}') ORDER BY stock_code, d""").fetchdf()
     pool = big[(big["c1x"] >= 2.0) & (big["prev_bov_pos"] == 1) & (big["d"] >= year_gap)].copy()
 
     px = con.execute(f"""
@@ -57,7 +59,7 @@ def load_pool(year_gap: str) -> pd.DataFrame:
     df["ret1"] = df["t1_close"] / df["close_px"] - 1
     n_all = len(df)
     df = df[df["KMID"] != 0].copy()  # 可交易过滤（与 2026 同口径）
-    df["h2"] = df["d"] >= MID
+    df["h2"] = df["d"] >= pd.Timestamp(str(MID))
     print(f"[pool] C1 {n_all:,} → 可交易 {len(df):,}")
     return df
 
@@ -100,23 +102,28 @@ def economics(sub: pd.DataFrame, label: str, min_n: int = 0):
 
 
 def main():
+    global GAP, MID, OUT_CSV, BLAYER
     ap = argparse.ArgumentParser()
-    ap.add_argument("--gap", default=GAP)
+    ap.add_argument("--year", type=int, default=2025)
     args = ap.parse_args()
+    GAP = GAP.format(YEAR=args.year)
+    MID = MID.format(YEAR=args.year)
+    OUT_CSV = OUT_CSV.format(YEAR=args.year)
+    BLAYER = BLAYER.format(YEAR=args.year)
 
     meta = json.load(open(META, encoding="utf-8"))
     th = meta["thresholds_h1_quantiles"]
     print(f"[frozen] 2026-H1 阈值: {th}")
 
-    df = load_pool(args.gap)
+    df = load_pool(GAP)
     h1b = df[~df["h2"]]["win"].mean() * 100
     h2b = df[df["h2"]]["win"].mean() * 100
     print(f"[baseline] C1 可交易池 T+1 胜率: H1 {h1b:.1f}% / H2 {h2b:.1f}%")
 
-    sub = score(df, th, "STAB_LOW_TREND @2025（冻结阈值）")
+    sub = score(df, th, f"STAB_LOW_TREND @{args.year}（冻结阈值）")
     if len(sub):
         print("  --- 朴素经济性（口径B，仅对照）---")
-        economics(sub, "2025", min_n=3)
+        economics(sub, str(args.year), min_n=3)
 
         out = sub[["d", "stock_code", "close_px", "t1_close", "ret1", "win",
                    "IMIN10", "QTLD30", "RSQR5"]].copy()
