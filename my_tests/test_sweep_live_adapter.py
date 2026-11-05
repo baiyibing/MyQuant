@@ -123,6 +123,7 @@ def _toy_pred_label():
     return pred, label
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_payload_config_contains_effective_segments(monkeypatch: pytest.MonkeyPatch):
     pred, label = _toy_pred_label()
     monkeypatch.setattr(sla, "_build_pred_label", lambda: (pred, label))
@@ -136,6 +137,7 @@ def test_payload_config_contains_effective_segments(monkeypatch: pytest.MonkeyPa
     assert segs["test"] == ["2026-04-01", "2026-08-31"]
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_payload_config_default_segments_without_set(monkeypatch: pytest.MonkeyPatch):
     """未调 set_segments 时 payload 仍带默认三月窗，manifest 可区分。"""
     pred, label = _toy_pred_label()
@@ -147,6 +149,7 @@ def test_payload_config_default_segments_without_set(monkeypatch: pytest.MonkeyP
     assert segs["test"] == ["2026-03-01", "2026-03-23"]
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_manifest_receives_payload_segments(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     pred, label = _toy_pred_label()
     monkeypatch.setattr(sla, "_build_pred_label", lambda: (pred, label))
@@ -165,6 +168,7 @@ def test_manifest_receives_payload_segments(tmp_path: Path, monkeypatch: pytest.
     assert man["config"]["stage_kind"] == "ranking_sweep"
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_make_shared_handler_cache_key_stable_and_segment_sensitive():
     k1 = sla.make_shared_handler_cache_key(MARCH)
     k2 = sla.make_shared_handler_cache_key(MARCH)
@@ -174,6 +178,7 @@ def test_make_shared_handler_cache_key_stable_and_segment_sensitive():
     assert k_oos != k1
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_init_once_three_arms_same_key(monkeypatch: pytest.MonkeyPatch):
     """同一 segments 下 3 臂只构建 1 次；首臂 INIT_ONCE，后两臂 ARM_ONLY。"""
     pred, label = _toy_pred_label()
@@ -204,6 +209,7 @@ def test_init_once_three_arms_same_key(monkeypatch: pytest.MonkeyPatch):
     assert payloads[1]["timings"].get("unknown") is not True
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_set_segments_forces_rebuild_and_new_key(monkeypatch: pytest.MonkeyPatch):
     """换窗后必须重新构建且 shared_handler_cache_key 变化。"""
     pred, label = _toy_pred_label()
@@ -238,6 +244,7 @@ def test_set_segments_forces_rebuild_and_new_key(monkeypatch: pytest.MonkeyPatch
     assert key2 == sla.make_shared_handler_cache_key(OOS)
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_manifest_receives_arm_mode_and_cache_key(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     pred, label = _toy_pred_label()
     monkeypatch.setattr(sla, "_build_pred_label", lambda: (pred, label))
@@ -276,6 +283,7 @@ def _write_toy_pred_label_csvs(tmp_path: Path):
     return pred_path, sla._label_sidecar_path(pred_path), pred, label
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_pred_from_hit_skips_build(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     pred_path, label_path, _pred, _label = _write_toy_pred_label_csvs(tmp_path)
     builds = {"n": 0}
@@ -300,6 +308,7 @@ def test_pred_from_hit_skips_build(tmp_path: Path, monkeypatch: pytest.MonkeyPat
     assert p2["data"]["arm_mode"] == "ARM_ONLY"
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_pred_from_missing_file_miss(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     missing = tmp_path / "nope.csv"
     builds = {"n": 0}
@@ -315,6 +324,7 @@ def test_pred_from_missing_file_miss(tmp_path: Path, monkeypatch: pytest.MonkeyP
     assert builds["n"] == 0  # must not fall through to build
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_pred_from_empty_table_miss(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     empty = tmp_path / "empty.csv"
     empty.write_text("datetime,instrument,score\n", encoding="utf-8")
@@ -330,6 +340,7 @@ def test_pred_from_empty_table_miss(tmp_path: Path, monkeypatch: pytest.MonkeyPa
         sla.train_predict_fn(SweepConfig(5, 2, 1))
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_pred_from_missing_label_miss(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     pred, _label = _toy_pred_label()
     pred_path = tmp_path / "pred_only.csv"
@@ -344,6 +355,7 @@ def test_pred_from_missing_label_miss(tmp_path: Path, monkeypatch: pytest.Monkey
         sla.train_predict_fn(SweepConfig(5, 2, 1))
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_pred_from_key_mismatch_miss(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     pred_path, label_path, _p, _l = _write_toy_pred_label_csvs(tmp_path)
     # meta was written for MARCH; switch to OOS → key mismatch
@@ -356,6 +368,7 @@ def test_pred_from_key_mismatch_miss(tmp_path: Path, monkeypatch: pytest.MonkeyP
         sla.train_predict_fn(SweepConfig(5, 2, 1))
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_pred_out_then_pred_from_metrics_match(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     pred, label = _toy_pred_label()
     monkeypatch.setattr(sla, "_build_pred_label", lambda: (pred, label))

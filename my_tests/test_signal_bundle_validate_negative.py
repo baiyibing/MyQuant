@@ -11,6 +11,8 @@ from myquant_contract.signal_bundle import (
     validate_signal_bundle,
 )
 
+pytestmark = pytest.mark.usefixtures("infra_signal_bundle")
+
 
 @pytest.fixture
 def valid_bundle() -> dict[str, Any]:

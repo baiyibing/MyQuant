@@ -10,6 +10,8 @@ import my_scripts.export_daily_pool as edp
 import pytest
 from myquant_contract import canonical_json_bytes, validate_signal_bundle
 
+pytestmark = pytest.mark.usefixtures("infra_provenance")
+
 
 @pytest.fixture
 def prediction(tmp_path, monkeypatch):

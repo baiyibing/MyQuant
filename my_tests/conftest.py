@@ -13,6 +13,8 @@ from __future__ import annotations
 import os
 import sys
 
+import pytest
+
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _MY_SCRIPTS = os.path.join(_ROOT, "my_scripts")
 _QLIB_SCRIPTS = os.path.join(_ROOT, "qlib_scripts")
@@ -28,3 +30,14 @@ def _pin_my_scripts_first() -> None:
 
 
 _pin_my_scripts_first()
+
+
+@pytest.fixture
+def infra_provenance():
+    """Only tests exercising shared provenance need the optional private pin."""
+    return pytest.importorskip("myquant_infra.artifacts.provenance", reason="optional C6 infra pin")
+
+
+@pytest.fixture
+def infra_signal_bundle():
+    return pytest.importorskip("myquant_infra.contracts.signal_bundle", reason="optional C6 infra pin")

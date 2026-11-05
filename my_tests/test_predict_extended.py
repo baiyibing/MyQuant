@@ -133,6 +133,7 @@ def test_pred_series_to_frame_from_multiindex():
     assert frame.iloc[0]["instrument"] == "SZ300190"
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_run_with_injected_predict_writes_csv_and_manifest(tmp_path: Path):
     def fake(segs, provider_uri=None):
         assert segs == DEFAULT
@@ -180,6 +181,7 @@ def test_run_with_injected_predict_writes_csv_and_manifest(tmp_path: Path):
     assert man["config"]["handler_end"] == "2026-09-14"
 
 
+@pytest.mark.usefixtures("infra_provenance")
 def test_main_rejects_unordered_segments(capsys):
     rc = main(
         [

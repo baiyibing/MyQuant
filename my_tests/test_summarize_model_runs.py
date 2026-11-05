@@ -6,19 +6,23 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+pytestmark = pytest.mark.usefixtures("infra_provenance")
 
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _MY_SCRIPTS = os.path.join(_ROOT, "my_scripts")
 if _MY_SCRIPTS not in sys.path:
     sys.path.insert(0, _MY_SCRIPTS)
 
-from custom_utils import TimerRecorder  # noqa: E402
 from run_manifest import write_train_manifest  # noqa: E402
 from summarize_model_runs import collect_rows, format_table  # noqa: E402
 
 
 def test_collect_and_format(tmp_path: Path):
-    rec = TimerRecorder()
+    rec = SimpleNamespace(nodes=[])
     rec.nodes.extend(
         [
             {"name": "handler_init", "seconds": 5.0},

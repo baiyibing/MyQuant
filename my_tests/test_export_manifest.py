@@ -10,6 +10,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("infra_provenance")
+
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _MY_SCRIPTS = os.path.join(_ROOT, "my_scripts")
 if _MY_SCRIPTS not in sys.path:
