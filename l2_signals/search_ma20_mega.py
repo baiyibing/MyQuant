@@ -31,6 +31,15 @@ MID_MONTH = 7          # H1/H2 切分月
 RATIO_TH = 0.02        # 净大单量/流通 阈值
 WARMUP_DAYS = 70       # MA20 预热（跨年取前一年 12 月）
 
+
+def limit_pct(code: str) -> float:
+    """按板块给涨停幅（近似：未识别 ST 5%）。涨停收盘=T 收盘竞价封死，买不进。"""
+    if code.startswith(("688", "689")) or code.startswith("30"):
+        return 0.20
+    if code[:3] in ("920", "430", "830", "870", "880") or code.startswith(("83", "87", "88", "43")):
+        return 0.30
+    return 0.10
+
 # 固定值条件（沿用六信号族 + gen2 新增）。op: le/ge/gt/lt/eq/mid
 FIXED_CUTS = [
     ("bs<0.10", "bs", "lt", 0.10), ("bs>0.10", "bs", "gt", 0.10), ("bs>0.20", "bs", "gt", 0.20),
@@ -49,8 +58,12 @@ FIXED_CUTS = [
 ]
 
 
-def load_year(year: int) -> pd.DataFrame:
-    """gen2 池：净大单量/流通>2% × MA20上穿(当日或昨日首站)，含 158 因子 + 大单 + MA20 特征。"""
+def load_year(year: int, exclude_limit_close: bool = False) -> pd.DataFrame:
+    """gen2 池：净大单量/流通>2% × MA20上穿(当日或昨日首站)，含 158 因子 + 大单 + MA20 特征。
+
+    exclude_limit_close=True 时剔除信号日收盘涨停（可买性硬条件，v2 搜索用）：
+    引擎验证发现 MAX5<=1.0 指纹下 98-100% 信号日收盘涨停，T 收盘入场不可行。
+    """
     con = duckdb.connect()
     big = con.execute(f"""
         SELECT CAST(d AS DATE) d, stock_code,
@@ -92,6 +105,11 @@ def load_year(year: int) -> pd.DataFrame:
     df["nfr"] = ((df["bam"] - df["sam"]) / (df["ffv"] * df["close_px"])).where(ok)
 
     pool = df[(df["nfr_vol"] > RATIO_TH) & (df["cross_age"] >= 0)].copy()
+    if exclude_limit_close:
+        lp = pool["stock_code"].map(limit_pct)
+        n0 = len(pool)
+        pool = pool[pool["ret_prev"] < lp - 0.0015].copy()  # ret_prev 列 = 信号日当日涨幅
+        print(f"[buyable {year}] 剔除收盘涨停 {n0 - len(pool):,} 行，余 {len(pool):,}")
 
     fact = pd.read_parquet(A158, columns=None)
     fact["d"] = pd.to_datetime(fact["d"])
@@ -183,11 +201,13 @@ def main():
     ap.add_argument("--top-single", type=int, default=30)
     ap.add_argument("--top-pairs", type=int, default=60)
     ap.add_argument("--xyear-diag", default="2023,2024,2025", help="跨年诊断年份（逗号分隔，空=关）")
+    ap.add_argument("--exclude-limit-close", action="store_true",
+                    help="v2：池剔除信号日收盘涨停（可买性硬条件，见引擎验证教训）")
     ap.add_argument("--out", default=OUT)
     args = ap.parse_args()
 
     t0 = time.time()
-    df = load_year(args.year)
+    df = load_year(args.year, exclude_limit_close=args.exclude_limit_close)
     h1, h2 = df[~df["h2"]], df[df["h2"]]
     print(f"[base] H1 {len(h1):,}({h1['win'].mean()*100:.1f}%)  H2 {len(h2):,}({h2['win'].mean()*100:.1f}%)  {time.time()-t0:.0f}s")
 
@@ -288,7 +308,7 @@ def main():
         diag_years = [int(y) for y in args.xyear_diag.split(",") if y.strip()]
         cand = sorted(results, key=lambda r: (-r["depth"], -r["wr"]))[:10]
         print(f"\n== 跨年诊断（冻结 {args.year}-H1 条件，前 10 组合 × {diag_years}）==")
-        pools = {y: load_year(y) for y in diag_years}
+        pools = {y: load_year(y, exclude_limit_close=args.exclude_limit_close) for y in diag_years}
         for row in cand:
             conds = row["combo"].split(" & ")
             line = [f"{row['combo']}"]

@@ -130,14 +130,15 @@ CATALOG: list[dict[str, Any]] = [
         "id": "MEGA_MA20_BREAK",
         "zh": "大单破线确认",
         "gen": 2,
-        "status": "candidate",
+        "status": "deprecated",
         "conds_human": "净大单量/流通>2% & MA20当日首站(cross_age=0) & MAX5<=1.0"
                        " & SUMP20>=q80 & VSUMP20=mid（剔 KMID=0）；阈值冻结自 2026-H1",
         "card": "docs/l2_signals/2026-11-05-mega-ma20-break-signal-card.md",
         "reproduce": "l2_signals/export_signal.py --signal MEGA_MA20_BREAK",
-        "notes": "四年个体显著：62.3/74.5/62.5/71.2%（2023-2026，二项 p 全<0.05），"
-                 "合计 243@67.1%。注意：A0 选择参考过跨年诊断，非严格样本外"
-                 "（validate_ma20_mega_break.py 头部声明）。池为 gen2 池，非 C1。",
+        "notes": "预测真实不可收割：四年 62.3/74.5/62.5/71.2% 显著=涨停次日延续统计，"
+                 "但信号日 98-100% 收盘涨停（条件指纹即涨停突破），T 收盘买不进"
+                 "（引擎 -17.97%，19/59 成交）；T+1 开/收入场四年不稳；"
+                 "可买池 v2 搜索（--exclude-limit-close）无跨年信号。见卡八-B。",
     },
 ]
 

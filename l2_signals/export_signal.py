@@ -48,6 +48,7 @@ SIGNALS = {
         "file": "ma20_mega_break_2026.csv",
         "ctx_cols": ["nfr_vol", "nfr", "bs", "ddxr", "c1x", "pr", "nbam_m", "KMID", "ret_prev",
                      "ma20_dist", "cross_age"],
+        "deprecated": True,  # 引擎验证：信号日 98-100% 收盘涨停，T 收盘不可买（卡八-B）
     },
 }
 for _sid in SIGNALS:

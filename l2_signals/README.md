@@ -44,7 +44,7 @@ infra `l2/research` 可做贴湖假说探查，但**不是 signals**；命名信
 | `DIP_CATCH_FALL` | 接刀吸筹 | 0 | rejected |
 | `STAB_LOW_TREND` | 低位企稳趋势 | 1 | candidate（主线） |
 | `QUIET_LOW_TREND` | 安静低位趋势（废弃） | 1 | deprecated |
-| `MEGA_MA20_BREAK` | 大单破线确认 | 2 | candidate（四年稳） |
+| `MEGA_MA20_BREAK` | 大单破线确认 | 2 | deprecated（涨停不可买） |
 
 易混：`QUIET_DIP_ACCUM`（gen0 六族）≠ `QUIET_LOW_TREND`（gen1 已废弃）。
 日常说「缩量阴线吸筹」→ `QUIET_DIP_ACCUM`；说现在在验的信号 → `STAB_LOW_TREND`。
@@ -62,7 +62,7 @@ gen0 六族索引与定义卡：[`docs/l2_signals/2026-11-04-gen0-signal-family-
 | `alpha158_spec.json` | 官方 158 因子表达式（从 `qlib.contrib.data.loader.Alpha158DL` 导出，作为对齐基准） |
 | `alpha158_build.py` | core rollup OHLCV → 158 因子 parquet（pandas 复刻 qlib 语义） |
 | `search_alpha158.py` | C1 池（大单量≥2×前日）+ 大单特征 + 168 维贪心搜索（H1/H2 切分） |
-| `search_ma20_mega.py` | gen2 池（净大单量/流通>2% × MA20 上穿）+ Alpha158 贪心搜索 + 内置跨年冻结诊断（→ [MEGA_MA20_BREAK 候选](../docs/l2_signals/2026-11-05-ma20-mega-gen2-search.md)） |
+| `search_ma20_mega.py` | gen2 池（净大单量/流通>2% × MA20 上穿）+ Alpha158 贪心搜索 + 内置跨年冻结诊断；`--exclude-limit-close` 可买性硬过滤（→ [MEGA_MA20_BREAK 已 deprecated](../docs/l2_signals/2026-11-05-ma20-mega-gen2-search.md)） |
 | `validate_ma20_mega_break.py` | MEGA_MA20_BREAK 冻结阈值跨年打分（发现年不覆写 export 文件） |
 | `baseline_signal_search.py` | grok-bot-ops 初代搜索脚本存档（六信号族条件定义的原始出处） |
 | `export_signal.py` | 命名信号导出（`--signal STAB_LOW_TREND`） |
