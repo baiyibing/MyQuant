@@ -8,7 +8,10 @@ if __package__:
 else:
     import _infra_qlib as host
 
-_adapter = host.adapter("stage_etf_daily_from_lake")
+
+def _load_backend():
+    return host.adapter("stage_etf_daily_from_lake")
+
 
 DEFAULT_STAGING = Path(r"D:\qlib_data\_staging_etf_1d")
 resolve_etf_front_root = host.etf_front_root
@@ -16,19 +19,20 @@ resolve_etf_front_root = host.etf_front_root
 
 def build_parser():
     return host.parser_with_defaults(
-        _adapter.build_parser(), lake_root=None, staging_dir=DEFAULT_STAGING,
+        host.cli.stage_etf_daily_from_lake_parser(), lake_root=None, staging_dir=DEFAULT_STAGING,
     )
 
 
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
+    backend = _load_backend()
     args.lake_root = resolve_etf_front_root(args.lake_root)
-    return _adapter.main(host.arguments(parser, args))
+    return backend.main(host.arguments(parser, args))
 
 
 def __getattr__(name):
-    return getattr(_adapter, name)
+    return host.adapter_attribute(_load_backend, name)
 
 
 if __name__ == "__main__":

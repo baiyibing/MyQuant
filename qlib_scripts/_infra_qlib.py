@@ -5,7 +5,13 @@ from importlib import import_module
 from pathlib import Path
 import sys
 
+cli = import_module("._qlib_cli", __package__) if __package__ else import_module("_qlib_cli")
+
 PACKAGE = "myquant_infra.adapters.qlib_data"
+
+
+class InstallError(ModuleNotFoundError):
+    """The optional C1 production dependency is not installed."""
 
 
 def adapter(name):
@@ -13,13 +19,21 @@ def adapter(name):
         return import_module(PACKAGE + "." + name)
     except ModuleNotFoundError as exc:
         missing = exc.name or ""
-        if missing == "myquant_infra" or missing.startswith(PACKAGE):
-            raise ModuleNotFoundError(
+        if missing in {"myquant_infra", "myquant_infra.adapters", PACKAGE, PACKAGE + "." + name}:
+            raise InstallError(
                 "C1 qlib production requires the optional requirements-infra.txt pin; "
                 "install it with python -m pip install -r requirements-infra.txt",
                 name=exc.name,
             ) from exc
         raise
+
+
+def adapter_attribute(load_backend, name):
+    # Import machinery probes __path__; introspection must not load production.
+    if name.startswith("__"):
+        raise AttributeError(name)
+    backend = load_backend()
+    return backend if name == "_adapter" else getattr(backend, name)
 
 
 def data_roots():

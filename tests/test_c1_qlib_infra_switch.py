@@ -1,6 +1,6 @@
 """Host delegation and real local production, with optional infra and no live inputs."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 import importlib
 import importlib.util
 import json
@@ -64,8 +64,15 @@ def load_stub(monkeypatch, name):
 
 @pytest.mark.parametrize("name", MODULES)
 def test_host_import_delegates_without_optional_dependencies(monkeypatch, name):
+    from qlib_scripts import _infra_qlib as host
+
+    calls = []
+    original = host.adapter
+    monkeypatch.setattr(host, "adapter", lambda name: calls.append(name) or original(name))
     caller, stub = load_stub(monkeypatch, name)
+    assert calls == []
     assert caller.production_operation is stub.production_operation
+    assert calls == [name]
     assert caller._adapter is stub
 
 
@@ -74,11 +81,92 @@ def test_missing_optional_pin_is_actionable_and_writes_nothing(tmp_path, name):
     # -S excludes site packages; the empty PYTHONPATH also excludes local infra copies.
     env = dict(os.environ, PYTHONPATH="")
     script = ROOT / "qlib_scripts" / (name + ".py")
-    result = subprocess.run([sys.executable, "-S", str(script), "--help"], cwd=tmp_path,
+    args = {
+        "merge_archive_and_csv": ["--archive-dir", "archive", "--out-dir", "staging"],
+        "dump_bin": ["dump_all", "--data_path", "csv", "--qlib_dir", "provider"],
+        "check_dump_bin": ["--qlib_dir", "provider", "--csv_path", "csv", "check"],
+        "check_data_health": ["--csv_path", "csv", "check_data"],
+    }.get(name, [])
+    command = [sys.executable, "-S", str(script), *args]
+    if name == "qlib_1min_increment_receipt":
+        code = (
+            "import sys; sys.path.insert(0, " + repr(str(ROOT)) + "); "
+            "from qlib_scripts import " + name + " as caller; caller.sha256_file('unused')"
+        )
+        command = [sys.executable, "-S", "-c", code]
+    result = subprocess.run(command, cwd=tmp_path,
                             env=env, text=True, capture_output=True, timeout=20)
     assert result.returncode != 0
     assert "requirements-infra.txt" in result.stderr
+    assert "InstallError" in result.stderr
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("name", MODULES)
+def test_import_without_infra_does_not_load_backend(tmp_path, name):
+    code = (
+        "import sys; sys.path.insert(0, " + repr(str(ROOT)) + "); "
+        "from qlib_scripts import " + name + "; "
+        "assert not any(n.startswith('myquant_infra') for n in sys.modules)"
+    )
+    result = subprocess.run([sys.executable, "-S", "-c", code], cwd=tmp_path,
+                            env=dict(os.environ, PYTHONPATH=""), text=True,
+                            capture_output=True, timeout=20)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("name", [name for name in MODULES if name != "qlib_1min_increment_receipt"])
+def test_help_without_infra_writes_nothing(tmp_path, name):
+    script = ROOT / "qlib_scripts" / (name + ".py")
+    result = subprocess.run([sys.executable, "-S", str(script), "--help"], cwd=tmp_path,
+                            env=dict(os.environ, PYTHONPATH=""), text=True,
+                            capture_output=True, timeout=20)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "usage:" in result.stdout.lower()
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("name", [name for name in MODULES if name != "qlib_1min_increment_receipt"])
+def test_help_never_loads_production_adapter(monkeypatch, name):
+    caller, _stub = load_stub(monkeypatch, name)
+    monkeypatch.setattr(caller.host, "adapter", lambda *_: pytest.fail("loaded production adapter"))
+    with pytest.raises(SystemExit) as exc:
+        caller.main(["--help"])
+    assert exc.value.code == 0
+
+
+@pytest.mark.parametrize("skip", ["skip_merge", "skip_csv_scan"])
+def test_skipped_csv_preflight_never_loads_production_adapter(monkeypatch, skip):
+    caller, _stub = load_stub(monkeypatch, "refresh_mydata")
+    monkeypatch.setattr(caller.host, "adapter", lambda *_: pytest.fail("loaded production adapter"))
+    assert caller.run_csv_scan_preflight(caller.RefreshConfig(**{skip: True})) is None
+
+
+@pytest.mark.parametrize("kwargs", [{"csv_validator": object()},
+                                   {"csv_validator_spec": "fixture:scan"}])
+def test_explicit_csv_validator_uses_adapter_contract(monkeypatch, kwargs):
+    caller, stub = load_stub(monkeypatch, "refresh_mydata")
+    calls = []
+    report = {"fatal": []}
+    stub.run_csv_scan_preflight = lambda cfg: calls.append(cfg) or report
+    cfg = caller.RefreshConfig(**kwargs)
+    assert caller.run_csv_scan_preflight(cfg) is report
+    assert calls == [cfg]
+
+
+def test_backend_dependency_failure_is_not_relabelled(monkeypatch):
+    from qlib_scripts import _infra_qlib as host
+
+    error = ModuleNotFoundError("missing adapter dependency", name="pandas")
+
+    def fail(_name):
+        raise error
+
+    monkeypatch.setattr(host, "import_module", fail)
+    with pytest.raises(ModuleNotFoundError) as exc:
+        host.adapter("refresh_mydata")
+    assert exc.value is error
 
 
 @pytest.mark.parametrize("name,method", [("check_dump_bin", "check"),
@@ -106,6 +194,33 @@ def test_checker_method_name_can_also_be_an_option_value(monkeypatch, name, meth
 def adapters():
     pytest.importorskip(PACKAGE, reason="optional C1 infra pin")
     return {name: importlib.import_module("qlib_scripts." + name) for name in MODULES}
+
+
+@pytest.mark.parametrize("name", [name for name in MODULES if name != "qlib_1min_increment_receipt"])
+def test_host_cli_declarations_match_pinned_infra(adapters, name):
+    from qlib_scripts import _qlib_cli
+
+    module = importlib.import_module(PACKAGE + "._arguments")
+    parser_name = name + "_parser"
+    if name in {"dump_bin", "check_dump_bin", "check_data_health"}:
+        module = importlib.import_module(PACKAGE + ".cli")
+        parser_name = {"dump_bin": "dump_parser", "check_dump_bin": "check_bin_parser",
+                       "check_data_health": "health_parser"}[name]
+
+    def declarations(parser):
+        return [(a.dest, a.option_strings, type(a), a.type, a.nargs, a.required, a.default, a.choices)
+                for a in parser._actions]
+
+    assert declarations(getattr(_qlib_cli, parser_name)()) == declarations(getattr(module, parser_name)())
+
+
+@pytest.mark.parametrize("name,config", [("refresh_mydata", "RefreshConfig"),
+                                         ("build_etf_qlib", "BuildConfig")])
+def test_host_config_fields_match_pinned_infra(adapters, name, config):
+    caller = adapters[name]
+    assert {f.name for f in fields(getattr(caller, config))} == {
+        f.name for f in fields(getattr(caller._adapter, config))
+    }
 
 
 def cli(tmp_path, name, args):

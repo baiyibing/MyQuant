@@ -6,15 +6,20 @@ if __package__:
 else:
     import _infra_qlib as host
 
-_adapter = host.adapter("check_data_health")
+
+def _load_backend():
+    return host.adapter("check_data_health")
 
 
 def main(argv=None):
-    return _adapter.main(host.legacy_fire_arguments(argv, "check_data"))
+    argv = host.legacy_fire_arguments(argv, "check_data")
+    if "--help" in argv or "-h" in argv:
+        host.cli.health_parser().parse_args(argv)
+    return _load_backend().main(argv)
 
 
 def __getattr__(name):
-    return getattr(_adapter, name)
+    return host.adapter_attribute(_load_backend, name)
 
 
 if __name__ == "__main__":
