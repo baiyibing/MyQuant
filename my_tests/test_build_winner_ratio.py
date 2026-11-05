@@ -6,6 +6,9 @@ import os
 import sys
 
 import numpy as np
+import pytest
+
+kernel = pytest.importorskip("myquant_infra.derived_data.cyq._kernel")
 
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _MY_SCRIPTS = os.path.join(_ROOT, "my_scripts")
@@ -99,26 +102,20 @@ def test_decay_first_day_uses_turnover():
     assert 0.2 < wr[-1] < 0.8
 
 
-def test_wide_price_span_does_not_drop_stock():
+def test_wide_price_span_does_not_drop_stock(monkeypatch):
     """后复权跨度超过网格上限时放宽步长，仍产出有效 winner。"""
-    import build_winner_ratio as m
-
-    old = m._MAX_GRID
-    m._MAX_GRID = 80
-    try:
-        n = 12
-        close = np.linspace(10.0, 50.0, n)
-        high = close + 0.5
-        low = close - 0.5
-        shares = np.full(n, 1e6)
-        turnover = np.full(n, 0.05)
-        date_pos = np.arange(n, dtype=np.int64)
-        capture_flag = np.zeros(n, dtype=np.int8)
-        capture_flag[-1] = 1
-        capture_slot = np.zeros(n, dtype=np.int64)
-        wr = _impl()(close, high, low, shares, turnover, date_pos, capture_flag, capture_slot, 0.01)
-    finally:
-        m._MAX_GRID = old
+    monkeypatch.setattr(kernel, "_MAX_GRID", 80)
+    n = 12
+    close = np.linspace(10.0, 50.0, n)
+    high = close + 0.5
+    low = close - 0.5
+    shares = np.full(n, 1e6)
+    turnover = np.full(n, 0.05)
+    date_pos = np.arange(n, dtype=np.int64)
+    capture_flag = np.zeros(n, dtype=np.int8)
+    capture_flag[-1] = 1
+    capture_slot = np.zeros(n, dtype=np.int64)
+    wr = _impl()(close, high, low, shares, turnover, date_pos, capture_flag, capture_slot, 0.01)
     assert wr.shape == (1,)
     assert np.isfinite(wr[0])
     assert 0.0 <= wr[0] <= 1.0
