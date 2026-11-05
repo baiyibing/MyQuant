@@ -1,127 +1,131 @@
-"""构建可交易宇宙 instruments/all_tradable.txt：all.txt − ST 黑名单，起始日顺延 age_days 个交易日。
+"""Host exclusion policy and thin calls to the optional infra universe transform.
 
-供给两处消费：
-- 训练（--tradable-universe）：D.instruments(market="all_tradable")，ST/新股从源头不进训练与预测
-- 文档与审计：宇宙收缩量一目了然
+Example (all paths and the exclusion snapshot date are explicit)::
 
-用法（需 qlib 数据目录）::
+    python my_scripts/build_tradable_universe.py --qlib-dir /tmp/provider \
+        --calendar /tmp/provider/calendars/day.txt --asof 2026-01-16 --age-days 60
 
-    python build_tradable_university.py                # 默认 ST 剔除 + 60 交易日年龄顺延
-    python build_tradable_universe.py --age-days 60 --extra-exclude-file st_full.txt
-    python build_tradable_universe.py --st-daily-file {OSKH_SOURCE_PARQUET_ROOT}/vendor_wind_st_status/st_daily.parquet
-
-注意：数据起始日=2020-01-02 的老股顺延后首日为 2020-03-30，但实验窗在 2025+，
-全部老股不受影响；仅 2020 后真实上市的新股被顺延——这正是语义要求。
+The CLI resolves host static/extra/ST exclusions. The generic helpers and
+``build`` only delegate to myquant-infra; they never load training policy.
+Install the optional pin with ``python -m pip install -r requirements-infra.txt``.
 """
 
 from __future__ import annotations
 
 import argparse
-import sys
+from collections.abc import Iterable
+from datetime import date
+from importlib import import_module
 from pathlib import Path
+import sys
+from typing import TYPE_CHECKING
 
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
 
-_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(_ROOT / "my_scripts"))
-
-from buy_eligibility import AGE_NOT_YET, earliest_buy_date  # noqa: E402
-from st_status import load_st_codes_asof  # noqa: E402
-from train_wiring import EXCLUDE_STOCKS_DEFAULT  # noqa: E402
-
-DEFAULT_QLIB_DIR = Path.home() / ".qlib" / "qlib_data" / "my_data"
+_INFRA_MODULE = "myquant_infra.adapters.qlib_data.universe"
 
 
-def read_calendar(qlib_dir: Path) -> pd.DatetimeIndex:
-    frame = pd.read_csv(Path(qlib_dir) / "calendars" / "day.txt", header=None, parse_dates=[0])
-    return pd.DatetimeIndex(frame[0])
+class InstallError(ModuleNotFoundError):
+    """The optional universe adapter is unavailable."""
 
 
-def drop_excluded(lines: list[str], exclude: set[str]) -> tuple[list[str], list[str]]:
-    """剔除黑名单行，返回 (保留行, 剔除的代码)。大小写不敏感。"""
-    want = {c.upper() for c in exclude}
-    keep, dropped = [], []
-    for ln in lines:
-        symbol = ln.split("\t", 1)[0].strip().upper()
-        if symbol in want:
-            dropped.append(symbol)
-        else:
-            keep.append(ln)
-    return keep, dropped
+def _universe():
+    try:
+        return import_module(_INFRA_MODULE)
+    except ModuleNotFoundError as exc:
+        if exc.name in {
+            "myquant_infra", "myquant_infra.adapters", "myquant_infra.adapters.qlib_data", _INFRA_MODULE,
+        }:
+            raise InstallError(
+                "C4 tradable universe requires the optional requirements-infra.txt pin; "
+                "install it with python -m pip install -r requirements-infra.txt",
+                name=exc.name,
+            ) from exc
+        raise
 
 
-def shift_start_for_age(lines: list[str], calendar: pd.DatetimeIndex, age_days: int) -> list[str]:
-    """每行的起始日顺延 age_days 个交易日；起始日在日历外（< 首日）的行不动。
+def read_calendar(calendar_path: str | Path) -> pd.DatetimeIndex:
+    """Read an explicit calendar file through infra (formerly a provider path)."""
+    return _universe().read_calendar(calendar_path)
 
-    数据起始日在日历内 → 新起始 = calendar[pos(start)+age_days]；
-    +age 越出日历 → 9999-12-31（窗内不可买，不再写回上市日）。
-    """
-    out = []
-    for ln in lines:
-        parts = ln.split("\t")
-        if len(parts) < 3:
-            out.append(ln)
-            continue
-        code, start_s, end_s = parts[0], parts[1], parts[2]
-        min_d = earliest_buy_date(start_s, calendar, age_days)
-        if min_d is None:
-            new_start = start_s
-        elif min_d == AGE_NOT_YET:
-            new_start = "9999-12-31"
-        else:
-            new_start = min_d.strftime("%Y-%m-%d")
-        out.append(f"{code}\t{new_start}\t{end_s}")
-    return out
+
+def drop_excluded(lines: list[str], exclude: Iterable[str]) -> tuple[list[str], list[str]]:
+    return _universe().drop_excluded(lines, exclude)
+
+
+def shift_start_for_age(lines: list[str], calendar: Iterable, age_days: int) -> list[str]:
+    return _universe().shift_start_for_age(lines, calendar, age_days)
 
 
 def build(
-    qlib_dir: Path,
+    qlib_dir: str | Path,
+    *,
+    exclusions: Iterable[str],
     age_days: int,
-    extra_exclude_file: str | None,
-    st_daily_file: str | None = None,
-    st_asof: str | None = None,
+    calendar: Iterable,
+    asof: str | date,
 ) -> dict:
-    cal = read_calendar(qlib_dir)
-    all_path = Path(qlib_dir) / "instruments" / "all.txt"
-    lines = [ln for ln in all_path.read_text(encoding="utf-8").splitlines() if ln.strip()]
+    """Delegate IO with caller-resolved exclusions and an explicit snapshot label."""
+    return _universe().build(
+        qlib_dir, exclusions=exclusions, age_days=age_days, calendar=calendar, asof=asof,
+    )
 
-    exclude = {c.upper() for c in EXCLUDE_STOCKS_DEFAULT}
+
+def resolve_exclusions(
+    extra_exclude_file: str | Path | None,
+    st_daily_file: str | Path | None,
+    *,
+    asof: str,
+) -> set[str]:
+    """Resolve MQ policy before calling the generic transform; never used by infra."""
+    scripts = str(Path(__file__).resolve().parent)
+    if scripts not in sys.path:
+        sys.path.insert(0, scripts)
+    from train_wiring import EXCLUDE_STOCKS_DEFAULT
+
+    exclude = {code.upper() for code in EXCLUDE_STOCKS_DEFAULT}
     extra_path = Path(extra_exclude_file) if extra_exclude_file else None
     if extra_path and extra_path.is_file():
-        exclude |= {ln.strip().upper() for ln in extra_path.read_text(encoding="utf-8").splitlines() if ln.strip()}
+        exclude |= {line.strip().upper() for line in extra_path.read_text(encoding="utf-8").splitlines()
+                    if line.strip()}
     if st_daily_file:
-        exclude |= load_st_codes_asof(st_daily_file, asof=st_asof)
+        from st_status import load_st_codes_asof
 
-    kept, dropped = drop_excluded(lines, exclude)
-    shifted = shift_start_for_age(kept, cal, age_days)
-
-    out_path = Path(qlib_dir) / "instruments" / "all_tradable.txt"
-    out_path.write_text("\n".join(shifted) + "\n", encoding="utf-8", newline="\n")
-    return {"total": len(lines), "dropped_st": len(dropped), "kept": len(kept), "path": str(out_path)}
+        exclude |= load_st_codes_asof(st_daily_file, asof=asof)
+    return exclude
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description="构建 all_tradable.txt（−ST、起始日顺延 age_days）")
-    parser.add_argument("--qlib-dir", default=str(DEFAULT_QLIB_DIR))
-    parser.add_argument("--age-days", type=int, default=60)
-    parser.add_argument("--extra-exclude-file", default=None, help="每行一个 QLib 代码的补充黑名单")
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="构建 all_tradable.txt（host ST 排除集、infra 年龄顺延）")
+    parser.add_argument("--qlib-dir", type=Path, required=True, help="显式 Qlib provider 路径（无 home 默认值）")
+    parser.add_argument("--calendar", type=Path, required=True, help="显式交易日历文件，每行一个日期")
     parser.add_argument(
-        "--st-daily-file",
-        default=None,
-        help="vendor_wind_st_status/st_daily.parquet：按 --st-asof 并入当日 ST（缺省矩阵末日）",
+        "--asof", "--st-asof", type=date.fromisoformat, required=True,
+        help="排除集 as-of 日 YYYY-MM-DD；同时传给 host ST 选择器与 infra 标签",
     )
-    parser.add_argument("--st-asof", default=None, help="ST 过滤 as-of 日 YYYY-MM-DD，缺省用 daily 最后一天")
-    args = parser.parse_args()
+    parser.add_argument("--age-days", type=int, default=60)
+    parser.add_argument("--extra-exclude-file", type=Path, default=None, help="每行一个 QLib 代码的补充黑名单")
+    parser.add_argument(
+        "--st-daily-file", type=Path, default=None,
+        help="vendor_wind_st_status/st_daily.parquet：由 host 按 --asof 解析 ST 排除集",
+    )
+    args = parser.parse_args(argv)
+    # Fail with the install hint before loading host policy or reading inputs.
+    _universe()
+    asof = args.asof.isoformat()
+    exclusions = resolve_exclusions(
+        args.extra_exclude_file.expanduser() if args.extra_exclude_file else None,
+        args.st_daily_file.expanduser() if args.st_daily_file else None,
+        asof=asof,
+    )
     stats = build(
-        Path(args.qlib_dir).expanduser(),
-        args.age_days,
-        args.extra_exclude_file,
-        st_daily_file=args.st_daily_file,
-        st_asof=args.st_asof,
+        args.qlib_dir.expanduser(), exclusions=exclusions, age_days=args.age_days,
+        calendar=read_calendar(args.calendar.expanduser()), asof=asof,
     )
     print(
         f"[tradable] 全宇宙 {stats['total']} → 剔除ST {stats['dropped_st']} → 保留 {stats['kept']}，"
-        f"起始日顺延 {args.age_days} 个交易日 → {stats['path']}"
+        f"起始日顺延 {args.age_days} 个交易日 → {stats['path']} (asof={stats['asof']})"
     )
     return 0
 

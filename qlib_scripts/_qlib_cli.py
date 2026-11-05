@@ -221,6 +221,22 @@ def check_bin_parser():
     return parser
 
 
+def pit_parser():
+    parser = argparse.ArgumentParser(description="Financial CSV to Qlib PIT data/index; date is availability date")
+    parser.add_argument("--csv-path", "--csv_path", required=True)
+    parser.add_argument("--qlib-dir", "--qlib_dir", required=True)
+    parser.add_argument("--backup-dir", "--backup_dir")
+    parser.add_argument("--interval", choices=["quarterly", "annual"], default="quarterly")
+    parser.add_argument("--overwrite", action="store_true", help="replace selected fields with complete CSV history")
+    parser.add_argument("--max-workers", "--max_workers", type=int, default=16)
+    for name, default in (("date_column_name", "date"), ("period_column_name", "period"),
+                          ("value_column_name", "value"), ("field_column_name", "field"),
+                          ("file_suffix", ".csv"), ("exclude_fields", ""), ("include_fields", "")):
+        parser.add_argument("--" + name.replace("_", "-"), "--" + name, default=default)
+    parser.add_argument("--limit-nums", "--limit_nums", type=int)
+    return parser
+
+
 def health_parser():
     parser = argparse.ArgumentParser(description="Check OHLCV/factor health in CSV or a qlib provider")
     roots = parser.add_mutually_exclusive_group(required=True)
