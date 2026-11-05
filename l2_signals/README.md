@@ -18,14 +18,42 @@
 | 自由流通股本 | `E:/stock_data/free_float_shares.parquet` | PIT 对齐 |
 | Alpha158 因子（本模块产出） | `E:/stock_data/l2_research/alpha158_daily.parquet` | 158 因子，d≥2025-01-01 |
 
+## 信号代号（口头怎么叫）
+
+规范名用英文代号（代码 / CSV / `--signal` 唯一键）；中文是别名。目录 SSOT：
+`l2_signals/signal_catalog.py`（`python l2_signals/signal_catalog.py` 可打印）。
+
+| 代号 | 中文名 | 代 | 状态 |
+|---|---|---|---|
+| `STEP_DIP_ACCUM` | 阶跃回调吸筹 | 0 | archived |
+| `QUIET_DIP_TECH` | 静阴技术 | 0 | rejected |
+| `QUIET_DIP_ACCUM` | 缩量阴线吸筹 | 0 | archived |
+| `MEGA_ORDER_ACCUM` | 极大单吸筹 | 0 | archived |
+| `VOL_SURGE_BUY` | 放量买强（=`BIG_ORDER_STEP`） | 0 | rejected |
+| `DIP_CATCH_FALL` | 接刀吸筹 | 0 | rejected |
+| `STAB_LOW_TREND` | 低位企稳趋势 | 1 | candidate（主线） |
+| `QUIET_LOW_TREND` | 安静低位趋势（废弃） | 1 | deprecated |
+
+易混：`QUIET_DIP_ACCUM`（gen0 六族）≠ `QUIET_LOW_TREND`（gen1 已废弃）。
+日常说「缩量阴线吸筹」→ `QUIET_DIP_ACCUM`；说现在在验的信号 → `STAB_LOW_TREND`。
+
+gen0 六族索引与定义卡：[`docs/l2_signals/2026-11-04-gen0-signal-family-index.md`](../docs/l2_signals/2026-11-04-gen0-signal-family-index.md)
+
 ## 模块文件
 
 | 文件 | 用途 |
 |---|---|
+| `signal_catalog.py` | 信号代号 / 中文名 / 状态 / 定义卡路径（SSOT） |
+| `reproduce_gen0_signals.py` | gen0 六族统一复现 + 黄金对拍（`--signal` / `--year`） |
+| `reproduce_quiet_dip_accum.py` | QUIET_DIP_ACCUM 专用复现 |
+| `reproduce_quiet_dip_tech.py` | QUIET_DIP_TECH 专用复现 |
 | `alpha158_spec.json` | 官方 158 因子表达式（从 `qlib.contrib.data.loader.Alpha158DL` 导出，作为对齐基准） |
 | `alpha158_build.py` | core rollup OHLCV → 158 因子 parquet（pandas 复刻 qlib 语义） |
 | `search_alpha158.py` | C1 池（大单量≥2×前日）+ 大单特征 + 168 维贪心搜索（H1/H2 切分） |
 | `baseline_signal_search.py` | grok-bot-ops 初代搜索脚本存档（六信号族条件定义的原始出处） |
+| `archive_single_trade_1m/` | 归档：单笔≥100万放量×主动买验证（ops 删前脚本；反指结论） |
+| `export_signal.py` | 命名信号导出（`--signal STAB_LOW_TREND`） |
+| `validate_cross_year.py` | 冻结阈值跨年打分 |
 
 ## 环境
 

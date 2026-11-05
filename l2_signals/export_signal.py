@@ -16,11 +16,13 @@ import pandas as pd
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import search_alpha158 as S  # noqa: E402
+from signal_catalog import by_id  # noqa: E402  # 代号 SSOT；--list 时带出中文名
 
 OUT_DIR = "E:/stock_data/l2_research/signals"
 
 # 信号定义：名字 → (条件列与分位切点, 输出文件名)
 # 'ge'/'le' 后的数是 H1 分位数（如 0.8 = >=q80, 0.2 = <=q20）
+# 代号须已登记在 signal_catalog.py（gen1 可导出项）
 SIGNALS = {
     "STAB_LOW_TREND": {
         "desc": "低位企稳趋势：IMIN10<=q20 & QTLD30>=q80 & RSQR5>=q80（可交易池 Top，两半最稳）",
@@ -36,6 +38,8 @@ SIGNALS = {
         "deprecated": True,
     },
 }
+for _sid in SIGNALS:
+    by_id(_sid)  # 导出项必须在目录里有登记
 
 META_KEYS = ("d", "stock_code", "close_px", "t1_close", "ret1", "win", "h2")
 
@@ -96,7 +100,8 @@ def main():
     args = ap.parse_args()
     if args.list:
         for k, v in SIGNALS.items():
-            print(f"{k}: {v['desc']}")
+            zh = by_id(k)["zh"]
+            print(f"{k}（{zh}）: {v['desc']}")
         return
     if args.signal is None:
         ap.error("--signal 必填（默认值已随 QUIET_LOW_TREND 废弃而移除；--list 看全部）")

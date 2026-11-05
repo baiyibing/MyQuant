@@ -134,7 +134,7 @@ def main():
         out = out.sort_values("d")
         out.to_csv(OUT_CSV, index=False, encoding="utf-8-sig")
         stats = {
-            "signal": "STAB_LOW_TREND_2025_validation",
+            "signal": f"STAB_LOW_TREND_{args.year}_validation",
             "frozen_thresholds_from": "stab_low_trend_2026.meta.json",
             "n": int(len(sub)), "win_rate": round(float(sub.win.mean()), 4),
             "avg_ret": round(float(sub.ret1.mean()), 5),
