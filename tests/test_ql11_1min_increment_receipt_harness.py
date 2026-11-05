@@ -1,14 +1,9 @@
 # -*- coding: utf-8 -*-
 """QL11 offline 1min-increment receipt harness — schema pin, data-free.
 
-Two paths per the QL11 knife:
-
-- qlib-free (always runs, incl. the CI ``data-staging`` job with only
-  pytest/numpy/pandas/pyarrow): schema validation, day.txt sha stability, and a
-  SIMULATED increment (one calendar line + one bin float appended by hand).
-- qlib-gated: the real ``append_new_1min_bars`` from
-  ``qlib_scripts/refresh_mydata_1min.py`` drives the before/after measurements;
-  ``pytest.importorskip`` keeps environments without qlib/tqdm green.
+With the optional C1 pin, both simulated and real append paths run without
+qlib: schema validation, daily fingerprints, and measured before/after state.
+The module skips when the optional infra dependency is absent.
 
 No ~/.qlib access, no lake reads, no M5 pulls — tmp_path fixtures only.
 """
@@ -23,6 +18,8 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+
+pytest.importorskip("myquant_infra.adapters.qlib_data", reason="optional C1 infra pin")
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -305,11 +302,8 @@ def test_simulated_increment_advances_calendar_and_preserves_bars(tmp_path: Path
 def test_real_append_new_1min_bars_receipt(tmp_path: Path):
     """REAL path: ``append_new_1min_bars`` mutates the tree; receipt measures around it.
 
-    Skipped wherever the qlib toolchain (qlib/tqdm/dump_bin) is absent — e.g. the
-    CI ``data-staging`` job — so that job stays green on the qlib-free tests.
+    The pinned production adapter does not require qlib or tqdm.
     """
-    pytest.importorskip("qlib")
-    pytest.importorskip("tqdm")
     scripts = ROOT / "qlib_scripts"
     if str(scripts) not in sys.path:
         sys.path.insert(0, str(scripts))

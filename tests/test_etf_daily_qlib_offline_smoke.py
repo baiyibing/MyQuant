@@ -8,6 +8,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+pytest.importorskip("myquant_infra.adapters.qlib_data", reason="optional C1 infra pin")
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -36,9 +38,9 @@ def offline_only(tmp_path: Path, monkeypatch):
 
     monkeypatch.setattr(socket, "create_connection", unexpected)
     monkeypatch.setattr(socket.socket, "connect", unexpected)
-    monkeypatch.setattr(build, "_run", unexpected)
-    monkeypatch.setattr(build, "default_wipe", unexpected)
-    monkeypatch.setattr(build, "verify_readback", unexpected)
+    monkeypatch.setattr(build._adapter, "_run", unexpected)
+    monkeypatch.setattr(build._adapter, "default_wipe", unexpected)
+    monkeypatch.setattr(build._adapter, "verify_readback", unexpected)
     originals = {path: path.read_bytes() for path in FIXTURE_LAKE.rglob("*.parquet")}
     yield
     assert {path: path.read_bytes() for path in FIXTURE_LAKE.rglob("*.parquet")} == originals
@@ -93,7 +95,7 @@ def test_fixture_staging_calendar_vwap_basis_and_dump_argv(cfg):
         assert evidence["raw_gap_median"] > evidence["scaled_gap_median"]
 
     argv = build.dump_argv(cfg)
-    assert argv[:3] == [sys.executable, str(build.DUMP_BIN), "dump_all"]
+    assert argv[:4] == [sys.executable, "-m", str(build.DUMP_BIN), "dump_all"]
     assert f"--data_path={cfg.staging_dir}" in argv
     assert f"--qlib_dir={cfg.qlib_dir}" in argv
     assert "--file_suffix=.parquet" in argv
@@ -119,7 +121,7 @@ def test_execute_dumps_only_after_real_fixture_gates(cfg, monkeypatch):
         return checked
 
     for name in ("ensure_calendar_subset", "ensure_staged_vwap", "ensure_lake_basis"):
-        monkeypatch.setattr(build, name, record_gate(name, getattr(build, name)))
+        monkeypatch.setattr(build._adapter, name, record_gate(name, getattr(build, name)))
 
     def stage_spy(config):
         _stage(config)

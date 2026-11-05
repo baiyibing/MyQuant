@@ -8,13 +8,14 @@ import numpy as np
 import pandas as pd
 import pytest
 
+pytest.importorskip("myquant_infra.adapters.qlib_data", reason="optional C1 infra pin")
+
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "qlib_scripts"
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 from refresh_mydata_1min import (  # noqa: E402
-    DAILY_QLIB,
     append_new_1min_bars,
     assert_daily_unchanged,
     clamp_workers,
@@ -24,9 +25,9 @@ from refresh_mydata_1min import (  # noqa: E402
 )
 
 
-def test_refuse_if_daily():
+def test_refuse_if_daily(tmp_path):
     with pytest.raises(SystemExit, match="daily my_data"):
-        refuse_if_daily(DAILY_QLIB)
+        refuse_if_daily(tmp_path / "daily", tmp_path / "daily")
 
 
 def test_clamp_workers():
