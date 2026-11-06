@@ -26,6 +26,7 @@ jobs:
             tests/test_c3_cyq_infra_switch.py \
             tests/test_c5_dump_pit_infra_switch.py \
             tests/test_c6_signal_bundle_infra_switch.py \
+            tests/test_c7_st_industry_infra_switch.py \
             tests/test_build_etf_qlib.py \
             tests/test_etf_daily_qlib_offline_smoke.py \
             tests/test_stage_1min_from_lake.py \

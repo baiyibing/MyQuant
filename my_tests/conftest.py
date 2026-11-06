@@ -41,3 +41,13 @@ def infra_provenance():
 @pytest.fixture
 def infra_signal_bundle():
     return pytest.importorskip("myquant_infra.contracts.signal_bundle", reason="optional C6 infra pin")
+
+
+@pytest.fixture
+def infra_st_readers():
+    return pytest.importorskip("myquant_infra.reference_data.st.readers", reason="optional C7 infra pin")
+
+
+@pytest.fixture
+def infra_lake_paths():
+    return pytest.importorskip("myquant_infra.lake.paths", reason="optional C7 infra pin")
