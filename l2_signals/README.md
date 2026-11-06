@@ -24,8 +24,9 @@ infra `l2/research` 可做贴湖假说探查，但**不是 signals**；命名信
 
 | 数据 | 路径 | 说明 |
 |---|---|---|
-| core rollup（291 列日线） | `J:/l2_lake/rollup/daily_stock/version=l2-daily-v3/params=a2e3a427af892982d0ce/` | OHLCV + vwap + total_vol |
-| 大单 B 层（日频） | `J:/l2_lake/rollup/bigorder_daily_2026.parquet` | 10 万档大单买卖量额 |
+| core rollup（291 列日线） | `J:/l2_lake/rollup/daily_stock/version=l2-daily-v3/params=a2e3a427af892982d0ce/` | OHLCV + vwap + total_vol（机械盘，只读慢） |
+| 大单 B 层 v2（日频，18 列） | `J:/l2_lake/rollup/bigorder_daily_{year}.parquet`（2020–2026） | 10 万档大单 + 小单 `{buy,sale}ordsml_{vol,amt}`（2026-11-06 v2 重算） |
+| **E: 研究缓存** | `E:/stock_data/l2_research/cache/` | B 层 v2 七年逐字节副本 + `daily_px_2019_2026.parquet`（OHLC 五列提取 7.54M 行，原始价）+ `daily_px_adj_2019_2026.parquet`（**等比前复权**，dr 因子表 `adj_factor_geometric.parquet` 派生；除权日收益/RSV 严格连续，禁用 QMT front 等差口径算涨跌幅）；研究脚本优先读此层（SSD） |
 | 自由流通股本 | `E:/stock_data/free_float_shares.parquet` | PIT 对齐 |
 | Alpha158 因子（本模块产出） | `E:/stock_data/l2_research/alpha158_daily.parquet` | 158 因子，d≥2025-01-01 |
 
@@ -64,6 +65,8 @@ gen0 六族索引与定义卡：[`docs/l2_signals/2026-11-04-gen0-signal-family-
 | `search_alpha158.py` | C1 池（大单量≥2×前日）+ 大单特征 + 168 维贪心搜索（H1/H2 切分） |
 | `search_ma20_mega.py` | gen2 池（净大单量/流通>2% × MA20 上穿）+ Alpha158 贪心搜索 + 内置跨年冻结诊断；`--exclude-limit-close` 可买性硬过滤（→ [MEGA_MA20_BREAK 已 deprecated](../docs/l2_signals/2026-11-05-ma20-mega-gen2-search.md)） |
 | `validate_ma20_mega_break.py` | MEGA_MA20_BREAK 冻结阈值跨年打分（发现年不覆写 export 文件） |
+| `low20_smallsell_dry.py` | 低位×小卖枯竭假设检验（30日收盘 20% 分位下 + 小卖额<0.5×30日均值 → T+5..T+10 涨幅统计；读 E: B 层 v2/价格缓存；[研究记录](../docs/l2_signals/2026-11-06-low20-smallsell-dry-hypothesis.md)） |
+| `low20_kdj_cross.py` | 低位×KDJ月线金叉假设检验（同 C1 + 周线J>K + 月线J上穿K当日 → T+1/5/10；as-of 运行 bar 无未来函数；v1 完整周期 bar 泄漏已修，结论=不成立；[研究记录](../docs/l2_signals/2026-11-06-low20-kdj-cross-hypothesis.md)） |
 | `regime_gate.py` | STAB_LOW_TREND 事前 regime 门控（N≥5 + MA200 斜率/回撤 + 指数日；[研究文档](../docs/l2_signals/2026-11-05-regime-gate-research.md)） |
 | `baseline_signal_search.py` | grok-bot-ops 初代搜索脚本存档（六信号族条件定义的原始出处） |
 | `export_signal.py` | 命名信号导出（`--signal STAB_LOW_TREND`） |
