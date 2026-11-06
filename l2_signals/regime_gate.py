@@ -53,9 +53,10 @@ def load_index(path: str) -> pd.DataFrame:
     return idx
 
 
-def load_signals(sig_dir: str) -> pd.DataFrame:
+def load_signals(sig_dir: str, years=None) -> pd.DataFrame:
+    use_years = years or YEARS
     sig = pd.concat([pd.read_csv(os.path.join(sig_dir, f"stab_low_trend_{y}.csv"))
-                     for y in YEARS], ignore_index=True)
+                     for y in use_years], ignore_index=True)
     sig["d"] = pd.to_datetime(sig["d"])
     sig = sig.sort_values("d").reset_index(drop=True)
     sig["N"] = sig.groupby("d")["stock_code"].transform("size")
@@ -63,6 +64,10 @@ def load_signals(sig_dir: str) -> pd.DataFrame:
 
 
 def segment(month: str) -> str:
+    # 2020-2022 为 gate 真样本外段（变量族/阈值调形只见 2023-2026）：
+    # 2020 V型修复（裸信号无α，须关）/ 2021 结构市（显著负α，须关）/
+    # 2022 大熊（全年看须关；H1 反弹段不计入原考题）
+    if month <= "2022-12": return "20-22(关)"
     if month <= "2023-06": return "23H1(关)"
     if month <= "2023-12": return "23H2(不考)"
     if month <= "2024-12": return "2024(关)"
@@ -82,9 +87,12 @@ def main() -> int:
     ap.add_argument("--sig-dir", default=SIG_DIR)
     ap.add_argument("--index", default=INDEX)
     ap.add_argument("--n-min", type=int, default=5, help="聚簇门槛（默认 5；10=保守档）")
+    ap.add_argument("--years", default=None,
+                    help="信号年份列表，如 2020,2021,2022（默认 2023-2026 调形窗）")
     args = ap.parse_args()
 
-    df = load_signals(args.sig_dir).merge(
+    years = tuple(int(y) for y in args.years.split(",")) if args.years else None
+    df = load_signals(args.sig_dir, years).merge(
         load_index(args.index)[["d", "ma200_slope", "dd250", "idx_ret1"]], on="d", how="left")
     df["m"] = df["d"].dt.strftime("%Y-%m")
     df["seg"] = df["m"].map(segment)
