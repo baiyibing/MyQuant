@@ -14,6 +14,8 @@ _MY_SCRIPTS = os.path.join(_ROOT, "my_scripts")
 if _MY_SCRIPTS not in sys.path:
     sys.path.insert(0, _MY_SCRIPTS)
 
+pytest.importorskip("qlib", reason="buy_eligibility imports the host Qlib strategy")
+
 from buy_eligibility import (  # noqa: E402
     AGE_NOT_YET,
     MA5_SLOPE_MIN_DEG,
@@ -235,7 +237,7 @@ def test_bulk_fetch_skips_quantile_when_winner_ratio_present():
     assert bare._buy_state_fetch_fields() == BUY_STATE_FIELDS
 
 
-def test_st_daily_file_ignores_coverage_json(tmp_path):
+def test_st_daily_file_ignores_coverage_json(tmp_path, infra_st_readers):
     """有 parquet 时只认 is_st，旁边的 st_coverage.json 不能禁买。"""
     daily = pd.DataFrame(
         {

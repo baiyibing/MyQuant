@@ -18,6 +18,7 @@ resolvers never read stock ``OSKH_PERIOD_*``.
 from __future__ import annotations
 
 import os
+from importlib import import_module
 from pathlib import Path
 
 SOURCE_PARQUET_ENV = "OSKH_SOURCE_PARQUET_ROOT"
@@ -25,10 +26,25 @@ QLIB_CSV_ENV = "OSKH_QLIB_CSV_DIR"
 INDEX_DAILY_ENV = "OSKH_INDEX_DAILY_ROOT"
 INDEX_MINUTE_ENV = "OSKH_INDEX_1M_ROOT"
 ETF_DAILY_ENV = "OSKH_ETF_DAILY_ROOT"
+_PACKAGE = "myquant_infra.lake.paths"
+_PIN = "3c377e9718e811112993579b6d91a603395db699"
 
 
 class DataRootError(RuntimeError):
     """Required data-path env or argument is missing."""
+
+
+def _infra():
+    try:
+        return import_module(_PACKAGE)
+    except ModuleNotFoundError as exc:
+        if exc.name and (_PACKAGE == exc.name or _PACKAGE.startswith(exc.name + ".")):
+            raise ModuleNotFoundError(
+                f"ST/industry paths require the optional myquant-infra pin {_PIN}; "
+                "install it with python -m pip install -r requirements-infra.txt",
+                name=exc.name,
+            ) from exc
+        raise
 
 
 def _env_path(name: str) -> Path | None:
@@ -134,7 +150,8 @@ def _require_file(path: Path, *, what: str) -> Path:
 
 
 def resolve_st_daily(*, must_exist: bool = True) -> Path:
-    path = resolve_parquet_container() / "vendor_wind_st_status" / "st_daily.parquet"
+    container = resolve_parquet_container()
+    path = _infra().st_daily_path(container, must_exist=False)
     return _require_file(path, what="ST 日表") if must_exist else path
 
 
@@ -155,7 +172,8 @@ def resolve_qmt_winner_chips(*, must_exist: bool = True) -> Path:
 
 def resolve_sw_l1_root() -> Path:
     """1.3 writes this tree; this repo only consumes it."""
-    return resolve_source_parquet("vendor_wind_sw_l1")
+    container = resolve_parquet_container()
+    return _infra().sw_l1_root(container)
 
 
 def resolve_sw_l1_map(*, explicit_root: str | Path | None = None) -> Path:
@@ -165,8 +183,10 @@ def resolve_sw_l1_map(*, explicit_root: str | Path | None = None) -> Path:
     or ``exports/m3d_industry``.
     """
     if explicit_root:
-        return _require_file(Path(explicit_root), what="行业映射")
-    path = resolve_sw_l1_root() / "sw_l1_map.csv"
+        path = _infra().sw_l1_map_path(explicit_file=Path(explicit_root), must_exist=False)
+        return _require_file(path, what="行业映射")
+    container = resolve_parquet_container()
+    path = _infra().sw_l1_map_path(container, must_exist=False)
     return _require_file(
         path,
         what="行业映射（1.3 写湖 python -m oskh_data.vendor_wind_sw_l1）",

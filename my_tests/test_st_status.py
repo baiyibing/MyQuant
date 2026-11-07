@@ -21,14 +21,14 @@ from st_status import (  # noqa: E402
 )
 
 
-def test_code_roundtrip():
+def test_code_roundtrip(infra_st_readers):
     assert to_wind_code("SZ000504") == "000504.SZ"
     assert to_qlib_code("000504.SZ") == "SZ000504"
     assert to_qlib_code("600000.SH") == "SH600000"
     assert to_qlib_code("920305.BJ") == "BJ920305"
 
 
-def test_coverage_fallback_and_asof(tmp_path):
+def test_coverage_fallback_and_asof(tmp_path, infra_st_readers):
     daily = pd.DataFrame(
         {
             "trade_date": pd.to_datetime(["2026-01-07", "2026-01-08"]),

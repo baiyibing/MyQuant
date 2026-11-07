@@ -10,7 +10,7 @@ from my_scripts.export_topk_buy_state_sidecar import (
 )
 
 
-def test_features_to_sidecar_maps_qlib_codes_and_dollar_winratio():
+def test_features_to_sidecar_maps_qlib_codes_and_dollar_winratio(infra_st_readers):
     idx = pd.MultiIndex.from_tuples(
         [
             ("SH600000", pd.Timestamp("2026-01-06")),
