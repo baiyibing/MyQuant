@@ -1,3 +1,5 @@
+> 2026-11-08 更新：下文是历史记录。数据产制、CYQ、ST 和公共契约实现现归 MyQuant-infra，本仓旧入口已删除。当前安装与调用见 [README](../README.md#数据准备)，日常操作见 README 链接的刷新手册。
+
 # qlib 1min 基础设施（2026-09-18）
 
 日频 `~/.qlib/qlib_data/my_data` **不动**。1min 单独放在 `~/.qlib/qlib_data/my_data_1min`（C 盘，和日频并列）。Handler 缓存仍在 D。

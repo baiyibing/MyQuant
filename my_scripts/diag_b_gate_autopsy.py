@@ -2,6 +2,8 @@
 """T5-MXR1 B-gate autopsy: read-only daily / Top10 / feature diagnostics. No retrain, no PortAna."""
 from __future__ import annotations
 
+from myquant_infra.artifacts.provenance import sha256_file
+
 import hashlib
 import json
 import math
@@ -32,12 +34,6 @@ CTRL_RECORDER = "8a061ea428e04bb3a199a485ade49d0e"
 PARAMS_PKL = REPO / "mlruns" / "241534998488247147" / CAND_RECORDER / "artifacts" / "params.pkl"
 
 
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def load_pred(path: Path) -> pd.DataFrame:

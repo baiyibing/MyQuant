@@ -16,7 +16,7 @@ _MY_SCRIPTS = os.path.join(_ROOT, "my_scripts")
 if _MY_SCRIPTS not in sys.path:
     sys.path.insert(0, _MY_SCRIPTS)
 
-from run_manifest import load_manifest  # noqa: E402
+from myquant_infra.artifacts.provenance import load_manifest
 from sweep_ranking import (  # noqa: E402
     SweepConfig,
     build_arg_parser,

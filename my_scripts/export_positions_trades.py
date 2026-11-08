@@ -47,7 +47,8 @@ from rebacktest_cost_tiers import (
     build_strategy_config,
     load_pred,
 )
-from run_manifest import capture_git_provenance, write_export_manifest
+from myquant_infra.artifacts.provenance import capture_git_provenance
+from run_manifest import write_export_manifest
 from train_wiring import parse_segment
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))

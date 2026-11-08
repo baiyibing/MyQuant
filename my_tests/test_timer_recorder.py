@@ -20,7 +20,7 @@ from custom_utils import (  # noqa: E402
     set_global_timer_recorder,
     wrap_dataset_prepare,
 )
-from run_manifest import timings_from_recorder  # noqa: E402
+from run_manifest import timings_from_recorder
 
 
 def test_rollup_groups_repeated_names():

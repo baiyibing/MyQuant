@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from myquant_contract import build_signal_bundle, canonical_json_bytes, validate_signal_bundle
+from myquant_infra.contracts.signal_bundle import build_signal_bundle, canonical_json_bytes, validate_signal_bundle
 
 pytestmark = pytest.mark.usefixtures("infra_signal_bundle")
 
@@ -83,7 +83,8 @@ def test_calendar_id_stable_for_same_sessions():
 
 
 def test_package_source_has_no_sys_path_insert():
-    package = Path(__file__).resolve().parents[1] / "myquant_contract"
+    import myquant_infra.contracts.signal_bundle as contract
+    package = Path(contract.__file__).parent
     for source in package.rglob("*.py"):
         assert "sys.path" not in source.read_text(encoding="utf-8")
 

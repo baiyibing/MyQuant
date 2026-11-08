@@ -20,6 +20,7 @@ venv/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.test-tmp*/
 
 # Qlib / MLflow 运行产物
 mlruns/

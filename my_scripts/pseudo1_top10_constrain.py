@@ -5,6 +5,8 @@ Read-only. No retrain, no PortAna, no pred write-back. Fail-closed if out-dir ex
 """
 from __future__ import annotations
 
+from myquant_infra.artifacts.provenance import sha256_file
+
 import hashlib
 import json
 import math
@@ -39,12 +41,6 @@ OUT = REPO / "exports" / "analysis" / "t5_mxr1_20260918" / "pseudo1_top10_constr
 INBOX = Path(r"D:\PycharmProjects\_agent_inbox\t5-mxr1-pseudo1")
 
 
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def json_safe(v):

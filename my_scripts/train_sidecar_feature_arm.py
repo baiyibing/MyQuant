@@ -2,11 +2,13 @@
 """T5-DSTR1 B-gate: clone 8a061ea4 LGB, left-join DOWNSTREAK5_RANK only, train, export preds."""
 from __future__ import annotations
 
+from myquant_infra.artifacts.provenance import git_commit
+from myquant_infra.artifacts.provenance import sha256_file
+
 import argparse
 import hashlib
 import json
 import os
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -26,12 +28,6 @@ DEFAULT_PROVIDER = r"C:/Users/wangc/.qlib/qlib_data/my_data"
 EPS = 1e-12
 
 
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def _key_digest(df) -> str:
@@ -55,11 +51,6 @@ def parse_seg(s: str) -> tuple[str, str]:
     return a.strip(), b.strip()
 
 
-def _git_commit() -> str:
-    try:
-        return subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=str(REPO_ROOT), text=True).strip()
-    except Exception as exc:
-        return f"unavailable:{exc}"
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -251,7 +242,7 @@ def main(argv=None) -> int:
     os.chdir(str(SCRIPT_DIR))
     exp_name = f"{args.experiment}__t5_dstr1"
     print(f"[train] experiment={exp_name} clone_of={args.clone_recorder}", flush=True)
-    commit = _git_commit()
+    commit = git_commit(REPO_ROOT)
 
     with R.start(experiment_name=exp_name):
         R.log_params(

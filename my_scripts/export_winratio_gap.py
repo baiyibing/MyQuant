@@ -2,6 +2,8 @@
 """T5-WRD1: one-shot BROKER_WR_GAP sidecar on frozen handler index."""
 from __future__ import annotations
 
+from myquant_infra.artifacts.provenance import sha256_file as _sha256
+
 import argparse
 import hashlib
 import json
@@ -21,12 +23,6 @@ DEFAULT_HANDLER_PKL = Path.home() / ".cache/qlib_handler_cache/handler_86d82e092
 EXPECTED_CYQ_SHA = "d167d27916920ea7c49a3f0cb2202de2bb64b7a4425a7852de64f0b278c88a34"
 
 
-def _sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def _key_digest(df) -> str:

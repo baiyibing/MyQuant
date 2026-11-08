@@ -318,7 +318,7 @@ def test_refuses_stock_pool_output(tmp_path):
 @pytest.mark.usefixtures("infra_provenance")
 def test_export_manifest_includes_pred_md5(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     from export_daily_pool import main
-    from run_manifest import load_manifest, md5_file
+    from myquant_infra.artifacts.provenance import load_manifest, md5_file
 
     pred = tmp_path / "pred.csv"
     pred.write_text(

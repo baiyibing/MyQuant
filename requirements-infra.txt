@@ -1,3 +1,0 @@
-# Optional C1 production adapters; keep public CI defaults in requirements.txt.
-# Merged MyQuant-infra origin/main; see docs/engineering/c1-qlib-data-infra-switch-20261105.md.
-myquant-infra[qlib-data] @ git+https://github.com/baiyibing/MyQuant-infra.git@3c377e9718e811112993579b6d91a603395db699

@@ -18,21 +18,8 @@ _MY_SCRIPTS = os.path.join(_ROOT, "my_scripts")
 if _MY_SCRIPTS not in sys.path:
     sys.path.insert(0, _MY_SCRIPTS)
 
-from run_manifest import (  # noqa: E402
-    SCHEMA_ID,
-    ManifestError,
-    build_manifest,
-    canonical_json,
-    config_hash,
-    fingerprint_artifact,
-    load_manifest,
-    manifest_to_json_bytes,
-    md5_file,
-    unknown_timings,
-    validate_manifest,
-    write_manifest,
-    write_sweep_parent_manifest,
-)
+from myquant_infra.artifacts.provenance import SCHEMA_ID, ManifestError, build_manifest, canonical_json, config_hash, fingerprint_artifact, load_manifest, manifest_to_json_bytes, md5_file, unknown_timings, validate_manifest, write_manifest
+from run_manifest import write_sweep_parent_manifest
 
 
 def test_config_hash_deterministic_same_input():

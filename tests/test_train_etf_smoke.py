@@ -18,7 +18,7 @@ if str(ROOT) not in sys.path:
 if str(ROOT / "my_scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "my_scripts"))
 
-from qlib_scripts.build_etf_qlib import BuildEtfError  # noqa: E402
+from myquant_infra.adapters.qlib_data.build_etf_qlib import BuildEtfError  # noqa: E402
 from train_etf_smoke import (  # noqa: E402
     acceptance_ic,
     assert_etf_provider,

@@ -29,7 +29,7 @@ import pandas as pd
 from qlib.data import D
 
 from custom_strategy import TopkDropoutStrategyWithFilter
-from st_status import load_st_daily_index  # noqa: E402
+from myquant_infra.reference_data.st.readers import load_st_daily_index  # noqa: E402
 
 # 通达信口径：ATAN((MA5/REF(MA5,1)-1)*100)*180/PI；「不低于 -30°」含等于。
 MA5_SLOPE_MIN_DEG = -30.0
@@ -219,7 +219,7 @@ class BuyEligibilityFilter:
         self.age_days = age_days
         self.check_buy_state = check_buy_state
         self.features_fn = features_fn  # 可注入；缺省用 D.features
-        # 精确盈筹率 {(CODE, date): ratio}（build_winner_ratio.py 产物）；命中替代 Quantile 代理
+        # 精确盈筹率 {(CODE, date): ratio}（infra CYQ 产物）；命中替代 Quantile 代理
         self.winner_ratio_map = {k: v for k, v in (winner_ratio_map or {}).items()}
         self._feature_cache: dict[str, pd.DataFrame] = {}  # code → date 索引的 6 列特征（preload 填充）
         self._st_by_date: dict[date, set[str]] | None = None
@@ -230,7 +230,7 @@ class BuyEligibilityFilter:
             self._st_dates = sorted(self._st_by_date)
             self.st_fallback = {c.upper() for c in (st_fallback or set())}
         elif st_daily_file:
-            by_date, _ignored = load_st_daily_index(st_daily_file, use_coverage=False)
+            by_date, _ignored = load_st_daily_index(st_daily_file)
             self._st_by_date = by_date
             self._st_dates = sorted(by_date)
             # 显式传入的 st_fallback 仍可用；coverage / 静态名单不再偷偷并进来。

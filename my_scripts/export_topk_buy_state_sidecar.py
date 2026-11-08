@@ -31,7 +31,7 @@ if str(_SCRIPT_DIR) not in sys.path:
 
 import pandas as pd  # noqa: E402
 
-from st_status import to_wind_code  # noqa: E402
+from myquant_infra.reference_data.st.readers import to_wind_code  # noqa: E402
 
 BUY_STATE_FIELDS = (
     "$close",

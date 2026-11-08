@@ -7,6 +7,8 @@ Frozen B-gate Top10Spread (Top−Bottom) is reproduced only as an alignment chec
 """
 from __future__ import annotations
 
+from myquant_infra.artifacts.provenance import sha256_file
+
 import hashlib
 import json
 import math
@@ -48,12 +50,6 @@ BOOT_SEED = 20260919
 GIT_HEAD = "397c904"
 
 
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def load_pred(path: Path) -> pd.DataFrame:

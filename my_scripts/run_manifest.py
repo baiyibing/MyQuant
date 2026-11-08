@@ -1,140 +1,14 @@
-# -*- coding: utf-8 -*-
-"""MQ call-site compatibility for shared ``myquant.run-manifest/1`` provenance.
-
-Infra owns canonical JSON, hashes, fingerprints, validation and manifest IO.
-MQ keeps recorder snapshots and train/export/sweep metadata assembly only;
-these helpers never start training or select signals. Imports work without
-infra; feature use requires the optional ``requirements-infra.txt`` pin.
-"""
-
+"""MyQuant training/export/sweep wiring over infra artifact provenance."""
 from __future__ import annotations
 
-from importlib import import_module
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
-SCHEMA_ID = "myquant.run-manifest/1"
-ALLOWED_STAGES = frozenset({"train", "export", "refresh", "sweep_parent"})
-_PACKAGE = "myquant_infra.artifacts.provenance"
-_REPO_ROOT = Path(__file__).resolve().parents[1]
+from myquant_infra.artifacts.provenance import (
+    ManifestError, build_manifest, fingerprint_artifact, unknown_timings, write_manifest,
+)
 
-
-class ManifestError(ValueError):
-    """Host-compatible error for shared manifest construction or validation."""
-
-
-def _infra():
-    try:
-        return import_module(_PACKAGE)
-    except ModuleNotFoundError as exc:
-        if exc.name and (_PACKAGE == exc.name or _PACKAGE.startswith(exc.name + ".")):
-            raise ModuleNotFoundError(
-                "Run manifest operations require the optional myquant-infra pin; "
-                "install it with python -m pip install -r requirements-infra.txt",
-                name=exc.name,
-            ) from exc
-        raise
-
-
-def _call(name: str, *args: Any, **kwargs: Any) -> Any:
-    backend = _infra()
-    try:
-        return getattr(backend, name)(*args, **kwargs)
-    except backend.ManifestError as exc:
-        # Preserve callers' imported exception class without importing infra
-        # on help/import surfaces. All validation still executes in infra.
-        raise ManifestError(str(exc)) from exc
-
-
-def _repo_root(repo_root: Path | str | None) -> Path | str:
-    # Legacy omitted roots mean this MQ checkout, independent of process cwd.
-    # Infra itself always receives an explicit source repository.
-    return _REPO_ROOT if repo_root is None else repo_root
-
-
-def canonical_json(obj: Any) -> str:
-    """Shared v1 sorted compact UTF-8 JSON, with no trailing LF."""
-    return _call("canonical_json", obj)
-
-
-def config_hash(config: Mapping[str, Any]) -> str:
-    """Shared v1 config digest, excluding only the top-level config_hash."""
-    return _call("config_hash", config)
-
-
-def md5_file(path: Path | str, chunk_size: int = 1024 * 1024) -> str:
-    return _call("md5_file", path, chunk_size=chunk_size)
-
-
-def git_commit(repo_root: Path | str | None = None) -> str:
-    """Capture explicit-source HEAD; default to the host checkout, never cwd."""
-    return _call("git_commit", _repo_root(repo_root))
-
-
-def capture_git_provenance(repo_root: Path | str | None = None) -> dict[str, Any]:
-    """Snapshot source git metadata once; pass it to end-of-run helpers."""
-    return _call("capture_git_provenance", _repo_root(repo_root))
-
-
-def fingerprint_artifact(
-    path: Path | str,
-    *,
-    rows: int | None = None,
-    base_dir: Path | str | None = None,
-) -> dict[str, Any]:
-    return _call("fingerprint_artifact", path, rows=rows, base_dir=base_dir)
-
-
-def build_manifest(
-    *,
-    stage: str,
-    config: Mapping[str, Any] | None = None,
-    data: Mapping[str, Any] | None = None,
-    artifacts: Sequence[Mapping[str, Any]] | None = None,
-    timings: Mapping[str, Any] | None = None,
-    git_commit_sha: str | None = None,
-    git_branch: str | None = None,
-    git_dirty: bool | None = None,
-    created_utc: str | None = None,
-    repo_root: Path | str | None = None,
-) -> dict[str, Any]:
-    """Build shared v1 provenance with an explicit source repository."""
-    return _call(
-        "build_manifest",
-        stage=stage, config=config, data=data, artifacts=artifacts, timings=timings,
-        git_commit_sha=git_commit_sha, git_branch=git_branch, git_dirty=git_dirty,
-        created_utc=created_utc, repo_root=_repo_root(repo_root),
-    )
-
-
-def validate_manifest(manifest: Mapping[str, Any]) -> None:
-    return _call("validate_manifest", manifest)
-
-
-def manifest_to_json_bytes(manifest: Mapping[str, Any]) -> bytes:
-    """Shared pretty UTF-8 MQ JSON, without BOM and with a trailing LF."""
-    return _call("manifest_to_json_bytes", manifest)
-
-
-def write_manifest(
-    manifest: Mapping[str, Any],
-    *,
-    manifests_dir: Path | str,
-    artifact_dirs: Iterable[Path | str] | None = None,
-    filename: str | None = None,
-) -> list[Path]:
-    return _call(
-        "write_manifest", manifest, manifests_dir=manifests_dir,
-        artifact_dirs=artifact_dirs, filename=filename,
-    )
-
-
-def load_manifest(path: Path | str) -> dict[str, Any]:
-    return _call("load_manifest", path)
-
-
-def unknown_timings() -> dict[str, Any]:
-    return _call("unknown_timings")
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def timings_from_recorder(timer_recorder: Any) -> dict[str, Any]:
@@ -143,6 +17,7 @@ def timings_from_recorder(timer_recorder: Any) -> dict[str, Any]:
         return {"total_seconds": 0, "nodes": []}
     nodes = list(getattr(timer_recorder, "nodes", []) or [])
     total = None
+    dump_json = getattr(timer_recorder, "dump_json", None)
     # Prefer live total if recorder exposes _t0
     t0 = getattr(timer_recorder, "_t0", None)
     if t0 is not None:
@@ -211,7 +86,7 @@ def write_train_manifest(
         git_branch=git_branch,
         git_dirty=git_dirty,
         created_utc=created_utc,
-        repo_root=repo_root,
+        repo_root=repo_root if repo_root is not None else REPO_ROOT,
     )
     return write_manifest(
         manifest,
@@ -259,7 +134,7 @@ def write_export_manifest(
         timings=timings or {"total_seconds": 0, "nodes": []},
         git_commit_sha=git_commit_sha,
         created_utc=created_utc,
-        repo_root=repo_root,
+        repo_root=repo_root if repo_root is not None else REPO_ROOT,
     )
     return write_manifest(
         manifest,
@@ -325,7 +200,7 @@ def write_sweep_parent_manifest(
         git_branch=git_branch,
         git_dirty=git_dirty,
         created_utc=created_utc,
-        repo_root=repo_root,
+        repo_root=repo_root if repo_root is not None else REPO_ROOT,
     )
     filename = f"sweep_parent_{pid}.json"
     return write_manifest(

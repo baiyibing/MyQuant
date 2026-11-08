@@ -46,7 +46,7 @@ if str(_SCRIPT_DIR) not in sys.path:
 
 # 共享 mlflow 逃生口 / 静音（须在任何 qlib import 之前）
 import host_env  # noqa: E402,F401
-from run_manifest import capture_git_provenance, config_hash, md5_file  # noqa: E402
+from myquant_infra.artifacts.provenance import capture_git_provenance, config_hash, md5_file
 from handler_frame_cache import resolve_qlib_kernels  # noqa: E402
 
 _STATE: dict[str, Any] = {}

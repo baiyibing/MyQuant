@@ -1,3 +1,5 @@
+> 2026-11-08 更新：下文是历史记录。数据产制、CYQ、ST 和公共契约实现现归 MyQuant-infra，本仓旧入口已删除。当前安装与调用见 [README](../README.md#数据准备)，日常操作见 README 链接的刷新手册。
+
 # 本仓 CYQ 对拍：SSOT / Rust / QMT / 券商 winratio
 
 - 日期：2026-09-14

@@ -28,7 +28,7 @@ from predict_extended import (  # noqa: E402
     run_predict_extended,
     validate_segments,
 )
-from run_manifest import load_manifest  # noqa: E402
+from myquant_infra.artifacts.provenance import load_manifest
 from export_daily_pool import build_parser as export_build_parser  # noqa: E402
 
 

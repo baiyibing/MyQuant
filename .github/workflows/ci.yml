@@ -9,31 +9,6 @@ permissions:
   contents: read
 
 jobs:
-  data-staging:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install offline staging test dependencies
-        run: python -m pip install pytest numpy pandas pyarrow
-      - name: Run ETF and minute staging offline tests
-        run: |
-          python -m pytest -q \
-            tests/test_c1_qlib_infra_switch.py \
-            tests/test_c3_cyq_infra_switch.py \
-            tests/test_c5_dump_pit_infra_switch.py \
-            tests/test_c6_signal_bundle_infra_switch.py \
-            tests/test_c7_st_industry_infra_switch.py \
-            tests/test_build_etf_qlib.py \
-            tests/test_etf_daily_qlib_offline_smoke.py \
-            tests/test_stage_1min_from_lake.py \
-            tests/test_stage_etf_daily_from_lake.py \
-            tests/test_train_etf_smoke.py \
-            tests/test_ql11_1min_increment_receipt_harness.py
-
   joint-return:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -61,17 +36,43 @@ jobs:
   pytest:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: MyQuant
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: MyQuant
+
+      - name: Validate shared source read access
+        working-directory: ${{ github.workspace }}
+        env:
+          SHARED_READ_TOKEN: ${{ secrets.MYQUANT_SHARED_READ_TOKEN }}
+        run: |
+          if [ -z "$SHARED_READ_TOKEN" ]; then
+            echo "::error::Configure MYQUANT_SHARED_READ_TOKEN with Contents: read for MyQuant-infra and grok-bot-ops."
+            exit 1
+          fi
+
+      - name: Check out infra source beside MyQuant
+        uses: actions/checkout@v4
+        with:
+          repository: baiyibing/MyQuant-infra
+          path: MyQuant-infra
+          token: ${{ secrets.MYQUANT_SHARED_READ_TOKEN }}
+          persist-credentials: false
+
+      - name: Check out shared workflow source beside MyQuant
+        uses: actions/checkout@v4
+        with:
+          repository: baiyibing/grok-bot-ops
+          path: grok-bot-ops
+          token: ${{ secrets.MYQUANT_SHARED_READ_TOKEN }}
+          persist-credentials: false
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
-      - name: Lint signal bundle contract
-        run: |
-          pip install ruff
-          ruff check myquant_contract
 
       # qlib 按开发基准 commit 源码安装（requirements.txt 注明的口径，勿用发布包）
       # eng-perf P1-8: cache qlib-dev tree; key binds OS + py3.12 + literal 79633dd9 + reqs hash
@@ -79,8 +80,8 @@ jobs:
         id: cache-qlib
         uses: actions/cache@v4
         with:
-          path: qlib-dev
-          key: ${{ runner.os }}-py3.12-qlib-79633dd9-${{ hashFiles('requirements.txt') }}
+          path: MyQuant/qlib-dev
+          key: ${{ runner.os }}-py3.12-qlib-79633dd9-${{ hashFiles('MyQuant/requirements.txt') }}
           restore-keys: |
             ${{ runner.os }}-py3.12-qlib-79633dd9-
 
@@ -108,4 +109,4 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          python -m pytest my_tests my_scripts/test_zhangting_filter.py -q
+          python -m pytest my_tests tests my_scripts/test_zhangting_filter.py -q

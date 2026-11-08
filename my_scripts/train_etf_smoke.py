@@ -23,13 +23,12 @@ if str(ROOT) not in sys.path:
 if str(ROOT / "my_scripts") not in sys.path:
     sys.path.insert(0, str(ROOT / "my_scripts"))
 
-from qlib_scripts.build_etf_qlib import (  # noqa: E402
+from myquant_infra.adapters.qlib_data.build_etf_qlib import (  # noqa: E402
     SURVIVORSHIP_NOTE,
     BuildEtfError,
     WINDOW_END,
     WINDOW_START,
     assert_target_allowed,
-    default_protected,
     realpath,
     summarize_ratios,
 )
@@ -55,6 +54,11 @@ LABEL_RULE = (
 )
 DEFAULT_QLIB = Path.home() / ".qlib" / "qlib_data" / "my_data_etf"
 DEFAULT_OUT = ROOT / "exports" / "etf_smoke"
+
+
+def default_protected() -> tuple[Path, ...]:
+    base = Path.home() / ".qlib" / "qlib_data"
+    return (base / "my_data", base / "my_data_1min")
 
 
 def assert_etf_provider(path: Path, protected: tuple[Path, ...] | None = None) -> Path:
