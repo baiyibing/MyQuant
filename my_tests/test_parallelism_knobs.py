@@ -26,7 +26,7 @@ from handler_frame_cache import (  # noqa: E402
     resolve_lgb_num_threads,
     resolve_qlib_kernels,
 )
-from refresh_mydata import DEFAULT_MAX_WORKERS  # noqa: E402
+from myquant_infra.adapters.qlib_data.refresh_mydata import DEFAULT_MAX_WORKERS  # noqa: E402
 
 
 def test_defaults_three_knobs(monkeypatch):
@@ -122,7 +122,8 @@ def test_manifest_writes_three_knobs():
 
 
 def test_refresh_documents_three_knob_split():
-    src = (_QLIB_SCRIPTS / "refresh_mydata.py").read_text(encoding="utf-8")
+    from myquant_infra.adapters.qlib_data import refresh_mydata
+    src = Path(refresh_mydata.__file__).read_text(encoding="utf-8")
     assert "三钮" in src or "P1-1" in src or "eng-perf P1-1" in src
     assert "DEFAULT_MAX_WORKERS = 8" in src
     # Must not feed dump workers into a live qlib.init(kernels=) call

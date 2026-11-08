@@ -26,8 +26,7 @@ sys.path.insert(0, str(ROOT / "my_scripts"))
 from custom_handler_1min import Alpha1minSmall
 from handler_frame_cache import resolve_lgb_num_threads
 
-sys.path.insert(0, str(ROOT / "qlib_scripts"))
-from build_mydata_1min import SMOKE_SYMBOLS
+from myquant_infra.adapters.qlib_data.build_mydata_1min import SMOKE_SYMBOLS
 
 DEFAULT_QLIB_DIR = Path.home() / ".qlib" / "qlib_data" / "my_data_1min"
 DEFAULT_OUT = ROOT / "exports" / "1min_smoke"

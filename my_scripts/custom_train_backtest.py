@@ -64,7 +64,8 @@ import plotly.graph_objects as go
 from pprint import pprint
 from custom_utils import pprint_position_report, analyze_position_by_date, generate_position_report, \
     pprint_risk_analysis, TimerRecorder, set_global_timer_recorder, install_features_probe, wrap_dataset_prepare
-from run_manifest import capture_git_provenance, write_train_manifest
+from myquant_infra.artifacts.provenance import capture_git_provenance
+from run_manifest import write_train_manifest
 
 
 

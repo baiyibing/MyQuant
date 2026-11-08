@@ -1,4 +1,0 @@
-line-length = 100
-src = ["myquant_contract"]
-
-# CI explicitly checks myquant_contract; legacy script trees are outside this gate.

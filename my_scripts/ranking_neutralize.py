@@ -6,7 +6,7 @@ This module owns the middle step and nothing else — it rewrites the ``score``
 column the exporter ranks on and never touches labels, features, the infer
 chain, fills, ``--asof`` or the topk default.
 
-The industry map is a *current-snapshot* classification from the 1.3 lake
+The industry map is a *current-snapshot* classification produced by infra
 (``{OSKH_SOURCE_PARQUET_ROOT}/vendor_wind_sw_l1/sw_l1_map.csv`` only).
 Applying it to past windows carries
 survivorship / reclassification bias: acceptable for ranking experiments, but
@@ -24,14 +24,15 @@ Bypass discipline (never silently drop a name from the ranking universe):
 from __future__ import annotations
 
 import argparse
-import csv
-import re
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 import numpy as np
 import pandas as pd
+
+from myquant_infra.reference_data.industry import load_qlib_industry_map as load_industry_map
+from myquant_infra.reference_data.symbols import to_bare_code, to_qlib_code
 
 from data_root import DataRootError, resolve_sw_l1_map
 
@@ -40,49 +41,6 @@ METHODS = ("industry", "size", "both")
 
 #: A size regression needs at least this many usable rows in the cross-section.
 MIN_REGRESSION_ROWS = 3
-
-_QLIB_RE = re.compile(r"^(SH|SZ|BJ)(\d{6})$")
-_DOT_RE = re.compile(r"^(\d{6})\.(SH|SZ|BJ)$")
-_BARE_RE = re.compile(r"^(\d{6})$")
-
-
-def to_qlib_code(code: Any) -> str | None:
-    """Normalize an instrument to the qlib dialect used by pred / the map.
-
-    ``SZ300190`` (qlib, already normal), ``300190.SZ`` (gildata/wind) and the
-    bare ``300190`` that the pool contract emits all map to ``SZ300190``.
-    Bare codes get their exchange from the number range: ``6`` and ``90`` are
-    Shanghai, ``0``/``2``/``3`` Shenzhen, ``4``/``8``/``92`` Beijing.  Anything
-    unrecognized returns ``None`` so callers can bypass instead of guessing.
-    """
-    if code is None:
-        return None
-    text = str(code).strip().upper()
-    if not text:
-        return None
-    match = _QLIB_RE.fullmatch(text)
-    if match is not None:
-        return f"{match.group(1)}{match.group(2)}"
-    match = _DOT_RE.fullmatch(text)
-    if match is not None:
-        return f"{match.group(2)}{match.group(1)}"
-    match = _BARE_RE.fullmatch(text)
-    if match is None:
-        return None
-    digits = match.group(1)
-    if digits[0] == "6" or digits.startswith("90"):
-        return f"SH{digits}"
-    if digits[0] in {"0", "2", "3"}:
-        return f"SZ{digits}"
-    if digits[0] in {"4", "8"} or digits.startswith("92"):
-        return f"BJ{digits}"
-    return None
-
-
-def to_bare_code(code: Any) -> str | None:
-    """Strip the exchange prefix: ``SZ300190`` / ``300190.SZ`` → ``300190``."""
-    qlib = to_qlib_code(code)
-    return None if qlib is None else qlib[2:]
 
 
 @dataclass(frozen=True)
@@ -126,32 +84,6 @@ def _merge_reports(method: str, first: NeutralizeReport, second: NeutralizeRepor
     )
 
 
-def load_industry_map(path: Path | str) -> dict[str, str]:
-    """Read ``sw_l1_map.csv`` into ``{qlib code: sw_l1}``.
-
-    Rows whose code cannot be normalized, or whose industry cell is blank, are
-    dropped — a missing mapping is a bypass downstream, never a fabricated one.
-    """
-    csv_path = Path(path)
-    mapping: dict[str, str] = {}
-    with csv_path.open(encoding="utf-8", newline="") as handle:
-        reader = csv.DictReader(handle)
-        fields = set(reader.fieldnames or [])
-        industry_field = "sw_l1" if "sw_l1" in fields else ("wind_sw_l1" if "wind_sw_l1" in fields else None)
-        if industry_field is None:
-            raise ValueError(f"industry map missing 'sw_l1' or 'wind_sw_l1' column: {csv_path}")
-        code_field = "code_qlib" if "code_qlib" in fields else ("code_gildata" if "code_gildata" in fields else None)
-        if code_field is None:
-            raise ValueError(f"industry map missing 'code_qlib' or 'code_gildata' column: {csv_path}")
-        for row in reader:
-            code = to_qlib_code(row.get(code_field))
-            industry = (row.get(industry_field) or "").strip()
-            if code is None or not industry:
-                continue
-            mapping[code] = industry
-    if not mapping:
-        raise ValueError(f"industry map has no usable rows: {csv_path}")
-    return mapping
 
 
 def normalize_industry_map(sw_l1: Mapping[str, str] | pd.Series | pd.DataFrame) -> dict[str, str]:

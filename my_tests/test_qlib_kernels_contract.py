@@ -106,7 +106,7 @@ def test_no_hardcoded_kernels_16_in_scoped_paths():
 
 
 def test_winner_ratio_scripts_no_kernels_8():
-    for name in ("build_winner_ratio.py", "calibrate_winner_ratio_proxy.py"):
+    for name in ("calibrate_winner_ratio_proxy.py",):
         path = _MY_SCRIPTS / name
         text = path.read_text(encoding="utf-8")
         for i, line in enumerate(text.splitlines(), 1):

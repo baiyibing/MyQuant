@@ -8,7 +8,7 @@ from pathlib import Path
 
 import my_scripts.export_daily_pool as edp
 import pytest
-from myquant_contract import canonical_json_bytes, validate_signal_bundle
+from myquant_infra.contracts.signal_bundle import canonical_json_bytes, validate_signal_bundle
 
 pytestmark = pytest.mark.usefixtures("infra_provenance")
 
@@ -81,10 +81,6 @@ def test_file_path_cli_emits_valid_bundle_without_pythonpath(prediction, tmp_pat
         "data_root.py", "ranking_neutralize.py", "run_manifest.py",
     ):
         shutil.copy2(source_root / "my_scripts" / filename, scripts / filename)
-    shutil.copytree(
-        source_root / "myquant_contract", cli_root / "myquant_contract",
-        ignore=shutil.ignore_patterns("__pycache__"),
-    )
     output = tmp_path / "cli-output"
     env = os.environ.copy()
     env.pop("PYTHONPATH", None)
@@ -225,7 +221,7 @@ def test_builder_value_error_is_cli_error(prediction, tmp_path, monkeypatch, cap
     def reject(*args, **kwargs):
         raise ValueError("invalid bundle fixture")
 
-    monkeypatch.setattr("myquant_contract.build_signal_bundle", reject)
+    monkeypatch.setattr("myquant_infra.contracts.signal_bundle.build_signal_bundle", reject)
     with pytest.raises(SystemExit) as exc:
         _run(prediction, tmp_path / "out", "--emit-signal-bundle")
     assert exc.value.code == 2

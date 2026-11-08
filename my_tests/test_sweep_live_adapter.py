@@ -16,7 +16,7 @@ if _MY_SCRIPTS not in sys.path:
     sys.path.insert(0, _MY_SCRIPTS)
 
 import sweep_live_adapter as sla  # noqa: E402
-from run_manifest import load_manifest  # noqa: E402
+from myquant_infra.artifacts.provenance import load_manifest
 from sweep_ranking import SweepConfig, run_one  # noqa: E402
 
 

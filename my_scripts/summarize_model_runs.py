@@ -15,7 +15,7 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
-from run_manifest import load_manifest  # noqa: E402
+from myquant_infra.artifacts.provenance import load_manifest
 
 REPO_ROOT = _SCRIPT_DIR.parent
 

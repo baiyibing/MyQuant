@@ -26,7 +26,7 @@ from buy_eligibility import (  # noqa: E402
     ma5_slope_deg,
     ma20_stand_ok,
 )
-from build_tradable_universe import drop_excluded, shift_start_for_age  # noqa: E402
+from myquant_infra.adapters.qlib_data.universe import drop_excluded, shift_start_for_age  # noqa: E402
 
 
 CAL = list(pd.DatetimeIndex(pd.to_datetime(

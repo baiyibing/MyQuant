@@ -1,72 +1,22 @@
-"""Consume-only ST lake readers (no download / merge)."""
-
-from __future__ import annotations
-
-import os
-import sys
+"""MyQuant eligibility consumes infra's dated ST observations."""
+from datetime import date
 
 import pandas as pd
 
-_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-_MY_SCRIPTS = os.path.join(_ROOT, "my_scripts")
-if _MY_SCRIPTS not in sys.path:
-    sys.path.insert(0, _MY_SCRIPTS)
-
-from st_status import (  # noqa: E402
-    coverage_fallback_qlib,
-    load_st_codes_asof,
-    load_st_daily_index,
-    to_qlib_code,
-    to_wind_code,
-)
+from buy_eligibility import BuyEligibilityFilter
+from myquant_infra.reference_data.st.readers import load_st_codes_asof
 
 
-def test_code_roundtrip(infra_st_readers):
-    assert to_wind_code("SZ000504") == "000504.SZ"
-    assert to_qlib_code("000504.SZ") == "SZ000504"
-    assert to_qlib_code("600000.SH") == "SH600000"
-    assert to_qlib_code("920305.BJ") == "BJ920305"
-
-
-def test_coverage_fallback_and_asof(tmp_path, infra_st_readers):
-    daily = pd.DataFrame(
-        {
-            "trade_date": pd.to_datetime(["2026-01-07", "2026-01-08"]),
-            "code": ["000615.SZ", "000615.SZ"],
-            "is_st": [True, True],
-            "st_kind": ["star_st", "star_st"],
-            "name": ["*ST美谷", "*ST美谷"],
-        }
-    )
-    daily_path = tmp_path / "st_daily.parquet"
-    daily.to_parquet(daily_path, index=False)
-    (tmp_path / "st_coverage.json").write_text(
-        '{"harvested_wind_codes": ["000615.SZ", "000504.SZ"], '
-        '"unknown_end_wind_codes": ["000504.SZ"]}',
-        encoding="utf-8",
-    )
-    static = {"SZ000615", "SZ000504", "SH688999"}
-    fallback = coverage_fallback_qlib(
-        {"harvested_wind_codes": ["000615.SZ", "000504.SZ"], "unknown_end_wind_codes": ["000504.SZ"]},
-        static,
-    )
-    assert "SZ000504" in fallback
-    assert "SH688999" in fallback
-    assert "SZ000615" not in fallback
-    by_date, fb = load_st_daily_index(daily_path, fallback_static=static)
-    assert by_date[pd.Timestamp("2026-01-07").date()] == {"SZ000615"}
-    assert fb == set()
-    asof = load_st_codes_asof(daily_path, asof="2026-01-07", fallback_static=static)
-    assert asof == {"SZ000615"}
-    by_cov, fb_on = load_st_daily_index(daily_path, fallback_static=static, use_coverage=True)
-    assert by_cov[pd.Timestamp("2026-01-07").date()] == {"SZ000615"}
-    assert fb_on == fallback
-    snap = coverage_fallback_qlib(
-        {
-            "harvested_wind_codes": ["000615.SZ"],
-            "unknown_end_wind_codes": [],
-            "snapshot_fallback_wind_codes": ["603825.SH"],
-        },
-        {"SZ000615"},
-    )
-    assert snap == {"SH603825"}
+def test_dense_non_st_day_clears_previous_hit(tmp_path):
+    daily = tmp_path / "st_daily.parquet"
+    pd.DataFrame({
+        "trade_date": pd.to_datetime(["2026-01-07", "2026-01-08"]),
+        "code": ["000615.SZ", "000615.SZ"],
+        "is_st": [True, False],
+    }).to_parquet(daily, index=False)
+    assert load_st_codes_asof(daily, asof="2026-01-07") == {"SZ000615"}
+    assert load_st_codes_asof(daily, asof="2026-01-08") == set()
+    eligibility = BuyEligibilityFilter(st_daily_file=daily)
+    assert eligibility._st_by_date[date(2026, 1, 7)] == {"SZ000615"}
+    assert eligibility._st_by_date[date(2026, 1, 8)] == set()
+    assert eligibility.st_fallback == set()

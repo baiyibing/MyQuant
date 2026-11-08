@@ -19,11 +19,8 @@ _MY_SCRIPTS = os.path.join(_ROOT, "my_scripts")
 if _MY_SCRIPTS not in sys.path:
     sys.path.insert(0, _MY_SCRIPTS)
 
-from run_manifest import (  # noqa: E402
-    capture_git_provenance,
-    load_manifest,
-    write_train_manifest,
-)
+from myquant_infra.artifacts.provenance import capture_git_provenance, load_manifest
+from run_manifest import write_train_manifest
 
 
 def _fake_check_output_factory(state: dict[str, Any]):

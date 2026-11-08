@@ -6,6 +6,8 @@ Pre-registered lambdas only: {0.25, 0.5, 1.0}. Primary report λ=0.5.
 """
 from __future__ import annotations
 
+from myquant_infra.artifacts.provenance import sha256_file
+
 import hashlib
 import json
 import math
@@ -52,12 +54,6 @@ OUT = REPO / "exports" / "analysis" / "t5_mxr1_20260918" / "pseudo2_residual_ble
 INBOX = Path(r"D:\PycharmProjects\_agent_inbox\t5-mxr1-pseudo2")
 
 
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def json_safe(v):

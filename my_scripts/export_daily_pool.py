@@ -51,7 +51,8 @@ from float_cap_gate import (  # noqa: E402
 )
 from data_root import DataRootError, resolve_sw_l1_map  # noqa: E402
 from ranking_neutralize import METHODS, load_industry_map, neutralize  # noqa: E402
-from run_manifest import md5_file, write_export_manifest  # noqa: E402
+from myquant_infra.artifacts.provenance import md5_file
+from run_manifest import write_export_manifest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -364,7 +365,7 @@ def _write_signal_bundle(
 
     if str(REPO_ROOT) not in sys.path:
         sys.path.insert(0, str(REPO_ROOT))
-    from myquant_contract import build_signal_bundle, canonical_json_bytes
+    from myquant_infra.contracts.signal_bundle import build_signal_bundle, canonical_json_bytes
 
     available_at = None
     if available_at_time is not None:

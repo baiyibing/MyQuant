@@ -28,11 +28,8 @@ if str(_SCRIPT_DIR) not in sys.path:
 
 # 共享 mlflow 逃生口 / 静音（adapter 路径会触碰 qlib）
 import host_env  # noqa: E402,F401
-from run_manifest import (  # noqa: E402
-    unknown_timings,
-    write_sweep_parent_manifest,
-    write_train_manifest,
-)
+from myquant_infra.artifacts.provenance import unknown_timings
+from run_manifest import write_sweep_parent_manifest, write_train_manifest
 
 # Shared batch nodes belong on the sweep parent manifest (eng-perf P0-5), not
 # re-amortized onto every arm as "full train" wall time.

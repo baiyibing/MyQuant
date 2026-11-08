@@ -18,7 +18,8 @@ if _MY_SCRIPTS not in sys.path:
     sys.path.insert(0, _MY_SCRIPTS)
 
 from export_daily_pool import main  # noqa: E402
-from run_manifest import load_manifest, write_export_manifest  # noqa: E402
+from myquant_infra.artifacts.provenance import load_manifest
+from run_manifest import write_export_manifest
 
 
 def test_write_export_manifest_helper(tmp_path: Path):

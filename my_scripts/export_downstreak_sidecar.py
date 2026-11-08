@@ -8,11 +8,13 @@ Rank is on downstreak5 itself (no * -1). Not CNTN5 / ROC5 / SUMN5.
 """
 from __future__ import annotations
 
+from myquant_infra.artifacts.provenance import git_commit
+from myquant_infra.artifacts.provenance import sha256_file as _sha256
+
 import argparse
 import hashlib
 import json
 import os
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -35,12 +37,6 @@ SAMPLE_RECOMPUTE = 16
 SAMPLE_RANK_DAYS = 3
 
 
-def _sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def _key_digest(df) -> str:
@@ -54,14 +50,6 @@ def _key_digest(df) -> str:
     return h.hexdigest()
 
 
-def _git_commit() -> str:
-    try:
-        out = subprocess.check_output(
-            ["git", "rev-parse", "HEAD"], cwd=str(REPO_ROOT), text=True
-        ).strip()
-        return out
-    except Exception as exc:
-        return f"unavailable:{exc}"
 
 
 def _calendar_fingerprint(provider: Path) -> dict[str, Any]:
@@ -256,7 +244,7 @@ def main(argv: list[str] | None = None) -> int:
 
     provider = Path(os.path.expanduser(args.provider_uri)).resolve()
     snap = _calendar_fingerprint(provider)
-    commit = _git_commit()
+    commit = git_commit(REPO_ROOT)
     print(f"[freeze] provider={provider}", flush=True)
     print(f"[freeze] calendar_sha256={snap['calendar_sha256']}", flush=True)
     print(f"[freeze] commit={commit}", flush=True)

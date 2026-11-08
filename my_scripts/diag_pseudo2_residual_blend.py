@@ -7,6 +7,8 @@
 """
 from __future__ import annotations
 
+from myquant_infra.artifacts.provenance import sha256_file
+
 import hashlib
 import json
 import math
@@ -56,12 +58,6 @@ INBOX = Path(r"D:\PycharmProjects\_agent_inbox\t5-wrd1-pseudo2")
 SIDECAR = REPO / "exports" / "analysis" / "t5_wrd1_20260918" / "sidecar" / "BROKER_WR_GAP.parquet"
 
 
-def sha256_file(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def json_safe(v):

@@ -2,6 +2,8 @@
 """T5-WRD1 A-gate: WR-gap partial RankIC controlling score + sidecar q."""
 from __future__ import annotations
 
+from myquant_infra.artifacts.provenance import sha256_file as _sha256
+
 import argparse
 import hashlib
 import json
@@ -41,12 +43,6 @@ def parse_window(value: str):
     return a.strip(), b.strip()
 
 
-def _sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 def _file_identity(path: Path) -> dict[str, Any]:

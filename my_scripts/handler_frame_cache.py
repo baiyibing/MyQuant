@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional
 
-from run_manifest import canonical_json, config_hash
+from myquant_infra.artifacts.provenance import canonical_json, config_hash
 
 
 def _call_builder(builder: Callable[[], Any]) -> Any:
@@ -63,7 +63,7 @@ def resolve_qlib_kernels() -> int:
     return int(raw)
 
 
-# Align with qlib_scripts/refresh_mydata.DEFAULT_MAX_WORKERS (dump_all pin; forbid 16).
+# Align with infra's qlib_data.refresh_mydata dump worker limit (8; forbid 16).
 DEFAULT_DUMP_MAX_WORKERS = 8
 DEFAULT_LGB_NUM_THREADS = 20
 
