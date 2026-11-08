@@ -1,5 +1,7 @@
 # 任务书：ST 历史 PIT 数据集（Wind × Kimi datasource → F 湖 → MyQuant 消费）
 
+> 历史需求与数据状态（2026-09-14）：采集和参考数据产制现归 MyQuant-infra；本仓保留 PIT 消费、研究验证和选股规则。当前入口见[参考数据手册](../my_docs/prompt-kimi-datasource-industry-harvest.md)，不将下文的历史缺口视为当前覆盖结论。
+
 - 日期：2026-09-14
 - 背景：zcode 的 QMT 逐码采集方案因速度不可行（~0.5s/只，单日全市场 46 分钟）被停止；本方案改用 **Kimi datasource 的 Wind 接口**批量获取 A 股 ST 实施/撤销历史，构建本地 PIT 数据集。
 - 状态：**深市 PIT 已落地**（交易所简称变更，不消耗 Kimi）。沪/京仍缺 14 个 Wind 实施批；额度恢复后只补这些。已验证 Wind `wind_get_financial_data` 可返回：

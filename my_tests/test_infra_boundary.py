@@ -13,7 +13,8 @@ MIGRATED = (
         "dump_bin", "dump_pit", "refresh_mydata", "merge_archive_and_csv",
         "patch_index_data", "refresh_mydata_1min", "stage_1min_from_lake",
         "build_mydata_1min", "stage_etf_daily_from_lake", "build_etf_qlib",
-        "check_dump_bin", "check_data_health", "csv_float_scan",
+        "check_dump_bin", "check_data_health", "csv_float_scan", "_infra_qlib",
+        "_qlib_cli", "qlib_1min_increment_receipt",
     )],
     "my_scripts/build_winner_ratio.py", "my_scripts/st_status.py",
     "my_scripts/harvest_st_from_wind.py", "my_scripts/harvest_sw_l1_from_wind.py",
@@ -21,21 +22,32 @@ MIGRATED = (
     "myquant_contract/signal_bundle.py", "myquant_contract/schema/signal-bundle-1.schema.json",
     "qlib_scripts/list_st.py", "qlib_scripts/checkcsv.py",
     "exports/m3d_industry/_merge.py", "exports/m3d_industry/_merge_fin.py",
+    "tests/fixtures/etf_daily_lake/build_fixture.py",
 )
 
 
 def test_no_migrated_implementations_or_imports():
     assert not [name for name in MIGRATED if (ROOT / name).is_file()]
-    removed_modules = {Path(name).stem for name in MIGRATED if name.endswith(".py")}
-    for directory in ("my_scripts", "qlib_scripts"):
-        for path in (ROOT / directory).glob("*.py"):
+    removed_modules = {"myquant_contract"}
+    for name in MIGRATED:
+        if name.endswith(".py"):
+            removed_modules.add(name[:-3].replace("/", "."))
+            if name.startswith(("my_scripts/", "qlib_scripts/")):
+                removed_modules.add(Path(name).stem)
+    for directory in ("my_scripts", "qlib_scripts", "l2_signals", "my_tests", "tests"):
+        for path in (ROOT / directory).rglob("*.py"):
             for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
                 if isinstance(node, ast.ImportFrom) and node.module:
-                    assert node.module != "myquant_contract", path
-                    assert not (node.module.split(".")[0] in removed_modules), path
-                    assert not (node.module.startswith("qlib_scripts.") and node.module.split(".")[-1] in removed_modules), path
+                    names = [node.module, *(f"{node.module}.{alias.name}" for alias in node.names)]
                 elif isinstance(node, ast.Import):
-                    assert not any(alias.name.split(".")[0] in removed_modules | {"myquant_contract"} for alias in node.names), path
+                    names = [alias.name for alias in node.names]
+                else:
+                    continue
+                obsolete = [name for name in names if any(
+                    name == removed or name.startswith(removed + ".")
+                    for removed in removed_modules
+                )]
+                assert not obsolete, f"{path.relative_to(ROOT)} imports migrated modules: {obsolete}"
 
 
 def test_universe_wrapper_uses_explicit_snapshot_and_infra(tmp_path):

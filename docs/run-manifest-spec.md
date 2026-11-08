@@ -2,7 +2,8 @@
 
 - 日期：2026-09-13
 - 仓：MyQuant（信号厂）。MyQuant-backtrader / OSkhQuant1.3 **本仓不改**；后续 BT 对齐读本契约即可。
-- 实现：`my_scripts/run_manifest.py`
+- 公共 schema、Git 溯源、文件指纹与 IO：infra 的 `myquant_infra.artifacts.provenance`。
+- 本仓 `my_scripts/run_manifest.py`：训练、导出和 sweep 元数据组装及实验计时接线；公共 API 直接从 infra 导入。
 
 ## 目标
 

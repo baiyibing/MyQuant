@@ -11,23 +11,26 @@ junction), and `dump_all` arguments with eight workers. Wipe and dump are spies;
 the dry-run CLI only prints the plan. Test outputs stay under pytest's temporary
 directory, and network/subprocess calls are blocked in the offline smoke tests.
 
-The committed [synthetic lake](../tests/fixtures/etf_daily_lake/README.md) has
-matching front/none trees, four symbols, and a sparse 31-weekday calendar spanning
-2020-01-02 through 2026-10-13. Use the existing `--lake-root` option with
-`tests/fixtures/etf_daily_lake/dividend_type=front`; no new flag or environment
-variable is needed. The fixtures are read-only during tests and contain no Wind
-samples. They are intentionally too small for `etf_full`; the #107 `ETF_FULL_*`
-and training split constants remain unchanged.
+The [infra fixture](https://github.com/baiyibing/MyQuant-infra/blob/main/tests/adapters/qlib_data/conftest.py)
+now generates the synthetic lake in a temporary directory for each test.
+MyQuant removes the unused duplicate generator and committed parquet files.
+The fixture has matching front/none trees, four symbols, and a sparse 31-weekday
+calendar spanning 2020-01-02 through 2026-10-13, with no Wind samples. It is
+intentionally too small for `etf_full`; the #107 `ETF_FULL_*` and training split
+constants remain unchanged.
 
-From the repository root, with pytest, pandas, numpy, and pyarrow available:
+With sibling source checkouts, pytest, pandas, numpy, and pyarrow available,
+run the producer tests in infra and the training acceptance tests in MyQuant:
 
 ```bash
-/workspace/vanna312/bin/python -m pytest -q \
-  tests/test_stage_etf_daily_from_lake.py \
-  tests/test_build_etf_qlib.py \
-  tests/test_train_etf_smoke.py \
-  tests/test_etf_daily_qlib_offline_smoke.py \
+cd ../MyQuant-infra
+python -m pytest -q \
+  tests/adapters/qlib_data/test_stage_etf_daily_from_lake.py \
+  tests/adapters/qlib_data/test_build_etf_qlib.py \
+  tests/adapters/qlib_data/test_etf_daily_qlib_offline_smoke.py \
   --tb=short
+cd ../MyQuant
+python -m pytest -q tests/test_train_etf_smoke.py --tb=short
 ```
 
 On another Linux or M5 environment, replace the interpreter path with its local

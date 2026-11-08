@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import importlib.metadata
 import json
 import sys
@@ -16,6 +15,8 @@ from typing import Any, cast
 
 import numpy as np
 import pandas as pd
+
+from myquant_infra.artifacts.provenance import sha256_file as file_sha256
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -176,10 +177,6 @@ def prepare_artifact_output(out: Path, provider: Path) -> None:
     if out.exists():
         raise BuildEtfError("acceptance output must be a fresh directory")
     out.mkdir(parents=True, exist_ok=False)
-
-
-def file_sha256(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def persist_segment(out: Path, model_name: str, segment: str, joined: pd.DataFrame, calendar, report: dict) -> dict:

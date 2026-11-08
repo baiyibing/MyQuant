@@ -9,7 +9,7 @@
 | **MyQuant-infra** | L2 **数据处理**（写侧 + 湖工具 + `l2/research` 读侧探索脚手架；可摸原始湖） |
 | **MyQuant**（本模块） | L2 **数据利用**（信号研究、定义卡、跨年验证、池导出；只吃 rollup / B 层等成品表） |
 | **MyQuant-backtrader** | **回测执行**（如 stab_t1 书；跨引擎契约） |
-| **grok-bot-ops** | **全局配置 / 湖口径与历程 SSOT 文档**（研究脚本已全部迁出） |
+| **grok-bot-ops** | **通用工程配置 / CI 与协作 / L2 交接历程**；数据湖 SSOT 正本归 infra（研究脚本已全部迁出） |
 
 判据：要碰湖的原始格式 / 分区 / 增量机制 → infra；只消费成品表出信号代号与定义卡 → MyQuant。  
 infra `l2/research` 可做贴湖假说探查，但**不是 signals**；命名信号与定义卡只落本仓。

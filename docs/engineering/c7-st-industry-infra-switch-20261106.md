@@ -1,5 +1,7 @@
 # C7 — ST / industry consume helper switch
 
+> 历史迁移记录：2026-11-08 的 [#136](https://github.com/baiyibing/MyQuant/pull/136) 已改为直接消费 infra 源码。下文的兼容入口、可选安装、旧 pin 与测试命令记录当时状态；当前安装与调用以 [README](../../README.md#环境搭建) 和[数据产制手册](../../my_docs/提示词-qlib-bin刷新.md)为准。
+
 This independent C7 change starts directly from the supplied MyQuant
 `origin/master` base `143004340cc30277cb659bd43ced65b770f89894`. It adds no
 C3–C6 feature-branch commits and requires no additional C3–C6 changes. Their

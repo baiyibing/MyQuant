@@ -26,7 +26,7 @@ import sys
 from pathlib import Path
 from typing import Any, Callable, Mapping, Optional
 
-from myquant_infra.artifacts.provenance import canonical_json, config_hash
+from myquant_infra.artifacts.provenance import canonical_json, config_hash, sha256_file
 
 
 def _call_builder(builder: Callable[[], Any]) -> Any:
@@ -219,11 +219,7 @@ def file_sha256(path: Path | str) -> str:
     p = Path(path)
     if not p.is_file():
         return _SOURCE_MISSING_SENTINEL
-    h = hashlib.sha256()
-    with p.open("rb") as fh:
-        for chunk in iter(lambda: fh.read(1024 * 1024), b""):
-            h.update(chunk)
-    return h.hexdigest()
+    return sha256_file(p)
 
 
 def attach_source_hashes(

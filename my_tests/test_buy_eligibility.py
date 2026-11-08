@@ -132,7 +132,8 @@ def test_load_extra_exclude_missing_file():
 
 @pytest.fixture
 def universe_infra():
-    return pytest.importorskip("myquant_infra.adapters.qlib_data.universe", reason="optional C4 infra pin")
+    from myquant_infra.adapters.qlib_data import universe
+    return universe
 
 
 def test_drop_excluded(universe_infra):

@@ -1,5 +1,7 @@
 # C3: CYQ winner-ratio feeder host switch
 
+> 历史迁移记录：2026-11-08 的 [#136](https://github.com/baiyibing/MyQuant/pull/136) 已改为直接消费 infra 源码。下文的兼容入口、可选安装、旧 pin 与测试命令记录当时状态；当前安装与调用以 [README](../../README.md#环境搭建) 和[数据产制手册](../../my_docs/提示词-qlib-bin刷新.md)为准。
+
 `my_scripts/build_winner_ratio.py` now delegates manual builds to the existing
 `myquant_infra.derived_data.cyq.cli.main`. Computation and publication have one
 implementation in infra; the host retains only dependency-free argument help,

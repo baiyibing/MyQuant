@@ -1,5 +1,7 @@
 # C2 CSV float validation host switch — 2026-11-05
 
+> 历史迁移记录：2026-11-08 的 [#136](https://github.com/baiyibing/MyQuant/pull/136) 已改为直接消费 infra 源码。下文的兼容入口、可选安装、旧 pin 与测试命令记录当时状态；当前安装与调用以 [README](../../README.md#环境搭建) 和[数据产制手册](../../my_docs/提示词-qlib-bin刷新.md)为准。
+
 `qlib_scripts/csv_float_scan.py` now delegates the scanner, report formatters,
 and legacy public constants to `myquant_infra.data_validation.csv_float`.
 `refresh_mydata.run_csv_scan_preflight` keeps its existing import, warning

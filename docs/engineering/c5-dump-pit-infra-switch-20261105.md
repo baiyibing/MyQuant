@@ -1,5 +1,7 @@
 # C5: financial PIT dump host caller
 
+> 历史迁移记录：2026-11-08 的 [#136](https://github.com/baiyibing/MyQuant/pull/136) 已改为直接消费 infra 源码。下文的兼容入口、可选安装、旧 pin 与测试命令记录当时状态；当前安装与调用以 [README](../../README.md#环境搭建) 和[数据产制手册](../../my_docs/提示词-qlib-bin刷新.md)为准。
+
 MQ base: `b0cdb421f49e109e892c4a192b4791695b383f37` (`origin/master`, C1 #128
 already merged). This is an independent PR against `master`; it does not stack
 on C3 #129 or C4 #130. Open as a draft only; hotmail owns merging.
