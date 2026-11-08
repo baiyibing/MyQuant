@@ -1,5 +1,7 @@
 # 任务书：ST 名称 + 上市日期 + 获利盘三件套数据集（QMT 采集 → F 湖 → MyQuant 消费）
 
+> 历史需求与数据状态（2026-09-14）：采集和参考数据产制现归 MyQuant-infra；本仓保留 PIT 消费、研究验证和选股规则。当前入口见[参考数据手册](../my_docs/prompt-kimi-datasource-industry-harvest.md)，不将下文的历史缺口视为当前覆盖结论。
+
 - 日期：2026-09-14
 - 背景：全市场长窗实验（`docs/qlib-fullmarket-longwindow-report-2026-09-14.md`）新增四个买入
   过滤开关，其中 ST 名单与上市日期目前用静态近似（`train_wiring.EXCLUDE_STOCKS_DEFAULT`

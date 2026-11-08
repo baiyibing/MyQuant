@@ -1,3 +1,7 @@
+历史实验笔记：下面的 dump_bin.py / dump_update 命令仅保留作当时记录。
+当前数据产制调用 myquant_infra.adapters.qlib_data；操作见 my_docs/提示词-qlib-bin刷新.md。
+这些旧命令不作为当前刷新入口。
+
 1.均线指标
 Volddx：ma1 , ma3, ma5,ma10
 Bigddx:  ma1,ma3,ma5,ma10

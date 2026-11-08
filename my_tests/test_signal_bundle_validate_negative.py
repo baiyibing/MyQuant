@@ -5,7 +5,7 @@ from copy import deepcopy
 from typing import Any
 
 import pytest
-from myquant_contract.signal_bundle import (
+from myquant_infra.contracts.signal_bundle import (
     build_signal_bundle,
     canonical_json_bytes,
     validate_signal_bundle,

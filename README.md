@@ -72,7 +72,7 @@ infra CLI 要求显式输入、输出和保护目录；本仓 `data_root.py` 仅
 | [MyQuant-infra](https://github.com/baiyibing/MyQuant-infra) | L2 数据处理（写侧 + 湖工具 + research 读侧探索脚手架） |
 | **本仓** | L2 数据利用（`l2_signals/`：信号、定义卡、跨年验证、池导出） |
 | [MyQuant-backtrader](https://github.com/baiyibing/MyQuant-backtrader) | 回测执行（stab_t1 等；跨引擎契约）。Cerebro 已于 2026-09-16 退役 |
-| [grok-bot-ops](https://github.com/baiyibing/grok-bot-ops) | 全局配置与湖口径/历程文档；研究脚本已迁出 |
+| [grok-bot-ops](https://github.com/baiyibing/grok-bot-ops) | 通用工程配置、CI/运维与协作、L2 交接历程；数据湖 SSOT 正本归 infra |
 
 细则见 [`l2_signals/README.md`](l2_signals/README.md)。
 

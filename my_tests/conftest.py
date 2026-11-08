@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import os
 import sys
+from importlib import import_module
 
 import pytest
 
@@ -34,20 +35,20 @@ _pin_my_scripts_first()
 
 @pytest.fixture
 def infra_provenance():
-    """Only tests exercising shared provenance need the optional private pin."""
-    return pytest.importorskip("myquant_infra.artifacts.provenance", reason="optional C6 infra pin")
+    """The shared source dependency is required, including in partial test runs."""
+    return import_module("myquant_infra.artifacts.provenance")
 
 
 @pytest.fixture
 def infra_signal_bundle():
-    return pytest.importorskip("myquant_infra.contracts.signal_bundle", reason="optional C6 infra pin")
+    return import_module("myquant_infra.contracts.signal_bundle")
 
 
 @pytest.fixture
 def infra_st_readers():
-    return pytest.importorskip("myquant_infra.reference_data.st.readers", reason="optional C7 infra pin")
+    return import_module("myquant_infra.reference_data.st.readers")
 
 
 @pytest.fixture
 def infra_lake_paths():
-    return pytest.importorskip("myquant_infra.lake.paths", reason="optional C7 infra pin")
+    return import_module("myquant_infra.lake.paths")

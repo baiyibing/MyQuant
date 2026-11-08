@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 
-pytest.importorskip("myquant_infra.adapters.qlib_data", reason="optional C1 infra pin")
 
 _ROOT = Path(__file__).resolve().parents[1]
 _MY_SCRIPTS = _ROOT / "my_scripts"

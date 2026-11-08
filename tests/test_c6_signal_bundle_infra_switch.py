@@ -30,12 +30,12 @@ def offline(monkeypatch):
 
 @pytest.fixture
 def infra_signal():
-    return pytest.importorskip("myquant_infra.contracts.signal_bundle", reason="optional C6 infra pin")
+    return signal
 
 
 @pytest.fixture
 def infra_manifest():
-    return pytest.importorskip("myquant_infra.artifacts.provenance", reason="optional C6 infra pin")
+    return manifest
 
 
 @pytest.mark.parametrize("case", GOLDEN["bundles"], ids=lambda case: case["name"])

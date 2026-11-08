@@ -1,5 +1,7 @@
 # C1: qlib day, minute, and ETF production callers
 
+> 历史迁移记录：2026-11-08 的 [#136](https://github.com/baiyibing/MyQuant/pull/136) 已改为直接消费 infra 源码。下文的兼容入口、可选安装、旧 pin 与测试命令记录当时状态；当前安装与调用以 [README](../../README.md#环境搭建) 和[数据产制手册](../../my_docs/提示词-qlib-bin刷新.md)为准。
+
 MQ base: `c725808e05acd73702c35f5b44723a2e60019807` (`origin/master`, fetched
 before implementation). C1 uses the merged MyQuant-infra `origin/main` commit
 **`3c377e9718e811112993579b6d91a603395db699`**, verified against `origin/main`

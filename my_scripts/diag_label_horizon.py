@@ -10,7 +10,6 @@ saves recorder objects, runs PortAna/backtests, or changes online settings.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import os
@@ -20,6 +19,7 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 import host_env  # noqa: F401  # must precede any qlib import
+from myquant_infra.artifacts.provenance import sha256_file
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
@@ -565,16 +565,13 @@ def _decide_verdict(windows: dict[str, dict[str, Any]]) -> dict[str, Any]:
 
 
 def _file_identity(path: Path) -> dict[str, Any]:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            digest.update(chunk)
+    digest = sha256_file(path)
     stat = path.stat()
     return {
         "path": str(path.resolve()),
         "size_bytes": int(stat.st_size),
         "mtime_utc": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
-        "sha256": digest.hexdigest(),
+        "sha256": digest,
     }
 
 
