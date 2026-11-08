@@ -87,6 +87,6 @@ infra CLI 要求显式输入、输出和保护目录；本仓 `data_root.py` 仅
 
 ## CI 源码访问
 
-GitHub Actions 的完整研究测试需配置 `MYQUANT_SHARED_READ_TOKEN`：fine-grained PAT 只选择 `MyQuant-infra` 与 `grok-bot-ops`，仓库权限仅需 Contents: Read（Metadata 为 GitHub 必需项）。两个私有仓以源码 checkout 后使用；本地继续读取相邻源码，无需该 CI secret。缺少 secret 时 CI 明确失败，不使用本地实现副本替代。
+GitHub Actions 的完整研究测试使用两把独立的只读 SSH deploy key：在 `MyQuant-infra` 注册公钥、将私钥保存为本仓 Actions secret `MYQUANT_INFRA_READ_KEY`；在 `grok-bot-ops` 注册另一把公钥、将对应私钥保存为 `MYQUANT_OPS_READ_KEY`。两仓均不勾选写入权限。CI 通过 `actions/checkout` 的 `ssh-key` 读取相邻源码，设置 `persist-credentials: false`，不将凭据留给后续测试。本地继续读取相邻源码，无需这些 CI secret。缺少密钥时 CI 明确失败，不使用本地实现副本替代。
 
-本次需先合入 infra 与 ops 的配套接口 PR，再合入 MyQuant；联合收益纯离线测试独立运行。
+infra [#83](https://github.com/baiyibing/MyQuant-infra/pull/83) 与 ops [#182](https://github.com/baiyibing/grok-bot-ops/pull/182) 已合入各自默认分支，CI 直接读取其当前源码；联合收益纯离线测试独立运行。

@@ -47,10 +47,11 @@ jobs:
       - name: Validate shared source read access
         working-directory: ${{ github.workspace }}
         env:
-          SHARED_READ_TOKEN: ${{ secrets.MYQUANT_SHARED_READ_TOKEN }}
+          INFRA_READ_KEY: ${{ secrets.MYQUANT_INFRA_READ_KEY }}
+          OPS_READ_KEY: ${{ secrets.MYQUANT_OPS_READ_KEY }}
         run: |
-          if [ -z "$SHARED_READ_TOKEN" ]; then
-            echo "::error::Configure MYQUANT_SHARED_READ_TOKEN with Contents: read for MyQuant-infra and grok-bot-ops."
+          if [ -z "$INFRA_READ_KEY" ] || [ -z "$OPS_READ_KEY" ]; then
+            echo "::error::Configure MYQUANT_INFRA_READ_KEY and MYQUANT_OPS_READ_KEY with separate read-only deploy keys."
             exit 1
           fi
 
@@ -59,7 +60,7 @@ jobs:
         with:
           repository: baiyibing/MyQuant-infra
           path: MyQuant-infra
-          token: ${{ secrets.MYQUANT_SHARED_READ_TOKEN }}
+          ssh-key: ${{ secrets.MYQUANT_INFRA_READ_KEY }}
           persist-credentials: false
 
       - name: Check out shared workflow source beside MyQuant
@@ -67,7 +68,7 @@ jobs:
         with:
           repository: baiyibing/grok-bot-ops
           path: grok-bot-ops
-          token: ${{ secrets.MYQUANT_SHARED_READ_TOKEN }}
+          ssh-key: ${{ secrets.MYQUANT_OPS_READ_KEY }}
           persist-credentials: false
 
       - uses: actions/setup-python@v5
