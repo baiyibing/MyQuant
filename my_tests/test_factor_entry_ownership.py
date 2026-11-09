@@ -43,13 +43,15 @@ root = Path(sys.argv[1])
 def no_reader(*a, **kw):
     raise AssertionError('reader initialized during import')
 _runtime.configure_host(research_root=lambda: root, period_root=lambda p: root / p,
-    parquet_root=lambda: root, reader_factory=no_reader)
+    parquet_root=lambda: root, source_parquet=lambda name: root / name, reader_factory=no_reader)
 manifest = json.loads(Path(sys.argv[2]).read_text())
 for entry in manifest:
     module = importlib.import_module(entry['myquant_module'])
     assert callable(module.main), entry
 '''
-    env = dict(os.environ, PYTHONPATH=str(ROOT), PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+    env = {key: value for key, value in os.environ.items()
+           if not key.startswith(("OSKH_", "TURNOVER_RESIST_", "MYQUANT_"))}
+    env.update(PYTHONPATH=str(ROOT), PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
     result = subprocess.run([sys.executable, "-c", code, str(tmp_path),
         str(ROOT / "examples/chip_research/entrypoint-migration.json")],
         cwd=tmp_path, env=env, capture_output=True, text=True, timeout=60)
