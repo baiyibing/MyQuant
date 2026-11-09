@@ -7,7 +7,7 @@ name = "myquant-research-factors"
 version = "0.1.0"
 requires-python = ">=3.12"
 description = "MyQuant-owned factor research numerical kernels"
-dependencies = ["numpy>=1.24", "pandas>=2.2", "numba>=0.60", "loguru>=0.7"]
+dependencies = ["numpy>=1.24", "pandas==3.0.6", "numba>=0.60", "loguru>=0.7"]
 
 [project.optional-dependencies]
 analysis = ["fincore==0.3.0", "matplotlib", "seaborn", "scipy", "statsmodels"]
