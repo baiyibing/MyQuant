@@ -292,6 +292,8 @@ def run_model(
     model_kw: Optional[Dict] = None,
     experiment_name: str = "workflow",
     trained_model: str = "trained_model.pkl",
+    *,
+    port_analysis_config: Optional[Dict] = None,
 ) -> Dict:
     model_key = model.lower()
 
@@ -312,7 +314,11 @@ def run_model(
         # 训练
         #############
 
-        model_instance.fit(dataset, save_path=save_path)
+        if model_key == "gbdt":
+            # LGBModel forwards extra fit kwargs to lightgbm.train, which has no save_path.
+            model_instance.fit(dataset)
+        else:
+            model_instance.fit(dataset, save_path=save_path)
 
         # 训练好的模型以pkl文件形式保存到本次实验运行记录目录下的artifacts子目录
         R.save_objects(**{trained_model: model_instance})
@@ -331,7 +337,7 @@ def run_model(
         sigAna_rec.generate()
 
         # 回测所需参数配置
-        port_analysis_config = {
+        default_port_analysis_config = {
             "executor": {
                 "class": "SimulatorExecutor",
                 "module_path": "qlib.backtest.executor",
@@ -376,7 +382,11 @@ def run_model(
         ###############
         # 回测
         #############
-        pa_rec = PortAnaRecord(recorder, port_analysis_config, "day")
+        pa_rec = PortAnaRecord(
+            recorder,
+            default_port_analysis_config if port_analysis_config is None else port_analysis_config,
+            "day",
+        )
         pa_rec.generate()
 
         # 打印本次实验记录器信息，含记录器id，experiment_id等信息

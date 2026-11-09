@@ -29,6 +29,7 @@ class ChipsFactorBaisc(DataHandlerLP):
         fit_end_time=None,
         filter_pipe=None,
         inst_processor=None,
+        inst_processors=None,
         **kwargs,
     ):
         infer_processors = check_transform_proc(
@@ -47,7 +48,7 @@ class ChipsFactorBaisc(DataHandlerLP):
                 },
                 "filter_pipe": filter_pipe,
                 "freq": freq,
-                "inst_processor": inst_processor,
+                "inst_processors": inst_processors if inst_processors is not None else inst_processor,
             },
         }
 
