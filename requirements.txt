@@ -6,6 +6,8 @@
 # 以下为 Qlib 自身依赖之外，本项目主要使用的库
 # infra 从相邻仓库源码 editable 安装；在 MyQuant 根目录执行 pip install -r requirements.txt
 -e ../MyQuant-infra[qlib-data,st,data-validation]
+# MyQuant-owned numerical factor package; Qlib training remains source based.
+-e .[analysis,research]
 lightgbm>=4.7
 numpy>=2.0
 pandas>=2.2

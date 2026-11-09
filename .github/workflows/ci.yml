@@ -9,6 +9,23 @@ permissions:
   contents: read
 
 jobs:
+  factor-rust:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      # Source retains the old optional sccache config; this runner needs no wrapper.
+      RUSTC_WRAPPER: ""
+      CARGO_BUILD_JOBS: "2"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check relocated Rust numerical source (no data or computation run)
+        working-directory: myquant_factors/rust/turnover-resist
+        run: cargo check --locked --all-targets
+
   joint-return:
     runs-on: ubuntu-latest
     timeout-minutes: 5

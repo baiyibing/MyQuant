@@ -8,10 +8,27 @@
 
 仓库边界按职责划分：通用量化数据采集与产制归 MyQuant-infra；Qlib 研究与回测归本仓；MyQuant-backtrader 维护其自身回测引擎与研究流程；OSkhQuant1.3 承担实盘执行与真栈验收；通用工程协作归 grok-bot-ops。使用成交模拟、费用或收益计算本身不构成迁出依据。2026-11-08 用户澄清后，历史文档中的“Qlib PortAna/Exchange 停用”表述不再作为本仓边界约束。
 
+2026-11-09 因子归属补充：因子定义、计算实验和效果验证统一归本仓；
+BT 消费信号/名单，负责成交、费用、持仓及收益回测，因子数值核不再归 BT。
+同日 Human 澄清：BT 同时负责回测策略研究与实验输入组织，可生成回测专用名单；
+策略 9/10/11/13 与 App ∩ Qlib 的名单导出保留 BT，原始 Qlib 模型预测仍由本仓提供。
+名单格式或“写 CSV”不决定代码归属，不要求所有名单从本仓导出。
+原 BT 的筹码/TR（含 Rust）、价格带、周线背离及通用研究入口先归并到
+[`myquant_factors`](myquant_factors/README.md)，旧 Qlib 样例及 Notebook 见
+[`examples/chip_research`](examples/chip_research/README.md)。本仓不反向依赖 BT。
+infra 继续负责数据处理与对消费者供应的因子数据产制；后续按数据交付职责
+接入生产，不能仅以因子“成熟”作为自动迁移条件。既有 Qlib 研究能力保留。
+
+同一口径的公共因子数值核只保留一份权威实现，各仓通过公共 API/包复用。
+当前筹码/TR 核由 `myquant_factors` 共享；若后续归并到 infra，整项迁移并删除
+本仓旧实现，只留必要转发，避免多仓复制或另写等价算法。
+
 ## 目录结构
 
 ```
 MyQuant/
+├── myquant_factors/ # 因子数值核、研究扫描与 Rust 源码，可独立安装供消费者调用
+├── examples/chip_research/ # 迁入的历史 Notebook（输出保留，未重跑）
 ├── qlib_scripts/   # 实验脚本：LightGBM + Alpha158 变体工作流、滚动训练/预测/回测等
 ├── my_scripts/     # 自定义扩展：DataHandler（KDJ、$volume 与有效流通盘等特征）、
 │                   # 涨停/涨幅过滤策略（TopkDropoutStrategy 扩展）、工具函数

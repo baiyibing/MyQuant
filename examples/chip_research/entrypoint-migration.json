@@ -1,0 +1,192 @@
+[
+  {
+    "bt": "scripts/data/chip_window_sensitivity.py",
+    "myquant_module": "myquant_factors.research.entries.data.chip_window_sensitivity",
+    "myquant_entry": "my_scripts/factor_research/data/chip_window_sensitivity.py"
+  },
+  {
+    "bt": "scripts/data/daily_chip_logger.py",
+    "myquant_module": "myquant_factors.research.entries.data.daily_chip_logger",
+    "myquant_entry": "my_scripts/factor_research/data/daily_chip_logger.py"
+  },
+  {
+    "bt": "scripts/data/full_market_canonical_resist.py",
+    "myquant_module": "myquant_factors.research.entries.data.full_market_canonical_resist",
+    "myquant_entry": "my_scripts/factor_research/data/full_market_canonical_resist.py"
+  },
+  {
+    "bt": "scripts/data/full_market_chip_resist.py",
+    "myquant_module": "myquant_factors.research.entries.data.full_market_chip_resist",
+    "myquant_entry": "my_scripts/factor_research/data/full_market_chip_resist.py"
+  },
+  {
+    "bt": "scripts/data/full_market_equal_weight_resist.py",
+    "myquant_module": "myquant_factors.research.entries.data.full_market_equal_weight_resist",
+    "myquant_entry": "my_scripts/factor_research/data/full_market_equal_weight_resist.py"
+  },
+  {
+    "bt": "scripts/data/full_market_equal_weight_resist_v2.py",
+    "myquant_module": "myquant_factors.research.entries.data.full_market_equal_weight_resist_v2",
+    "myquant_entry": "my_scripts/factor_research/data/full_market_equal_weight_resist_v2.py"
+  },
+  {
+    "bt": "scripts/data/spot_check_chip_factors.py",
+    "myquant_module": "myquant_factors.research.entries.data.spot_check_chip_factors",
+    "myquant_entry": "my_scripts/factor_research/data/spot_check_chip_factors.py"
+  },
+  {
+    "bt": "scripts/gates/verify_adj_minute_chip.py",
+    "myquant_module": "myquant_factors.research.entries.gates.verify_adj_minute_chip",
+    "myquant_entry": "my_scripts/factor_research/gates/verify_adj_minute_chip.py"
+  },
+  {
+    "bt": "scripts/gates/verify_chip_factor_consistency.py",
+    "myquant_module": "myquant_factors.research.entries.gates.verify_chip_factor_consistency",
+    "myquant_entry": "my_scripts/factor_research/gates/verify_chip_factor_consistency.py"
+  },
+  {
+    "bt": "scripts/gates/verify_chip_pool_enhancement.py",
+    "myquant_module": "myquant_factors.research.entries.gates.verify_chip_pool_enhancement",
+    "myquant_entry": "my_scripts/factor_research/gates/verify_chip_pool_enhancement.py"
+  },
+  {
+    "bt": "scripts/gates/verify_minute_chip.py",
+    "myquant_module": "myquant_factors.research.entries.gates.verify_minute_chip",
+    "myquant_entry": "my_scripts/factor_research/gates/verify_minute_chip.py"
+  },
+  {
+    "bt": "scripts/gates/verify_mvp_min.py",
+    "myquant_module": "myquant_factors.research.entries.gates.verify_mvp_min",
+    "myquant_entry": "my_scripts/factor_research/gates/verify_mvp_min.py"
+  },
+  {
+    "bt": "scripts/gates/verify_turnover_resistance_alignment.py",
+    "myquant_module": "myquant_factors.research.entries.gates.verify_turnover_resistance_alignment",
+    "myquant_entry": "my_scripts/factor_research/gates/verify_turnover_resistance_alignment.py"
+  },
+  {
+    "bt": "scripts/research/bench_minute_chip_hotpath.py",
+    "myquant_module": "myquant_factors.research.entries.research.bench_minute_chip_hotpath",
+    "myquant_entry": "my_scripts/factor_research/research/bench_minute_chip_hotpath.py"
+  },
+  {
+    "bt": "scripts/research/benchmark_turnover_resist_bridge.py",
+    "myquant_module": "myquant_factors.research.entries.research.benchmark_turnover_resist_bridge",
+    "myquant_entry": "my_scripts/factor_research/research/benchmark_turnover_resist_bridge.py"
+  },
+  {
+    "bt": "scripts/research/chip_window_sensitivity.py",
+    "myquant_module": "myquant_factors.research.entries.research.chip_window_sensitivity",
+    "myquant_entry": "my_scripts/factor_research/research/chip_window_sensitivity.py"
+  },
+  {
+    "bt": "scripts/research/full_market_canonical_resist.py",
+    "myquant_module": "myquant_factors.research.entries.research.full_market_canonical_resist",
+    "myquant_entry": "my_scripts/factor_research/research/full_market_canonical_resist.py"
+  },
+  {
+    "bt": "scripts/research/full_market_chip_resist.py",
+    "myquant_module": "myquant_factors.research.entries.research.full_market_chip_resist",
+    "myquant_entry": "my_scripts/factor_research/research/full_market_chip_resist.py"
+  },
+  {
+    "bt": "scripts/research/full_market_equal_weight_resist.py",
+    "myquant_module": "myquant_factors.research.entries.research.full_market_equal_weight_resist",
+    "myquant_entry": "my_scripts/factor_research/research/full_market_equal_weight_resist.py"
+  },
+  {
+    "bt": "scripts/research/full_market_equal_weight_resist_v2.py",
+    "myquant_module": "myquant_factors.research.entries.research.full_market_equal_weight_resist_v2",
+    "myquant_entry": "my_scripts/factor_research/research/full_market_equal_weight_resist_v2.py"
+  },
+  {
+    "bt": "scripts/research/preflight_chip_diagnosis.py",
+    "myquant_module": "myquant_factors.research.entries.research.preflight_chip_diagnosis",
+    "myquant_entry": "my_scripts/factor_research/research/preflight_chip_diagnosis.py"
+  },
+  {
+    "bt": "scripts/research/spot_check_chip_factors.py",
+    "myquant_module": "myquant_factors.research.entries.research.spot_check_chip_factors",
+    "myquant_entry": "my_scripts/factor_research/research/spot_check_chip_factors.py"
+  },
+  {
+    "bt": "scripts/research/verify_turnover_resistance_alignment.py",
+    "myquant_module": "myquant_factors.research.entries.research.verify_turnover_resistance_alignment",
+    "myquant_entry": "my_scripts/factor_research/research/verify_turnover_resistance_alignment.py"
+  },
+  {
+    "bt": "scripts/tr/backfill_turnover_resistance_bands.py",
+    "myquant_module": "myquant_factors.research.entries.tr.backfill_turnover_resistance_bands",
+    "myquant_entry": "my_scripts/factor_research/tr/backfill_turnover_resistance_bands.py"
+  },
+  {
+    "bt": "scripts/tr/backfill_turnover_resistance_yearly.py",
+    "myquant_module": "myquant_factors.research.entries.tr.backfill_turnover_resistance_yearly",
+    "myquant_entry": "my_scripts/factor_research/tr/backfill_turnover_resistance_yearly.py"
+  },
+  {
+    "bt": "scripts/tr/compute_turnover_resistance_bands.py",
+    "myquant_module": "myquant_factors.research.entries.tr.compute_turnover_resistance_bands",
+    "myquant_entry": "my_scripts/factor_research/tr/compute_turnover_resistance_bands.py"
+  },
+  {
+    "bt": "backtest/research/daily_chip_logger.py",
+    "myquant_module": "myquant_factors.research.entries.legacy_bt.daily_chip_logger",
+    "myquant_entry": "my_scripts/factor_research/legacy_bt/daily_chip_logger.py"
+  },
+  {
+    "bt": "backtest/research/evaluate_turnover_chip_factors.py",
+    "myquant_module": "myquant_factors.research.entries.legacy_bt.evaluate_turnover_chip_factors",
+    "myquant_entry": "my_scripts/factor_research/legacy_bt/evaluate_turnover_chip_factors.py"
+  },
+  {
+    "bt": "backtest/research/filter_chip_stocks.py",
+    "myquant_module": "myquant_factors.research.entries.legacy_bt.filter_chip_stocks",
+    "myquant_entry": "my_scripts/factor_research/legacy_bt/filter_chip_stocks.py"
+  },
+  {
+    "bt": "backtest/research/filter_stock_pool_by_chip.py",
+    "myquant_module": "myquant_factors.research.entries.legacy_bt.filter_stock_pool_by_chip",
+    "myquant_entry": "my_scripts/factor_research/legacy_bt/filter_stock_pool_by_chip.py"
+  },
+  {
+    "bt": "backtest/research/rolling_ic_chip_factors.py",
+    "myquant_module": "myquant_factors.research.entries.legacy_bt.rolling_ic_chip_factors",
+    "myquant_entry": "my_scripts/factor_research/legacy_bt/rolling_ic_chip_factors.py"
+  },
+  {
+    "bt": "backtest/research/verify_adj_minute_chip.py",
+    "myquant_module": "myquant_factors.research.entries.legacy_bt.verify_adj_minute_chip",
+    "myquant_entry": "my_scripts/factor_research/legacy_bt/verify_adj_minute_chip.py"
+  },
+  {
+    "bt": "backtest/research/verify_chip_factor_consistency.py",
+    "myquant_module": "myquant_factors.research.entries.legacy_bt.verify_chip_factor_consistency",
+    "myquant_entry": "my_scripts/factor_research/legacy_bt/verify_chip_factor_consistency.py"
+  },
+  {
+    "bt": "backtest/research/verify_chip_pool_enhancement.py",
+    "myquant_module": "myquant_factors.research.entries.legacy_bt.verify_chip_pool_enhancement",
+    "myquant_entry": "my_scripts/factor_research/legacy_bt/verify_chip_pool_enhancement.py"
+  },
+  {
+    "bt": "backtest/research/verify_minute_chip.py",
+    "myquant_module": "myquant_factors.research.entries.legacy_bt.verify_minute_chip",
+    "myquant_entry": "my_scripts/factor_research/legacy_bt/verify_minute_chip.py"
+  },
+  {
+    "bt": "backtest/research/verify_mvp_min.py",
+    "myquant_module": "myquant_factors.research.entries.legacy_bt.verify_mvp_min",
+    "myquant_entry": "my_scripts/factor_research/legacy_bt/verify_mvp_min.py"
+  },
+  {
+    "bt": "scripts/gates/verify_single_stock_turnover_resist.py",
+    "myquant_module": "myquant_factors.research.entries.gates.verify_single_stock_turnover_resist",
+    "myquant_entry": "my_scripts/factor_research/gates/verify_single_stock_turnover_resist.py"
+  },
+  {
+    "bt": "scripts/research/verify_single_stock_turnover_resist.py",
+    "myquant_module": "myquant_factors.research.entries.research.verify_single_stock_turnover_resist",
+    "myquant_entry": "my_scripts/factor_research/research/verify_single_stock_turnover_resist.py"
+  }
+]
