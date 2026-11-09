@@ -1,0 +1,47 @@
+name: turnover-resist-rust
+
+on:
+  pull_request:
+    paths:
+      - "myquant_factors/rust/turnover-resist/**"
+      - "myquant_factors/README.md"
+      - ".github/workflows/turnover-resist-rust.yml"
+  push:
+    paths:
+      - "myquant_factors/rust/turnover-resist/**"
+      - ".github/workflows/turnover-resist-rust.yml"
+  workflow_dispatch:
+
+jobs:
+  rust-checks:
+    # ubuntu: duckdb bundled fails to compile on windows-latest MSVC 14.51 (fmt)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Local .cargo/config.toml may set rustc-wrapper=sccache; disable in CI runner.
+      RUSTC_WRAPPER: ""
+      CARGO_BUILD_JOBS: "2"
+    defaults:
+      run:
+        working-directory: myquant_factors/rust/turnover-resist
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python (pyo3 / all-features)
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cargo fmt check
+        run: cargo fmt --check
+
+      - name: Cargo clippy (deny warnings)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Cargo test
+        run: cargo test --all-targets
