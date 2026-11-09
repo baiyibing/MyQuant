@@ -72,6 +72,6 @@ Thumbs.db
 
 # Source packages and CLI namespaces, not research output.
 !myquant_factors/research/entries/data/
-!myquant_factors/research/entries/data/**
+!myquant_factors/research/entries/data/*.py
 !my_scripts/factor_research/data/
-!my_scripts/factor_research/data/**
+!my_scripts/factor_research/data/*.py
