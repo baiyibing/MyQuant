@@ -12,7 +12,8 @@ def configure_host(**ports) -> None:
     """Bind explicit data/clock/log ports for one consumer process."""
     allowed = {"source_parquet", "data_root", "tr_root", "previous_trading_day", "logger",
                "reader_factory", "research_root", "period_root", "pool_entries", "trade_days", "clock",
-               "parquet_root", "python", "store_factory", "store_path", "year_path", "store_merge"}
+               "parquet_root", "python", "store_factory", "store_path", "year_path", "store_merge",
+               "tr_backfill_entry"}
     if set(ports) - allowed or not all(callable(value) for value in ports.values()):
         raise ValueError("factor host ports must be known callable providers")
     _ports.update(ports)
@@ -181,3 +182,10 @@ def resolve_oskh_python():
 
 def shanghai_date_yyyymmdd():
     return shanghai_now().strftime("%Y%m%d")
+
+
+def resolve_tr_backfill_entry() -> Path:
+    """Keep subprocess host admission/reader policies in the caller's entry."""
+    if "tr_backfill_entry" in _ports:
+        return Path(_ports["tr_backfill_entry"]())
+    return Path(__file__).parent / "research/entries/tr/backfill_turnover_resistance_bands.py"

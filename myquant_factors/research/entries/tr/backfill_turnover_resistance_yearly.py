@@ -9,7 +9,7 @@ after all years complete (avoids year-boundary history gaps).
 
 from __future__ import annotations
 
-from myquant_factors._runtime import research_root, resolve_source_parquet
+from myquant_factors._runtime import research_root, resolve_source_parquet, resolve_tr_backfill_entry
 
 import argparse
 import os
@@ -20,7 +20,7 @@ import time
 from pathlib import Path
 
 ROOT = research_root()
-BACKFILL = Path(__file__).with_name("backfill_turnover_resistance_bands.py")
+BACKFILL = resolve_tr_backfill_entry()
 PROGRESS = ROOT / "backtest_output" / "tr_backfill_yearly_progress.json"
 
 if str(ROOT) not in sys.path:

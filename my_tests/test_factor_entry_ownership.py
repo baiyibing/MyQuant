@@ -9,6 +9,16 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def test_child_entry_uses_explicit_host_policy_or_myquant_source(monkeypatch, tmp_path):
+    from myquant_factors import _runtime
+    monkeypatch.delitem(_runtime._ports, "tr_backfill_entry", raising=False)
+    native = _runtime.resolve_tr_backfill_entry()
+    assert native.is_file() and "myquant_factors" in native.parts
+    chosen = tmp_path / "host-admission-entry.py"
+    monkeypatch.setitem(_runtime._ports, "tr_backfill_entry", lambda: chosen)
+    assert _runtime.resolve_tr_backfill_entry() == chosen
+
+
 def test_all_factor_sources_have_no_reverse_bt_imports():
     forbidden = {"backtest", "common", "oskh_data", "oskh_factors", "oskh_core", "qlib_cost", "scripts"}
     for path in (ROOT / "myquant_factors").rglob("*.py"):
