@@ -10,7 +10,7 @@
 -e .[analysis,research]
 lightgbm>=4.7
 numpy>=2.0
-pandas>=2.2
+pandas==3.0.6
 scikit-learn>=1.5
 mlflow>=3.0
 pyarrow
