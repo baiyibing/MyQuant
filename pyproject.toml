@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "myquant-research-factors"
+version = "0.1.0"
+requires-python = ">=3.12"
+description = "MyQuant-owned factor research numerical kernels"
+dependencies = ["numpy>=1.24", "pandas>=2.2", "numba>=0.60"]
+
+[project.optional-dependencies]
+analysis = ["fincore==0.3.0", "matplotlib", "seaborn", "scipy", "statsmodels"]
+
+[tool.setuptools.packages.find]
+include = ["myquant_factors*"]
+
+[tool.setuptools.package-data]
+myquant_factors = ["rust/turnover-resist/*", "rust/turnover-resist/.cargo/*", "rust/turnover-resist/pyo3_bench_stub/*", "rust/turnover-resist/pyo3_bench_stub/src/*", "rust/turnover-resist/python/turnover_resist/*", "rust/turnover-resist/src/*", "rust/turnover-resist/tests/*"]

@@ -1,0 +1,35 @@
+# =============================================================================
+# Rust build optimization config
+# =============================================================================
+#
+# Global env vars (set at user level, apply to ALL Rust projects):
+#   CARGO_TARGET_DIR = F:\rust-targets       → build artifacts off C: drive
+#   RUSTC_WRAPPER    = sccache               → shared compilation cache
+#   SCCACHE_DIR      = F:\rust-sccache-cache  → sccache cache off C: drive
+#
+# Periodic cleanup:
+#   cargo clean           → wipe current project's target dir
+#   sccache --clear       → wipe sccache cache (rebuilds on next compile)
+#   sccache --show-stats  → check cache hit rate and size
+# =============================================================================
+
+# sccache: cache compiled LLVM IR across builds
+# Cache survives cargo clean, branch switches, and IDE rebuilds
+# NOTE: RUSTC_WRAPPER=sccache is also set globally, this is a belt-and-suspenders
+[build]
+rustc-wrapper = "sccache"
+
+# Use LLVM lld linker instead of MSVC link.exe (2-4x faster linking)
+# Temporarily disabled for DuckDB build (rust-lld doesn't propagate -L to duckdb-sys)
+# [target.x86_64-pc-windows-msvc]
+# linker = "rust-lld"
+# rustflags = [
+#     "-L", "C:\\Program Files (x86)\\Windows Kits\\10\\Lib\\10.0.26100.0\\um\\x64",
+#     "-l", "Rstrtmgr",
+# ]
+
+# target-cpu=native moved OUT of global config to keep debug/test builds fast.
+# For maximum runtime performance in release, use:
+#   RUSTFLAGS="-C target-cpu=native" cargo build --release
+# Or set it once per session:
+#   export RUSTFLAGS="-C target-cpu=native"

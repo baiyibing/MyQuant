@@ -1,0 +1,13 @@
+# Aligned to vanna312 / numpy 2; 2023 research pins dropped so Nightly
+# pyright does not downgrade the linux-vm stack.
+fincore==0.3.0
+loguru==0.7.3
+matplotlib==3.11.1
+numba==0.67.0
+numpy==2.3.5
+pandas==3.0.6
+rich==15.0.0
+scipy==1.18.0
+seaborn==0.13.2
+statsmodels==0.14.6
+# alphalens / pyqlib / qlib: 交易不用，跟 numpy 2 不能共处，回头再处理。勿装进 vanna312。

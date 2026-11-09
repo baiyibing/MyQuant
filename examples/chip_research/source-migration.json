@@ -1,0 +1,87 @@
+{
+  "bt_source_commit": "d9fb890403f199b9c349a13625a25ca1b0929753",
+  "rust_files": [
+    {
+      "path": "myquant_factors/rust/turnover-resist/.cargo/config.toml",
+      "sha256": "11bc95968f57a65a312031a52972c005a0a22f1dcb0e1afb4506fd192790f1c6"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/Cargo.lock",
+      "sha256": "1f51120995520d307b0e5f1ee3b6a16f40b1be07bfb29e602b06d44330e8fbfb"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/Cargo.toml",
+      "sha256": "ee5230992bec311546fae6d995051e90e2edb7714d25db5b2e6d2d2c615c148c"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/build.rs",
+      "sha256": "b66e95d9711710711a4683dc8e0a8893f91b886d2957d927244b6bd663129906"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/pyo3_bench_stub/Cargo.lock",
+      "sha256": "9a767e8a9614c130529592a18d2342c73fb807694bb090c7026f1d2c84e30522"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/pyo3_bench_stub/Cargo.toml",
+      "sha256": "08045cf753f57db447c23e6e01e78fafa288e6acf9bac2d6cefda1564bc37aea"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/pyo3_bench_stub/src/lib.rs",
+      "sha256": "e3664b7e634639e51efb455fcce9a8cec7b7d3d52095e19e68b341746730f927"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/pyproject.toml",
+      "sha256": "fffd564ae42a2f7573deb7939e46629db6247fa535eca76cd663c5640f14cd45"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/python/turnover_resist/__init__.py",
+      "sha256": "02dfae0a2d759991d0d075d71afc201473aa25cb426207512fddec44e6fee308"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/src/algorithm.rs",
+      "sha256": "518e345f660450f791a35ee855a4feaab90d2286239b90cd7adbab27ea906ecd"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/src/bollinger.rs",
+      "sha256": "606ce7324904cdadd8844467e4d770843a1e0cfd3e8b099695c8bed10d2b25b2"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/src/cli.rs",
+      "sha256": "ea87269269bc1e110f854cbaac5c1e6826c062156662c4d7e004e2cf9e233aa6"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/src/data.rs",
+      "sha256": "67dfddd8141920073870b0cc1213cee39bb472f7c4963193fc486677e6338fc3"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/src/debug_precision.rs",
+      "sha256": "b8b8b10847440c56b1fefcc7a3862c5e6fe655b4eb80ec233fb0f865f2dfb77d"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/src/engine.rs",
+      "sha256": "d5f295957adf95585e40be7347f41f8dbbf5cc9e6d620e546a8895e6f60677b4"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/src/lib.rs",
+      "sha256": "9446a5c7477df8cfdb606591dbf4c2740b8a14776ff7c2bf9d1e2be87a5dae1e"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/src/main.rs",
+      "sha256": "937dae3021c8e964deef68510726687da15fd63a572e4ae0435ca1806cafa576"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/src/profile.rs",
+      "sha256": "cfa5681a9e1bdfd9270f930eb4c302e8b140e440e34323b8bfc58d51763639f1"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/src/types.rs",
+      "sha256": "f3520f0af7e0eadbea1b9ba3c199409c1031a5bb5d166969d155c3d8a4647423"
+    },
+    {
+      "path": "myquant_factors/rust/turnover-resist/tests/algorithm_and_bollinger_tests.rs",
+      "sha256": "1d7cb346373da6e78b9c9b87270b2e307066a347272b5c8f1c52b7376d13f78a"
+    }
+  ],
+  "policy": "MyQuant owns factor implementation; infra owns data processing/supply; BT is a consumer.",
+  "data_processing_or_training_executed": false
+}
