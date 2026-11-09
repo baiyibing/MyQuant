@@ -65,16 +65,16 @@ class FiveFeatureOperator(ExpressionOps):
 
         br_ls: List = [
             self.check_br(feature)
-            for feature in {
+            for feature in (
                 self.feature_a,
                 self.feature_b,
                 self.feature_c,
                 self.feature_d,
                 self.feature_e,
-            }
+            )
         ]
 
-        return np.max(br_ls)
+        return np.max(br_ls) + self.N - 1
 
     # 改写get_extended_window_size使其可以应对多个值的情况
     def get_extended_window_size(self):
@@ -103,7 +103,7 @@ class FiveFeatureOperator(ExpressionOps):
         else:
             el, er = 0, 0
 
-        return max(ll, rl, cl, dl, el), max(lr, rr, cr, dr, er)
+        return max(ll, rl, cl, dl, el) + self.N - 1, max(lr, rr, cr, dr, er)
 
 
 class CyqBasic(FiveFeatureOperator):
@@ -183,8 +183,11 @@ class CyqBasic(FiveFeatureOperator):
             return pd.Series([_calc_factor(np.asarray(data.values))], index=[trim_idx[-1]])
 
         dfs: np.ndarray = rolling_frame(data, self.N)
-        out_idx = full_idx[self.N - 1 :]
-        return pd.Series([_calc_factor(np.asarray(df)) for df in dfs], index=out_idx).sort_index()
+        # Keep the existing non-null-observation windows, indexed by their actual
+        # last observation. Using full_idx here both shifted dates and mismatched
+        # lengths whenever an input row was dropped.
+        out_idx = trim_idx[self.N - 1 :]
+        return pd.Series([_calc_factor(np.asarray(df)) for df in dfs], index=out_idx).reindex(full_idx)
 
 
 #################### CYQK_C ####################
