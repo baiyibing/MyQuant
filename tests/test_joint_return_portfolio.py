@@ -367,7 +367,7 @@ def test_artifacts_are_reproducible_immutable_and_pair_hashes_bind_full_intents(
     first = run_snapshot(source, root, "synthetic-a")
     second = run_snapshot(source, root, "synthetic-b")
     assert {p.name for p in first.iterdir()} == {"manifest.json", "intents.csv", "constraints.csv", "pref_check.json"}
-    manifest = json.loads((first / "manifest.json").read_text())
+    manifest = json.loads((first / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["status"] == "MQ_DATA_FREE_PASS"
     assert manifest["execution_status"] == "NOT_RUN" and manifest["return_status"] == "待实测"
     assert manifest["input_raw_hashes_verified"] is False
@@ -397,7 +397,7 @@ import my_scripts.joint_return_portfolio
 for name in ('qlib', 'host_env', 'backtrader', 'mlflow', 'data_root', 'analysis_export'):
     assert name not in sys.modules, name
 """
-    subprocess.run([sys.executable, "-c", script], check=True, capture_output=True, text=True)
+    subprocess.run([sys.executable, "-c", script], check=True, capture_output=True, text=True, encoding="utf-8")
     help_result = subprocess.run([sys.executable, "-m", "my_scripts.joint_return_portfolio", "--help"],
-                                 check=True, capture_output=True, text=True)
+                                 check=True, capture_output=True, text=True, encoding="utf-8")
     assert "--snapshot" in help_result.stdout
