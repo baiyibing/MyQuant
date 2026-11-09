@@ -38,3 +38,8 @@ Rust 构建在 `myquant_factors/rust/turnover-resist` 内执行
 `cargo build --locked --release`。桥接层可通过 `TURNOVER_RESIST_EXE`
 消费显式指定的产物，也支持 `CARGO_TARGET_DIR`。BT 不再留 Rust 源码。
 纯 Python 数值测试和无数据的 Rust 编译检查由 MyQuant CI 承担。
+
+公共根导出按能力惰性加载。只导入 TR bands、路径端口或 Rust 桥，不初始化 Qlib、
+Numba、绘图或筹码研究模块；原有公共函数/类仍是各实现模块中的同一对象。
+显式 `TURNOVER_RESIST_EXE` 配错会立即报错，避免静默使用其他构建产物；构建与
+定位方式见 [`rust/turnover-resist/README.md`](rust/turnover-resist/README.md)。

@@ -26,6 +26,41 @@ class TestBridgeMode:
 
 
 class TestCliFallback:
+    @pytest.mark.parametrize("invalid_kind", ["missing", "directory"])
+    def test_invalid_explicit_exe_never_uses_another_binary(self, tmp_path, monkeypatch, invalid_kind):
+        from myquant_factors.bridge.turnover_resist import _find_exe
+
+        fallback = tmp_path / "cargo/release/turnover-resist.exe"
+        fallback.parent.mkdir(parents=True)
+        fallback.write_text("stale alternate binary", encoding="utf-8")
+        invalid = tmp_path / "explicit-exe"
+        if invalid_kind == "directory":
+            invalid.mkdir()
+        monkeypatch.setenv("TURNOVER_RESIST_EXE", str(invalid))
+        monkeypatch.setenv("CARGO_TARGET_DIR", str(tmp_path / "cargo"))
+        with pytest.raises(FileNotFoundError, match="TURNOVER_RESIST_EXE") as error:
+            _find_exe()
+        assert str(invalid) in str(error.value)
+
+    def test_valid_explicit_exe_has_precedence(self, tmp_path, monkeypatch):
+        from myquant_factors.bridge.turnover_resist import _find_exe
+
+        chosen = tmp_path / "selected.exe"
+        chosen.write_text("selected artifact", encoding="utf-8")
+        monkeypatch.setenv("TURNOVER_RESIST_EXE", str(chosen))
+        assert _find_exe() == chosen
+
+    @pytest.mark.parametrize("binary", ["turnover-resist.exe", "turnover-resist"])
+    def test_no_explicit_exe_preserves_cargo_target_search(self, tmp_path, monkeypatch, binary):
+        from myquant_factors.bridge.turnover_resist import _find_exe
+
+        selected = tmp_path / "release-fast" / binary
+        selected.parent.mkdir()
+        selected.write_text("compiled artifact", encoding="utf-8")
+        monkeypatch.delenv("TURNOVER_RESIST_EXE", raising=False)
+        monkeypatch.setenv("CARGO_TARGET_DIR", str(tmp_path))
+        assert _find_exe() == selected
+
     @pytest.mark.skipif(sys.platform != "win32", reason="turnover-resist.exe is the Windows CLI fallback")
     def test_find_exe_returns_path(self):
         from myquant_factors.bridge.turnover_resist import _find_exe

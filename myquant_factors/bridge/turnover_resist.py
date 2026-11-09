@@ -265,9 +265,9 @@ def _find_exe() -> Path:
     """Locate the turnover-resist.exe binary.
 
     Checks (in order):
-      1. TURNOVER_RESIST_EXE
+      1. TURNOVER_RESIST_EXE (an invalid explicit override fails immediately)
       2. CARGO_TARGET_DIR / release[-fast] / turnover-resist.exe
-      3. repo ``turnover-resist/target/release[-fast]/turnover-resist.exe``
+      3. MyQuant package ``rust/turnover-resist/target/release[-fast]``
     """
     import os
 
@@ -276,6 +276,7 @@ def _find_exe() -> Path:
         p = Path(env)
         if p.is_file():
             return p
+        raise FileNotFoundError(f"TURNOVER_RESIST_EXE does not name an existing file: {p}")
     from myquant_factors._runtime import rust_source_root
     project = rust_source_root()
     names = ("turnover-resist.exe", "turnover-resist")
