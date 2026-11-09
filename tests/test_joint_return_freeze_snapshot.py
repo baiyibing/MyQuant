@@ -255,9 +255,9 @@ import my_scripts.joint_return_freeze_snapshot
 for name in ('qlib', 'host_env', 'backtrader', 'mlflow', 'data_root', 'analysis_export', 'numpy'):
     assert name not in sys.modules, name
 """
-    subprocess.run([sys.executable, "-c", script], check=True, capture_output=True, text=True)
+    subprocess.run([sys.executable, "-c", script], check=True, capture_output=True, text=True, encoding="utf-8")
     command = [sys.executable, "-m", "my_scripts.joint_return_freeze_snapshot"]
-    help_result = subprocess.run([*command, "--help"], check=True, capture_output=True, text=True)
+    help_result = subprocess.run([*command, "--help"], check=True, capture_output=True, text=True, encoding="utf-8")
     assert "--plans" in help_result.stdout and "--metadata" in help_result.stdout
-    result = subprocess.run([*command, *argv(bundle)], check=True, capture_output=True, text=True)
+    result = subprocess.run([*command, *argv(bundle)], check=True, capture_output=True, text=True, encoding="utf-8")
     assert json.loads(result.stdout)["snapshot"]["uri"] == str(bundle["output"])
