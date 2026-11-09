@@ -1,0 +1,271 @@
+{
+  "schema": "myquant.local-readiness/2",
+  "verified_at_utc": "2026-11-09T13:07:07.733470+00:00",
+  "host": "DESKTOP-M5HCFD6",
+  "scope": "Local source environment and bounded synthetic native research acceptance; not production or strategy admission.",
+  "implementation_commit": "ffe4efb8095f75563d1e52119e738772b5aa4118",
+  "status": {
+    "default_source_environment": "PASS",
+    "infra_and_ops_wiring": "PASS",
+    "synthetic_chip_pipeline": "PASS",
+    "real_stock_chip_research": "BLOCKED_INPUT_CONTRACT",
+    "production_daily_refresh": "DEFERRED_BY_USER",
+    "4090_75_deployment": "DEFERRED_BY_USER"
+  },
+  "python": "D:\\anaconda3\\envs\\vanna312\\python.exe",
+  "source_repositories": {
+    "mq": {
+      "path": "D:\\PycharmProjects\\MyQuant",
+      "git_commit": "ffe4efb8095f75563d1e52119e738772b5aa4118",
+      "git_branch": "feat/local-research-acceptance-20261109",
+      "git_dirty": true
+    },
+    "infra": {
+      "path": "D:\\PycharmProjects\\MyQuant-infra",
+      "git_commit": "1f2e45da04e6ea4915b7661a9ed05ed66bbf2647",
+      "git_branch": "main",
+      "git_dirty": false
+    },
+    "ops": {
+      "path": "D:\\PycharmProjects\\grok-bot-ops",
+      "git_commit": "754a4cf736e4c1adc63af31974853e3b28fbdbec",
+      "git_branch": "docs/m5-hardware-inventory-20261109",
+      "git_dirty": false
+    },
+    "qlib": {
+      "path": "D:\\PycharmProjects\\qlib-dev",
+      "git_commit": "79633dd9506ea689e5400dea0197717b5b3d74b7",
+      "git_branch": "HEAD",
+      "git_dirty": false
+    }
+  },
+  "installed_distributions": {
+    "myquant-infra": {
+      "version": "0.0.0",
+      "direct_url": {
+        "dir_info": {
+          "editable": true
+        },
+        "url": "file:///D:/PycharmProjects/MyQuant-infra"
+      }
+    },
+    "myquant-research-factors": {
+      "version": "0.1.0",
+      "direct_url": {
+        "dir_info": {
+          "editable": true
+        },
+        "url": "file:///D:/PycharmProjects/MyQuant"
+      }
+    },
+    "fincore": {
+      "version": "0.3.0",
+      "direct_url": null
+    },
+    "numpy": {
+      "version": "2.3.5",
+      "direct_url": null
+    },
+    "pandas": {
+      "version": "3.0.6",
+      "direct_url": null
+    },
+    "numba": {
+      "version": "0.65.1",
+      "direct_url": {
+        "dir_info": {},
+        "url": "file:///C:/Users/task_177928900073682/croot/numba_1779289314935/work"
+      }
+    },
+    "duckdb": {
+      "version": "2.0.0",
+      "direct_url": {
+        "archive_info": {
+          "hash": "sha256=f61c96547ed432f54dae42a717fd88563eda55cb47549715fac9f61f770c205a",
+          "hashes": {
+            "sha256": "f61c96547ed432f54dae42a717fd88563eda55cb47549715fac9f61f770c205a"
+          }
+        },
+        "url": "file:///D:/PycharmProjects/OSkhQuant1.3/.tmp/duckdb-upgrade-20261108/wheels/duckdb-2.0.0-cp312-abi3-win_amd64.whl"
+      }
+    }
+  },
+  "source_interfaces": {
+    "required_apis_passed": 20,
+    "cli_help_passed": 11,
+    "daily_source_root_option": true,
+    "pip_check": "No broken requirements found.",
+    "api_origins": {
+      "myquant_infra.artifacts.provenance:sha256_file": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\artifacts\\provenance.py",
+      "myquant_infra.artifacts.provenance:git_commit": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\artifacts\\provenance.py",
+      "myquant_infra.artifacts.provenance:capture_git_provenance": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\artifacts\\provenance.py",
+      "myquant_infra.artifacts.provenance:build_manifest": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\artifacts\\provenance.py",
+      "myquant_infra.artifacts.provenance:write_manifest": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\artifacts\\provenance.py",
+      "myquant_infra.artifacts.provenance:fingerprint_artifact": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\artifacts\\provenance.py",
+      "myquant_infra.contracts.signal_bundle:build_signal_bundle": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\contracts\\signal_bundle\\__init__.py",
+      "myquant_infra.contracts.signal_bundle:validate_signal_bundle": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\contracts\\signal_bundle\\__init__.py",
+      "myquant_infra.reference_data.symbols:to_qlib_code": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\reference_data\\symbols.py",
+      "myquant_infra.reference_data.symbols:to_bare_code": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\reference_data\\symbols.py",
+      "myquant_infra.reference_data.industry.readers:load_qlib_industry_map": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\reference_data\\industry\\readers.py",
+      "myquant_infra.reference_data.st.readers:load_st_daily_index": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\reference_data\\st\\readers.py",
+      "myquant_infra.reference_data.st.readers:load_st_codes_asof": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\reference_data\\st\\readers.py",
+      "myquant_infra.adapters.qlib_data.universe:build": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\adapters\\qlib_data\\universe.py",
+      "myquant_infra.adapters.qlib_data.refresh_mydata:build_parser": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\adapters\\qlib_data\\refresh_mydata.py",
+      "myquant_infra.adapters.qlib_data.refresh_mydata:config_from_args": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\adapters\\qlib_data\\refresh_mydata.py",
+      "myquant_infra.adapters.qlib_data.refresh_mydata_1min:main": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\adapters\\qlib_data\\refresh_mydata_1min.py",
+      "myquant_infra.data_validation.csv_float:scan_csv_dir": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\data_validation\\csv_float.py",
+      "myquant_infra.derived_data.cyq.cli:main": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\derived_data\\cyq\\cli.py",
+      "myquant_infra.lake.paths:source_parquet": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\lake\\paths.py"
+    }
+  },
+  "offline_pytest": {
+    "command": "python -m pytest my_tests tests my_scripts/test_zhangting_filter.py -q -p no:cacheprovider",
+    "passed": 847,
+    "skipped": 2,
+    "subtests_passed": 18,
+    "seconds": 233.78,
+    "stock_lake_environment_unset": true
+  },
+  "synthetic_native_runs": {
+    "Chips": {
+      "status": "PASS",
+      "input_kind": "synthetic",
+      "predictions": 40,
+      "pool_files": 9,
+      "provider_unchanged": true,
+      "receipt": "E:\\exports\\myquant_local_acceptance_20261109_204043\\Chips\\acceptance.json",
+      "receipt_sha256": "f3a88331ecf461a58557200d103f73036375ddf43e579d815be126588a082dc9"
+    },
+    "TurnCoeffChips": {
+      "status": "PASS",
+      "input_kind": "synthetic",
+      "predictions": 40,
+      "pool_files": 9,
+      "provider_unchanged": true,
+      "receipt": "E:\\exports\\myquant_local_acceptance_20261109_204043\\TurnCoeffChips\\acceptance.json",
+      "receipt_sha256": "de731a14c0bf6af4d3a409a3b506174b64dd6866aa3235972a7b22798a4b256d"
+    }
+  },
+  "independent_artifact_validation": {
+    "Chips": {
+      "status": "PASS",
+      "artifact_hashes_verified": 69,
+      "input_hashes_verified": 34,
+      "prepared_labels_verified_from_provider_bins": 308,
+      "label_processing": "Historical cross-sectional pct rank, shifted by 0.5 and scaled by 3.46",
+      "signal_files_verified": 9,
+      "all_provider_file_sizes_and_mtimes_unchanged": true
+    },
+    "TurnCoeffChips": {
+      "status": "PASS",
+      "artifact_hashes_verified": 69,
+      "input_hashes_verified": 34,
+      "prepared_labels_verified_from_provider_bins": 308,
+      "label_processing": "Historical cross-sectional pct rank, shifted by 0.5 and scaled by 3.46",
+      "signal_files_verified": 9,
+      "all_provider_file_sizes_and_mtimes_unchanged": true
+    }
+  },
+  "legacy_label_processing": "Raw label is T+1/T+2 open return. Historical CSRankNorm processes all columns, including learn labels; verified against independently reconstructed cross-sectional ranks. Defaults preserved.",
+  "real_market_input_preflight": {
+    "schema": "myquant.real-chip-input-preflight/1",
+    "verified_at_utc": "2026-11-09T12:51:15.845193+00:00",
+    "status": "BLOCKED",
+    "daily_refresh_performed": false,
+    "configured_chip_provider": null,
+    "available_qlib_provider": "C:\\Users\\Stock\\.qlib\\qlib_data\\my_data_etf",
+    "available_qlib_fields": [
+      "amount.day.bin",
+      "close.day.bin",
+      "high.day.bin",
+      "low.day.bin",
+      "open.day.bin",
+      "volume.day.bin",
+      "vwap.day.bin"
+    ],
+    "missing_qlib_fields": [
+      "vol.day.bin",
+      "turnover_rate.day.bin"
+    ],
+    "observed_stock_lake_sample": {
+      "path": "E:\\stock_data\\stock\\period=1d\\dividend_type=front\\symbol=000001_SZ\\data.parquet",
+      "columns": [
+        "time",
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume",
+        "amount"
+      ]
+    },
+    "observed_shares": {
+      "float_shares.parquet": {
+        "columns": [
+          "stock_code",
+          "FloatVolume",
+          "TotalVolume",
+          "name",
+          "updated_at"
+        ]
+      },
+      "free_float_shares.parquet": {
+        "columns": [
+          "stock_code",
+          "m_timetag",
+          "freeFloatCapital",
+          "circulating_capital",
+          "restrict_circulating_capital",
+          "total_capital"
+        ]
+      }
+    },
+    "reason": "No configured stock Qlib provider supplies the chip input contract. Do not substitute a current FloatVolume snapshot for historical turnover; historical report dates alone do not prove publication availability.",
+    "resume_when": [
+      "An explicitly selected stock provider supplies declared vol/turnover_rate units and price domain.",
+      "Historical shares and turnover have documented as-of/availability semantics.",
+      "Run the bounded acceptance CLI with input-kind market and a fresh output directory."
+    ],
+    "synthetic_acceptance": "Separate evidence; never promotes this real-market status to PASS",
+    "reviewed_upstream_contracts": [
+      {
+        "source_commit": "1f2e45da04e6ea4915b7661a9ed05ed66bbf2647",
+        "path": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\reference_data\\qmt_metrics\\README.md",
+        "sha256": "4b6534df2afb3d66ecd3aabcde6af4061c7c5534725aae5d0e68b63447514a47",
+        "finding": "TURNOVER_RATE_INGEST_DEFERRED remains enabled; current APIs neither pull nor ingest vendor turnover."
+      },
+      {
+        "source_commit": "1f2e45da04e6ea4915b7661a9ed05ed66bbf2647",
+        "path": "D:\\PycharmProjects\\MyQuant-infra\\myquant_infra\\derived_data\\cyq\\README.md",
+        "sha256": "0b650eb1006dfe6effbc737c83bcbd8bd024faa6090d56ac722d55ff424d2383",
+        "finding": "Existing feeder expects provider amount/adjclose and explicitly specified share denominators; it does not supply missing raw chip provider fields or certify PIT."
+      }
+    ]
+  },
+  "mirror_snapshot": {
+    "github_master": "43f89d2f0e6959071ec5add06505653760a9d672",
+    "gitea_master": "43f89d2f0e6959071ec5add06505653760a9d672",
+    "endpoint": "http://10.0.0.111:13001",
+    "verification": "GitHub branch API and tea branch API; snapshot before this PR",
+    "host_local_origin": "http://10.0.0.111:13001/baiyibing/myquant.git",
+    "host_local_credential_helper": "tea login helper; repository and URL scoped; no tokens in receipts"
+  },
+  "historical_snapshot": {
+    "path": "docs/operations/myquant-source-readiness-20261109.json",
+    "sha256": "e845216f4855b57424d8d0fbfc91befe5cc1840907d717764c34851c8e0545fe",
+    "policy": "Immutable earlier isolated-environment snapshot. Shared environment synchronization happened afterward."
+  },
+  "historical_notebook": "NOT_RERUN; original 57 output objects preserved and regression-checked.",
+  "evidence_root": "E:\\exports\\myquant_local_acceptance_20261109_204043",
+  "evidence_files": {
+    "current-local-readiness.json": "5c3b0a96c66af49f84cfa7c0b570bfb6336b0d06061744936ffb0ee1bc55b90f",
+    "native-summary.json": "175a58f080dcf11369e406100b9e3779ffc1458de9eff6c7b8eea10024a07479",
+    "independent-validation.json": "80c21c4c42a443aedae38aac982b4f9476806cc91e17c3be1c3436ce808dc930",
+    "real-market-preflight.json": "174fdc04a71559e448e599f001caa8f910964b525de23cc04735fa0fc83189db",
+    "offline-pytest.log": "e51dfb63705f2eed21f9dded47a394c88c6ac37ed52625967f58be99c4e76714",
+    "verify_local_readiness.py": "d6c31103dbda776aed36cef03caf6ee3419a2b261a783b494c8b255ce020952f",
+    "run_native_acceptance.py": "e9596a8d58b2a09dcd08b7072c434643aca68ac8c60f21d55dfb4c2b7259675d",
+    "verify_native_artifacts.py": "580a57f3feeb00a7de43cd34e50b62bbf2582bba43b4d539c9e72df9112cc349"
+  },
+  "ci_scope": "Local checks bind implementation sources above. Canonical CI status belongs to the PR commit and is not pre-signed by this receipt."
+}
