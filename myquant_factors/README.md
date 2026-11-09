@@ -17,6 +17,9 @@ Qlib handler 和模型配置不随包安装给 BT。BT 通过固定源码提交�
 只保留 import 转发及宿主路径、reader 生命周期、时钟与门禁适配。
 包内禁止反向导入 BT、读取相邻 BT 源码或提供缺依赖时的本地副本。
 
+独立运行研究工具安装 `.[analysis,research]`，研究读侧的 DuckDB 保持 `2.0.0` 钉；
+infra 仍从显式选定的源码/制品安装。BT 安装基础包并沿用自身依赖清单。
+
 独立研究入口需要显式设置 `OSKH_SOURCE_PARQUET_ROOT`、`OSKH_DATA_ROOT`；
 直接导入研究脚本时另设 `MYQUANT_RESEARCH_ROOT`。原有显式研究参数与
 数值规则保留；迁移没有授权重跑训练、读写真实行情湖或发布新名单。
