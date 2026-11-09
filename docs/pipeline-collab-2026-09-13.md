@@ -40,7 +40,43 @@ python -m pytest my_tests tests my_scripts/test_zhangting_filter.py -q
 需要真实数据的实验，记录窗口、模型/参数、数据来源、输出路径和启动时 Git 溯源。
 研究结论与已合入状态分别登记到对应计划或报告。
 
-## 4. 研究运行约束索引
+## 4. 共享评审与 PR 发布入口
+
+`my_scripts/ops_workflow.py` 通过独立 Python 进程调用相邻 ops 源码，固定
+`--repo-root` 为本入口所在的 MyQuant checkout，传入本仓研究 profile。
+它校验 ops 的 `scripts/runtime-api.json` v1；缺失或不兼容时明确失败。
+指定其他 ops checkout 可用 `--ops-root <绝对路径>`，优先于 `MYQUANT_OPS_ROOT`。
+从别的当前目录启动时，仓库和相对路径仍绑定到本入口所在 checkout。
+
+| 本仓命令 | ops 入口 | 本仓配置 |
+|---|---|---|
+| `review` | `scripts/run/run_multi_ai_review.py` | [review.json](../configs/ops/review.json)：研究预锁、PIT、跨段标签、数据/指标、Qlib 边界与产物契约 |
+| `adversarial` | `scripts/run/run_codex_adversarial_lanes.py` | [adversarial.json](../configs/ops/adversarial.json)：时间/数据、研究/证据、接口/产物三路 |
+| `publish` | `scripts/ops/push_github_pr_via_api.py` | 当前功能分支及调用时显式提供的标题/正文等参数 |
+
+先用现有流程文档核对评审接线；以下命令均为 dry-run：
+
+```text
+python my_scripts/ops_workflow.py review --plan docs/pipeline-collab-2026-09-13.md --out-dir .test-tmp-ops/review --dry-run
+python my_scripts/ops_workflow.py adversarial --plan docs/pipeline-collab-2026-09-13.md --out-dir .test-tmp-ops/lanes --dry-run
+python my_scripts/ops_workflow.py publish --title "本次功能分支的 PR 标题" --dry-run
+```
+
+子命令后加 `--help` 查看 ops 的完整参数。`--repo-root` 与 `--profile-file` 由本仓固定；
+其他仓库或研究 profile 直接调用 ops。其余参数按原样传递，退出码返回调用方。
+模型、席位和调度行为由 ops 当前运行时维护，本仓不复制模型目录或 agent 执行实现。
+
+`review --dry-run` 会在输出目录写提示词与版本记录，跳过评审员预检和执行；
+`adversarial --dry-run` 不写输出，并保留 ops 的嵌套会话拒绝规则；
+`publish --dry-run` 只读本地 Git，不读取认证或访问 API。实际评审或发布应在明确执行该动作时调用。
+
+发布命令在待发布功能分支运行，`master` / `main` 由 ops 拒绝。
+该发布器通过 Git Data API 重放提交并创建 PR，同名远端功能分支可能被替换，
+重放 SHA 也可能与本机不同；确认需要这种发布方式后再执行实际调用。
+CI 检查及合入继续按现有仓库流程处理。
+通用运行时合同见 [ops shared runtime](https://github.com/baiyibing/grok-bot-ops/blob/master/docs/multi-ai/shared-runtime-20261109.md)。
+
+## 5. 研究运行约束索引
 
 - 数据产制调用 infra；日线刷新见[操作手册](../my_docs/提示词-qlib-bin刷新.md)，
   分钟见[分钟手册](../my_docs/提示词-qlib-1min-bin刷新.md)。provider、staging 和保护目录显式配置。

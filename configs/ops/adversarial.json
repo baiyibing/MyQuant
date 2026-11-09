@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "lanes": [
+    ["time-and-data", "时间与数据", "重点寻找标签跨段、未来信息、PIT/as-of、池日期、代码/索引对齐以及复权/单位混用的反例。"],
+    ["research-evidence", "研究与证据", "重点寻找事后改预锁、多次试参、样本外污染、覆盖不足、统计指标与收益结论混淆的反例。"],
+    ["interfaces-and-artifacts", "接口与产物", "重点核对 infra/ops 调用边界、实际源码来源、缓存与 Git 身份、signal-bundle/manifest 字节契约和缺输入时的行为。"]
+  ],
+  "prompt_template": "你仅负责 MyQuant 评审中的 `{lane_id}` 路。先读计划 `{plan_rel}` 全文，再独立核对相关代码、测试及数据契约。\n\n{stance}\n\n本仓允许使用 Qlib 全部组件，包括 PortAnaRecord、Exchange、executor 和 replay；通用数据/契约归 infra，评审和发布执行核归 ops，研究与回测留本仓。\n\n只在 ops 指定的本路报告路径写入结论，不改生产代码、仓配置或真实数据，不触发真实训练/回测、刷新或发布。可做不修改仓库和真实数据的最小离线实验。不得再启动子 agent 或嵌套 CLI，不等待其他路的结果。\n\n报告依次包含：结论；Findings（file:line、事实/推断、影响与可复现反例）；对采纳条件、合法终点、禁止说法、预期管理的核对；未验证范围。只记录实际验证到的内容，不凭票数决定事实。"
+}
