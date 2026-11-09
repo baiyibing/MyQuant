@@ -48,6 +48,16 @@ pip install -e "/path/to/MyQuant-infra[qlib-data,st,data-validation]"
 
 通用协作脚手架另需同级 `grok-bot-ops` 源码（或设置 `MYQUANT_OPS_ROOT`），直接读取其中的通用执行核，无需安装 ops 包。本仓保留研究模板和检查入口；流程见[研究验收与协作指针](docs/pipeline-collab-2026-09-13.md)。
 
+安装后，用研究任务实际采用的同一个解释器检查源码来源与入口：
+
+```bash
+python -c "import sys, myquant_infra; print(sys.executable); print(myquant_infra.__file__)"
+python -m myquant_infra.adapters.qlib_data refresh-daily --help
+python my_scripts/task_scaffold.py --help
+```
+
+日线帮助须包含 `--source-parquet-root`。版本号 `0.0.0` 或另一个工作树的测试结果不能证明实际安装来源；固定源码与 API 验收复用 infra 的[源码交付和运行时探针](https://github.com/baiyibing/MyQuant-infra/blob/main/myquant_infra/artifacts/README.md#fixed-runtime-source-artifacts)。原开发工作树有未提交改动时，可在独立目录和虚拟环境中验证新源码。[2026-11-09 M5 验收记录](docs/operations/myquant-source-readiness-20261109.json)区分源码就绪、共享环境状态及尚缺的生产配置。
+
 ## 数据准备
 
 数据产制统一调用 [MyQuant-infra](https://github.com/baiyibing/MyQuant-infra)：
