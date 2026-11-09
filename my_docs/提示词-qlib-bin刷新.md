@@ -4,6 +4,8 @@
 安装方式见 [README](../README.md#环境搭建)；运行前用同一个 Python 检查
 `python -m myquant_infra.adapters.qlib_data refresh-daily --help`。
 
+同一解释器的帮助必须包含 `--source-parquet-root`；缺少该参数说明当前安装的源码尚未对齐，先按 README 核对导入路径。源码探针和离线测试通过后，仍需补齐下列宿主输入、输出配置，才能生成本批真实刷新计划。
+
 ## 显式配置
 
 在 MyQuant 根目录执行，以下变量由操作人配置，禁止猜盘符或换输入文件：

@@ -1,0 +1,236 @@
+{
+  "schema": "myquant.host-source-readiness/1",
+  "date": "2026-11-09",
+  "evidence_root": "E:\\exports\\myquant_source_readiness_20261109_114133",
+  "status": "source_ready",
+  "host": "DESKTOP-M5HCFD6",
+  "python": "E:\\exports\\myquant_source_readiness_20261109_114133\\runtime\\Scripts\\python.exe",
+  "source_commits": {
+    "mq": "a3703cf769d8216559b0ddcd76613db1717ab0e6",
+    "infra": "92fa5277251860bc4db3376f8b4e95b2f5742a57",
+    "ops": "05491ea3866b92d004dcf1b6d97c59573a70a763"
+  },
+  "infra_manifest_sha256": "c61d345271e8b6efbc70bcb46cca45a0392ce7c74e08d3491627af66353a20de",
+  "infra_origin": "E:\\exports\\myquant_source_readiness_20261109_114133\\source\\MyQuant-infra\\myquant_infra\\__init__.py",
+  "distribution": {
+    "dir_info": {
+      "editable": true
+    },
+    "url": "file:///E:/exports/myquant_source_readiness_20261109_114133/source/MyQuant-infra"
+  },
+  "required_apis": 20,
+  "daily_source_root_option": true,
+  "cli_help": [
+    {
+      "entry": [
+        "-m",
+        "myquant_infra.adapters.qlib_data",
+        "refresh-daily"
+      ],
+      "exit_code": 0
+    },
+    {
+      "entry": [
+        "-m",
+        "myquant_infra.adapters.qlib_data",
+        "refresh-1min"
+      ],
+      "exit_code": 0
+    },
+    {
+      "entry": [
+        "-m",
+        "myquant_infra.adapters.qlib_data",
+        "build-1min"
+      ],
+      "exit_code": 0
+    },
+    {
+      "entry": [
+        "-m",
+        "myquant_infra.adapters.qlib_data",
+        "build-etf"
+      ],
+      "exit_code": 0
+    },
+    {
+      "entry": [
+        "-m",
+        "myquant_infra.adapters.qlib_data",
+        "dump-pit"
+      ],
+      "exit_code": 0
+    },
+    {
+      "entry": [
+        "-m",
+        "myquant_infra.data_validation.csv_float"
+      ],
+      "exit_code": 0
+    },
+    {
+      "entry": [
+        "-m",
+        "myquant_infra.derived_data.cyq"
+      ],
+      "exit_code": 0
+    },
+    {
+      "entry": [
+        "E:\\exports\\myquant_source_readiness_20261109_114133\\source\\MyQuant\\my_scripts\\task_scaffold.py"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "dependencies": {
+    "pandas": "2.3.3",
+    "numpy": "2.3.5",
+    "pyarrow": "25.0.0",
+    "lightgbm": "4.7.0"
+  },
+  "production_jobs_started": false,
+  "shared_environment_modified": false,
+  "missing_daily_configuration": [
+    "OSKH_QLIB_CSV_DIR",
+    "MQ_QLIB_ARCHIVE_DIR",
+    "MQ_QLIB_DAILY_DIR",
+    "MQ_QLIB_NEW_DIR",
+    "MQ_QLIB_DAILY_STAGING"
+  ],
+  "pytest": {
+    "passed": 684,
+    "skipped": 1,
+    "subtests_passed": 18,
+    "seconds": 66.54,
+    "exit_code": 0
+  },
+  "tracked_launchers": {
+    "MyQuant": {
+      "ref": "github/master",
+      "commit": "a3703cf769d8216559b0ddcd76613db1717ab0e6",
+      "direct_legacy_entry_matches": []
+    },
+    "MyQuant-infra": {
+      "ref": "origin/main",
+      "commit": "92fa5277251860bc4db3376f8b4e95b2f5742a57",
+      "direct_legacy_entry_matches": [
+        "origin/main:myquant_infra/adapters/qlib_data/pit.py"
+      ],
+      "reviewed_matches": [
+        {
+          "file": "myquant_infra/adapters/qlib_data/pit.py",
+          "line": 34,
+          "classification": "Historical source-provenance docstring; no legacy execution path."
+        }
+      ],
+      "confirmed_legacy_runtime_calls": 0
+    },
+    "grok-bot-ops": {
+      "ref": "origin/master",
+      "commit": "05491ea3866b92d004dcf1b6d97c59573a70a763",
+      "direct_legacy_entry_matches": []
+    },
+    "MyQuant-backtrader": {
+      "ref": "github/master",
+      "commit": "d163fa3d9360453c28d29aa857ac7d8b2e784d69",
+      "direct_legacy_entry_matches": []
+    },
+    "OSkhQuant1.3": {
+      "ref": "github/main",
+      "commit": "4d864763712fd05f40fb4101ab45ee28453c84e6",
+      "direct_legacy_entry_matches": []
+    }
+  },
+  "tracked_scan_scope": {
+    "extensions": [
+      "py",
+      "ps1",
+      "sh",
+      "bat",
+      "cmd",
+      "json",
+      "yml",
+      "yaml",
+      "toml"
+    ],
+    "excluded_directories": [
+      "docs",
+      "tests",
+      "my_tests",
+      "scratch",
+      "tmp",
+      "_agent_runs"
+    ],
+    "pattern": "qlib_scripts.(refresh_mydata|dump_bin|dump_pit|build_mydata|build_etf|stage_|checkcsv|list_st)",
+    "limitation": "Direct legacy entry references only; dynamic configuration and deployed remote-host files are not covered."
+  },
+  "local_startup": {
+    "services": {
+      "status": "enumerated",
+      "count": 296,
+      "related": []
+    },
+    "registry_startup": {
+      "entries": 6,
+      "related": []
+    },
+    "startup_folders": {
+      "entries": 0,
+      "related": []
+    }
+  },
+  "scheduled_tasks": {
+    "status": "enumerated",
+    "tasks": 185,
+    "actions": 187,
+    "related_candidates": 0,
+    "legacy_hits": 0
+  },
+  "remote_host_runtime_audit": {
+    "status": "unverified",
+    "hosts": [
+      "4090",
+      "75"
+    ],
+    "reason": "No configured access profile for these hosts on this machine; current SSH identity is for an unrelated host."
+  },
+  "mirrors": {
+    "MyQuant": {
+      "github": "a3703cf769d8216559b0ddcd76613db1717ab0e6",
+      "gitea": "a3703cf769d8216559b0ddcd76613db1717ab0e6"
+    },
+    "grok-bot-ops": {
+      "github": "05491ea3866b92d004dcf1b6d97c59573a70a763",
+      "gitea": "05491ea3866b92d004dcf1b6d97c59573a70a763"
+    }
+  },
+  "shared_environment": {
+    "python": "D:\\anaconda3\\envs\\vanna312\\python.exe",
+    "infra_source": "D:\\PycharmProjects\\MyQuant-infra",
+    "daily_source_root_option": false,
+    "modified": false
+  },
+  "runtime_dependency_scope": "Private interpreter and editable infra source; third-party dependencies inherited from the existing vanna312 environment, not a full dependency lock.",
+  "required_api_names": [
+    "myquant_infra.artifacts.provenance:sha256_file",
+    "myquant_infra.artifacts.provenance:git_commit",
+    "myquant_infra.artifacts.provenance:capture_git_provenance",
+    "myquant_infra.artifacts.provenance:build_manifest",
+    "myquant_infra.artifacts.provenance:write_manifest",
+    "myquant_infra.artifacts.provenance:fingerprint_artifact",
+    "myquant_infra.contracts.signal_bundle:build_signal_bundle",
+    "myquant_infra.contracts.signal_bundle:validate_signal_bundle",
+    "myquant_infra.reference_data.symbols:to_qlib_code",
+    "myquant_infra.reference_data.symbols:to_bare_code",
+    "myquant_infra.reference_data.industry.readers:load_qlib_industry_map",
+    "myquant_infra.reference_data.st.readers:load_st_daily_index",
+    "myquant_infra.reference_data.st.readers:load_st_codes_asof",
+    "myquant_infra.adapters.qlib_data.universe:build",
+    "myquant_infra.adapters.qlib_data.refresh_mydata:build_parser",
+    "myquant_infra.adapters.qlib_data.refresh_mydata:config_from_args",
+    "myquant_infra.adapters.qlib_data.refresh_mydata_1min:main",
+    "myquant_infra.data_validation.csv_float:scan_csv_dir",
+    "myquant_infra.derived_data.cyq.cli:main",
+    "myquant_infra.lake.paths:source_parquet"
+  ]
+}
