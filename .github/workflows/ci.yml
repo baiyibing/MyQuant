@@ -124,6 +124,9 @@ jobs:
         run: |
           pip install -r requirements.txt pytest
 
+      - name: Verify four-repo pandas pin
+        run: python -c "import pandas; print('pandas', pandas.__version__); assert pandas.__version__ == '3.0.6', pandas.__version__"
+
       - name: Run tests
         shell: bash
         run: |
