@@ -115,14 +115,6 @@ class TestCliBomCsv:
 
         date = "20260825"
         data_dir = tmp_path
-        out = data_dir / f"_turnover_resist_{date}.csv"
-        # Simulate Rust CLI UTF-8 BOM header (utf-8-sig write).
-        out.write_text(
-            "stock_code,stock_name,date,close,turnover_resistance\n"
-            "000001.SZ,PingAn,20260825,10.5,0.42\n",
-            encoding="utf-8-sig",
-        )
-        assert out.read_bytes()[:3] == b"\xef\xbb\xbf"
 
         monkeypatch.setattr(tr, "_find_exe", lambda: P("/fake/turnover-resist"))
 
@@ -131,7 +123,19 @@ class TestCliBomCsv:
             stdout = ""
             stderr = ""
 
-        monkeypatch.setattr(subprocess, "run", lambda *a, **k: _Proc())
+        def run(cmd, **kwargs):
+            # The fake producer honors the actual --output instead of assuming
+            # an undocumented file in the read-only input directory.
+            out = P(cmd[cmd.index("--output") + 1])
+            out.write_text(
+                "stock_code,stock_name,date,close,turnover_resistance\n"
+                "000001.SZ,PingAn,20260825,10.5,0.42\n",
+                encoding="utf-8-sig",
+            )
+            assert out.read_bytes()[:3] == b"\xef\xbb\xbf"
+            return _Proc()
+
+        monkeypatch.setattr(subprocess, "run", run)
 
         rows = tr._cli_compute(
             date=date,
