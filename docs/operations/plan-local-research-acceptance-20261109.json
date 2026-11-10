@@ -1,0 +1,22 @@
+{
+  "schema": "myquant.research-acceptance-plan/1",
+  "date": "2026-11-09",
+  "base_commit": "43f89d2f0e6959071ec5add06505653760a9d672",
+  "objective": "Publish current source/environment readiness and validate relocated chip research on a bounded historical sample.",
+  "prelock": {
+    "adopt_when": "Native factor calculation, disjoint train/valid/test fitting, finite predictions, Qlib PortAna and signal export complete with artifact hashes; provider inputs remain unchanged.",
+    "legal_endpoints": ["PASS for the recorded sample only", "BLOCKED with the exact missing input or incompatible data contract", "FAIL with reproducible error and no claimed acceptance"],
+    "forbidden_claims": ["Historical Notebook outputs were regenerated", "Positive IC or NAV proves strategy profitability", "This sample validates production data refresh or remote deployment", "Synthetic data proves real-market acceptance"],
+    "question": "Can the relocated native MyQuant research components run together using the current source environment and a small, explicitly recorded historical input?"
+  },
+  "scope": {
+    "read_existing_providers": true,
+    "max_instruments": 12,
+    "max_scored_sessions": 30,
+    "model": "Single CPU LightGBM with bounded rounds and threads",
+    "training_labels": "Purge final two provider sessions from train and valid so the T+1/T+2 open label remains within its nominal segment.",
+    "output": "Fresh research directory under E:/exports; MLflow, caches and signals stay inside that directory.",
+    "excluded": ["Daily refresh", "Remote deployment", "Production factor backfill", "Changes to strategy defaults", "Historical receipt rewrites", "Real multi-agent model review"]
+  },
+  "validation": ["Targeted regressions for any executable fixes", "Full existing offline Python suite after changes", "Provider input fingerprints before/after", "Independent artifact and signal contract checks", "Source origins and pip check", "GitHub CI on the reviewable PR"]
+}

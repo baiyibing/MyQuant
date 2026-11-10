@@ -21,7 +21,9 @@ plan-main v22 Phase A1 交付项：替代 CLI subprocess.run 调用，
 from __future__ import annotations
 
 import json
+import os
 import subprocess
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -194,10 +196,32 @@ def _ffi_compute(**kwargs: Any) -> Optional[List[Dict[str, Any]]]:
 # ---------------------------------------------------------------------------
 
 def _cli_compute(**kwargs: Any) -> List[Dict[str, Any]]:
+    exe = _find_exe()
+    temp_root = _cli_scratch_root(kwargs["data_dir"])
+    # The lake is input-only. Unique directories also isolate same-date callers.
+    # Close the CSV and wait for the child before TemporaryDirectory cleans up.
+    with tempfile.TemporaryDirectory(prefix="myquant-tr-", dir=temp_root) as scratch:
+        return _run_cli_to_csv(exe, Path(scratch) / "result.csv", **kwargs)
+
+
+def _cli_scratch_root(data_dir: str) -> Path:
+    source_root = Path(data_dir).resolve()
+    # gettempdir() writes probe files on first use. Inspect CPython's read-only
+    # candidate list instead, before allowing any mkdir/open in the scratch root.
+    candidates = ([tempfile.tempdir] if tempfile.tempdir is not None
+                  else getattr(tempfile, "_candidate_tempdir_list")())
+    for candidate in candidates:
+        root = Path(os.fsdecode(candidate)).resolve()
+        if root.is_relative_to(source_root):
+            raise ValueError("Configure TEMP/TMPDIR outside the input data_dir for TR CLI scratch files")
+        if root.is_dir():
+            return root
+    raise FileNotFoundError("No existing temporary directory available for TR CLI scratch files")
+
+
+def _run_cli_to_csv(exe: Path, output_path: Path, **kwargs: Any) -> List[Dict[str, Any]]:
     date = kwargs["date"]
     data_dir = kwargs["data_dir"]
-    output_path = Path(data_dir) / f"_turnover_resist_{date}.csv"
-    exe = _find_exe()
 
     cmd: List[str] = [
         str(exe),

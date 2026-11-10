@@ -48,6 +48,10 @@ def test_handler_preserves_features_label_and_processors(cls, count, window, mon
     assert config["label"] == (["Ref($open, -2)/Ref($open, -1) - 1"], ["LABEL0"])
     assert calls[0]["learn_processors"] == [{"class": "DropnaLabel", "kwargs": {}}]
     assert obj.get_feature_config() == (fields, names)
+    # Bind to the real loader signature: a mocked handler alone missed the old typo.
+    import inspect
+    from qlib.data.dataset.loader import QlibDataLoader
+    inspect.signature(QlibDataLoader).bind(**calls[0]["data_loader"]["kwargs"])
 
 
 @pytest.mark.parametrize("model", ["transformer_ts", "transformer", "alstm", "adarnn", "tcn_ts", "gbdt"])
@@ -73,7 +77,7 @@ def test_explicit_workflow_wires_training_signals_and_portana_with_mock_ports(mo
     for name in ("SignalRecord", "SigAnaRecord", "PortAnaRecord"):
         monkeypatch.setattr(workflow, name, record(name))
     result = workflow.run_model(dataset, "gbdt", *PERIODS[2], model_kw={"num_boost_round": 7})
-    model.fit.assert_called_once_with(dataset, save_path=None)
+    model.fit.assert_called_once_with(dataset)
     assert [kind for kind, _args, _record in created] == ["SignalRecord", "SigAnaRecord", "PortAnaRecord"]
     assert created[0][1] == (model, dataset, recorder)
     config = created[2][1][1]

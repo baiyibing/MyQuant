@@ -74,7 +74,9 @@ python my_scripts/task_scaffold.py --help
 python my_scripts/ops_workflow.py review --help
 ```
 
-日线帮助须包含 `--source-parquet-root`。版本号 `0.0.0` 或另一个工作树的测试结果不能证明实际安装来源；固定源码与 API 验收复用 infra 的[源码交付和运行时探针](https://github.com/baiyibing/MyQuant-infra/blob/main/myquant_infra/artifacts/README.md#fixed-runtime-source-artifacts)。原开发工作树有未提交改动时，可在独立目录和虚拟环境中验证新源码。[2026-11-09 M5 验收记录](docs/operations/myquant-source-readiness-20261109.json)区分源码就绪、共享环境状态及尚缺的生产配置。
+日线帮助须包含 `--source-parquet-root`。版本号 `0.0.0` 或另一个工作树的测试结果不能证明实际安装来源；固定源码与 API 验收复用 infra 的[源码交付和运行时探针](https://github.com/baiyibing/MyQuant-infra/blob/main/myquant_infra/artifacts/README.md#fixed-runtime-source-artifacts)。原开发工作树有未提交改动时，可在独立目录和虚拟环境中验证新源码。[2026-11-09 当前本机状态](docs/operations/local-readiness-20261109.json)登记默认环境源码同步、infra/ops 接线、镜像和筹码研究输入验收；[早期隔离环境快照](docs/operations/myquant-source-readiness-20261109.json)按原样保留，其中共享环境尚未同步的字段只描述该次历史检查。
+
+迁入筹码研究的[有界原生验收入口](my_scripts/chip_research/README.md#bounded-native-pipeline-acceptance)可验证因子、LightGBM、Qlib 回测和信号导出。合成数据与真实行情分开记录；缺少股票 provider 或历史换手率语义时保留阻塞结果，不将历史 Notebook 输出或合成测试视为真实研究验收。真实日线刷新和 4090/75 部署仍暂缓。
 
 ## 数据准备
 
