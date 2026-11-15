@@ -66,4 +66,4 @@ def test_qlib_cost_requirements_pin_fincore():
     text = (REPO / "examples/chip_research/requirements-legacy.txt").read_text(encoding="utf-8")
     assert "fincore==0.3.0" in text
     assert "empyrical==" not in text
-    assert "pandas==3.0.6" in text
+    assert "pandas>=3.0.6" in text
