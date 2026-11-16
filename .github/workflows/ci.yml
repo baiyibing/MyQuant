@@ -75,7 +75,7 @@ jobs:
       - name: Check out infra source beside MyQuant
         uses: actions/checkout@v4
         with:
-          repository: baiyibing/MyQuant-infra
+          repository: zhentinginfo/MyQuant-infra
           path: MyQuant-infra
           ssh-key: ${{ secrets.MYQUANT_INFRA_READ_KEY }}
           persist-credentials: false
