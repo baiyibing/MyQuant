@@ -1,5 +1,7 @@
 # M2-A：筹码量概念映射（MyQuant ↔ MyQuant-backtrader）
 
+> **历史映射范围（2026-11-16 标注）**：下文记录 2026-09-13 的 Quantile 近似 COST 与分布 COST 对照，保留原“不可比”结论及 harness 合同。2026-11-09 起，原 BT 筹码/TR 公共数值核及 Rust 已迁入本仓 [myquant_factors](../myquant_factors/README.md)，BT 仅保留消费转发与宿主薄适配；Cerebro 相关实现已退场。本文中的旧路径与“本仓无实现”只描述当时的对象，不代表当前代码归属，也不因迁移自动产生新的数值 parity 或研究验收结论。
+
 - 日期：2026-09-13
 - 分支：`feat/m2-chip-parity`
 - 对照仓：`/workspace/MyQuant-backtrader`（宿主机 `E:\PycharmProjects\MyQuant-backtrader`）
