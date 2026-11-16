@@ -65,28 +65,41 @@ jobs:
         working-directory: ${{ github.workspace }}
         env:
           INFRA_READ_KEY: ${{ secrets.MYQUANT_INFRA_READ_KEY }}
-          OPS_READ_KEY: ${{ secrets.MYQUANT_OPS_READ_KEY }}
+          OPS_GIT_URL: ${{ secrets.MYQUANT_OPS_GIT_URL }}
+          OPS_READ_TOKEN: ${{ secrets.MYQUANT_OPS_READ_TOKEN }}
         run: |
-          if [ -z "$INFRA_READ_KEY" ] || [ -z "$OPS_READ_KEY" ]; then
-            echo "::error::Configure MYQUANT_INFRA_READ_KEY and MYQUANT_OPS_READ_KEY with separate read-only deploy keys."
+          if [ -z "$INFRA_READ_KEY" ] || [ -z "$OPS_GIT_URL" ] || [ -z "$OPS_READ_TOKEN" ]; then
+            echo "::error::Configure MYQUANT_INFRA_READ_KEY, MYQUANT_OPS_GIT_URL and MYQUANT_OPS_READ_TOKEN for shared source access."
             exit 1
           fi
 
       - name: Check out infra source beside MyQuant
         uses: actions/checkout@v4
         with:
-          repository: baiyibing/MyQuant-infra
+          repository: zhentinginfo/MyQuant-infra
           path: MyQuant-infra
           ssh-key: ${{ secrets.MYQUANT_INFRA_READ_KEY }}
           persist-credentials: false
 
-      - name: Check out shared workflow source beside MyQuant
-        uses: actions/checkout@v4
-        with:
-          repository: baiyibing/grok-bot-ops
-          path: grok-bot-ops
-          ssh-key: ${{ secrets.MYQUANT_OPS_READ_KEY }}
-          persist-credentials: false
+      - name: Check out shared workflow source from private Gitea
+        working-directory: ${{ github.workspace }}
+        env:
+          OPS_GIT_URL: ${{ secrets.MYQUANT_OPS_GIT_URL }}
+          OPS_READ_TOKEN: ${{ secrets.MYQUANT_OPS_READ_TOKEN }}
+        run: |
+          set -euo pipefail
+          auth=$(printf 'baiyibing:%s' "$OPS_READ_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          # Pass credentials to this Git process, never to local config or tests.
+          GIT_CONFIG_COUNT=2 \
+          GIT_CONFIG_KEY_0="http.${OPS_GIT_URL}.extraheader" \
+          GIT_CONFIG_VALUE_0="AUTHORIZATION: basic $auth" \
+          GIT_CONFIG_KEY_1=credential.helper \
+          GIT_CONFIG_VALUE_1= \
+          GIT_TERMINAL_PROMPT=0 \
+            git clone --depth 1 --single-branch --branch master --no-tags \
+              -- "$OPS_GIT_URL" "$GITHUB_WORKSPACE/grok-bot-ops"
+          git -C "$GITHUB_WORKSPACE/grok-bot-ops" rev-parse HEAD
 
       - uses: actions/setup-python@v5
         with:

@@ -74,13 +74,13 @@ python my_scripts/task_scaffold.py --help
 python my_scripts/ops_workflow.py review --help
 ```
 
-日线帮助须包含 `--source-parquet-root`。版本号 `0.0.0` 或另一个工作树的测试结果不能证明实际安装来源；固定源码与 API 验收复用 infra 的[源码交付和运行时探针](https://github.com/baiyibing/MyQuant-infra/blob/main/myquant_infra/artifacts/README.md#fixed-runtime-source-artifacts)。原开发工作树有未提交改动时，可在独立目录和虚拟环境中验证新源码。[2026-11-09 当前本机状态](docs/operations/local-readiness-20261109.json)登记默认环境源码同步、infra/ops 接线、镜像和筹码研究输入验收；[早期隔离环境快照](docs/operations/myquant-source-readiness-20261109.json)按原样保留，其中共享环境尚未同步的字段只描述该次历史检查。
+日线帮助须包含 `--source-parquet-root`。版本号 `0.0.0` 或另一个工作树的测试结果不能证明实际安装来源；固定源码与 API 验收复用 infra 的[源码交付和运行时探针](https://github.com/zhentinginfo/MyQuant-infra/blob/main/myquant_infra/artifacts/README.md#fixed-runtime-source-artifacts)。原开发工作树有未提交改动时，可在独立目录和虚拟环境中验证新源码。[2026-11-09 当前本机状态](docs/operations/local-readiness-20261109.json)登记默认环境源码同步、infra/ops 接线、镜像和筹码研究输入验收；[早期隔离环境快照](docs/operations/myquant-source-readiness-20261109.json)按原样保留，其中共享环境尚未同步的字段只描述该次历史检查。
 
 迁入筹码研究的[有界原生验收入口](my_scripts/chip_research/README.md#bounded-native-pipeline-acceptance)可验证因子、LightGBM、Qlib 回测和信号导出。合成数据与真实行情分开记录；缺少股票 provider 或历史换手率语义时保留阻塞结果，不将历史 Notebook 输出或合成测试视为真实研究验收。真实日线刷新和 4090/75 部署仍暂缓。
 
 ## 数据准备
 
-数据产制统一调用 [MyQuant-infra](https://github.com/baiyibing/MyQuant-infra)：
+数据产制统一调用 [MyQuant-infra](https://github.com/zhentinginfo/MyQuant-infra)：
 
 ```bash
 python -m myquant_infra.adapters.qlib_data --help
@@ -99,10 +99,10 @@ infra CLI 要求显式输入、输出和保护目录；本仓 `data_root.py` 仅
 
 | 仓 | 职责 |
 |---|---|
-| [MyQuant-infra](https://github.com/baiyibing/MyQuant-infra) | L2 数据处理（写侧 + 湖工具 + research 读侧探索脚手架） |
+| [MyQuant-infra](https://github.com/zhentinginfo/MyQuant-infra) | L2 数据处理（写侧 + 湖工具 + research 读侧探索脚手架） |
 | **本仓** | L2 数据利用（`l2_signals/`：信号、定义卡、跨年验证、池导出） |
-| [MyQuant-backtrader](https://github.com/baiyibing/MyQuant-backtrader) | 回测执行（stab_t1 等；跨引擎契约）。Cerebro 已于 2026-09-16 退役 |
-| [grok-bot-ops](https://github.com/baiyibing/grok-bot-ops) | 通用工程配置、CI/运维与协作、L2 交接历程；数据湖 SSOT 正本归 infra |
+| [MyQuant-backtrader](https://github.com/zhentinginfo/MyQuant-backtrader) | 回测执行（stab_t1 等；跨引擎契约）。Cerebro 已于 2026-09-16 退役 |
+| grok-bot-ops（私有 Gitea） | 通用工程配置、CI/运维与协作、L2 交接历程；入口见[协作指针](docs/pipeline-collab-2026-09-13.md)，数据湖 SSOT 正本归 infra |
 
 细则见 [`l2_signals/README.md`](l2_signals/README.md)。
 
@@ -117,6 +117,9 @@ infra CLI 要求显式输入、输出和保护目录；本仓 `data_root.py` 仅
 
 ## CI 源码访问
 
-GitHub Actions 的完整研究测试使用两把独立的只读 SSH deploy key：在 `MyQuant-infra` 注册公钥、将私钥保存为本仓 Actions secret `MYQUANT_INFRA_READ_KEY`；在 `grok-bot-ops` 注册另一把公钥、将对应私钥保存为 `MYQUANT_OPS_READ_KEY`。两仓均不勾选写入权限。CI 通过 `actions/checkout` 的 `ssh-key` 读取相邻源码，设置 `persist-credentials: false`，不将凭据留给后续测试。本地继续读取相邻源码，无需这些 CI secret。缺少密钥时 CI 明确失败，不使用本地实现副本替代。
+GitHub Actions 的完整研究测试分别读取 infra 和 ops 的真实源码：
 
-infra [#83](https://github.com/baiyibing/MyQuant-infra/pull/83) 与 ops [#182](https://github.com/baiyibing/grok-bot-ops/pull/182) 已合入各自默认分支，CI 直接读取其当前源码；联合收益纯离线测试独立运行。
+- infra：在 `MyQuant-infra` 注册只读 SSH deploy key，将私钥保存为本仓 Actions secret `MYQUANT_INFRA_READ_KEY`。`actions/checkout` 设置 `persist-credentials: false`。
+- ops：2026-11-16 起只托管于私有 Gitea。将其 Git HTTP(S) clone URL 保存为 `MYQUANT_OPS_GIT_URL`；将现有 `baiyibing` 账户的 Gitea token 保存为 `MYQUANT_OPS_READ_TOKEN`。该 token 须能读取 ops 仓库；按用户授权可复用现有读写 token，CI 仅执行源码读取。CI 从 `master` 拉取相邻源码并记录提交，认证只传给当前 Git 进程，不写入 checkout 配置或留给后续测试。旧 `MYQUANT_OPS_READ_KEY` 不再使用。
+
+以上均为本仓 Actions secrets；缺少任一必需配置时 CI 明确失败，不使用本地实现副本替代。本地继续读取相邻源码，或设置 `MYQUANT_OPS_ROOT` 为绝对路径，无需这些 CI secret。完整测试仍包含共享脚手架和 runtime API v1 接线；联合收益纯离线测试独立运行。

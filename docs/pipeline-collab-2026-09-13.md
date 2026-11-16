@@ -5,9 +5,10 @@
 
 ## 1. 通用流程
 
-任务书、实现、检查、宿主验证、证据判读和回写的通用流程正文位于
-[grok-bot-ops：development workflow](https://github.com/baiyibing/grok-bot-ops/blob/master/docs/handoff/development-workflow.md)。
-交付清单见 [generic DoD](https://github.com/baiyibing/grok-bot-ops/blob/master/docs/handoff/generic-dod.md)。
+通用协作源码 `grok-bot-ops` 自 2026-11-16 起只托管于私有 Gitea，原 GitHub 仓库已退役。
+任务书、实现、检查、宿主验证、证据判读和回写的通用流程正文位于其
+`docs/handoff/development-workflow.md`，交付清单位于 `docs/handoff/generic-dod.md`。
+按已授权的 Gitea clone 地址取得源码；本仓 CI 的配置见 [README](../README.md#ci-源码访问)。
 Grok Bot 协调场景的角色、模型与合入权限见[本仓 RACI 指针](operations/grok-bot-raci-workflow.md)。
 
 `my_scripts/task_scaffold.py` 只保留本仓研究模板、仓库路径和检查命令，通用执行核读取相邻
@@ -74,7 +75,7 @@ python my_scripts/ops_workflow.py publish --title "本次功能分支的 PR 标�
 该发布器通过 Git Data API 重放提交并创建 PR，同名远端功能分支可能被替换，
 重放 SHA 也可能与本机不同；确认需要这种发布方式后再执行实际调用。
 CI 检查及合入继续按现有仓库流程处理。
-通用运行时合同见 [ops shared runtime](https://github.com/baiyibing/grok-bot-ops/blob/master/docs/multi-ai/shared-runtime-20261109.md)。
+通用运行时合同见 ops 源码的 `docs/multi-ai/shared-runtime-20261109.md`。
 
 ## 5. 研究运行约束索引
 
