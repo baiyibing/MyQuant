@@ -116,7 +116,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-py3.12-qlib-79633dd9-
 
-      - name: Install qlib (pinned source commit 79633dd9)
+      - name: Prepare qlib source (pinned commit 79633dd9)
         shell: bash
         run: |
           set -euo pipefail
@@ -131,11 +131,10 @@ jobs:
             fi
             echo "qlib-dev cache HIT; verified pin $head"
           fi
-          pip install -e qlib-dev
 
-      - name: Install project deps
-        run: |
-          pip install -r requirements.txt pytest
+      - name: Install Qlib and project dependencies
+        # Resolve Qlib against the project pins before installing shared dependencies.
+        run: python -m pip install -e qlib-dev -r requirements.txt pytest
 
       - name: Verify four-repo pandas minimum
         run: python -c "import pandas; from packaging.version import Version; print('pandas', pandas.__version__); assert Version(pandas.__version__) >= Version('3.0.6'), pandas.__version__"
