@@ -12,7 +12,7 @@ lightgbm>=4.7
 numpy==2.5.4
 pandas>=3.0.6
 scikit-learn>=1.5
-mlflow>=3.0
+mlflow>=3.18.0
 pyarrow==26.0.0
 loguru
 # custom_utils.py（测试经 TimerRecorder 引用）顶层绘图依赖
