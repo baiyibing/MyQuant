@@ -102,6 +102,7 @@ jobs:
           git -C "$GITHUB_WORKSPACE/grok-bot-ops" rev-parse HEAD
 
       - uses: actions/setup-python@v5
+        id: pytest-python
         with:
           python-version: "3.12"
 
@@ -132,15 +133,33 @@ jobs:
             echo "qlib-dev cache HIT; verified pin $head"
           fi
 
-      - name: Install Qlib and project dependencies
+      # Keep this cache scoped to the public Qlib install. Project dependencies
+      # include private source and use pip's separate default cache directory.
+      - name: Cache public Qlib pip downloads
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/myquant-public-qlib-pip
+          key: qlib-79633dd9-pip-v1-${{ runner.os }}-${{ runner.arch }}-py${{ steps.pytest-python.outputs.python-version }}-${{ hashFiles('MyQuant/qlib-dev/pyproject.toml') }}
+
+      - name: Install qlib (pinned source commit 79633dd9)
         shell: bash
+        env:
+          PIP_CACHE_DIR: ${{ runner.temp }}/myquant-public-qlib-pip
+          PIP_CONFIG_FILE: /dev/null
+          PIP_INDEX_URL: https://pypi.org/simple
+          PIP_EXTRA_INDEX_URL: ''
+          PIP_FIND_LINKS: ''
+        run: pip install -e qlib-dev
+
+      - name: Install project deps
         run: |
-          set -euo pipefail
-          python -m pip install --only-binary=:all: 'uv==0.13.8'
-          python -m uv pip install --system --python "$(command -v python)" -e ./qlib-dev -r requirements.txt pytest
+          pip install -r requirements.txt pytest
 
       - name: Verify four-repo pandas minimum
         run: python -c "import pandas; from packaging.version import Version; print('pandas', pandas.__version__); assert Version(pandas.__version__) >= Version('3.0.6'), pandas.__version__"
+
+      - name: Record resolved package versions
+        run: python -m pip list --format=freeze
 
       - name: Run tests
         shell: bash
