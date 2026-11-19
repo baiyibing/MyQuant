@@ -133,8 +133,11 @@ jobs:
           fi
 
       - name: Install Qlib and project dependencies
-        # Resolve Qlib against the project pins before installing shared dependencies.
-        run: python -m pip install -e qlib-dev -r requirements.txt pytest
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --only-binary=:all: 'uv==0.13.8'
+          python -m uv pip install --system --python "$(command -v python)" -e ./qlib-dev -r requirements.txt pytest
 
       - name: Verify four-repo pandas minimum
         run: python -c "import pandas; from packaging.version import Version; print('pandas', pandas.__version__); assert Version(pandas.__version__) >= Version('3.0.6'), pandas.__version__"
