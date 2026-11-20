@@ -1,5 +1,6 @@
 # Qlib 以源码 editable 方式安装，不使用 pip 的 pyqlib 包：
 #   git clone https://github.com/microsoft/qlib.git qlib-dev
+#   git -C qlib-dev checkout 79633dd9
 #   cd qlib-dev && pip install -e .
 # 开发基准 commit：79633dd9（v0.9.8.dev32，2026-09）
 

@@ -47,11 +47,12 @@ Python 3.12（conda）。Qlib 采用源码 editable 方式安装，便于调试�
 
 ```bash
 git clone https://github.com/microsoft/qlib.git qlib-dev
+git -C qlib-dev checkout 79633dd9
 cd qlib-dev
 pip install -e .
 ```
 
-将 `MyQuant-infra` 源码放在本仓的同级目录，然后在 MyQuant 根目录安装依赖：
+Qlib 源码基准为 `79633dd9`，与 CI 及 `requirements.txt` 的开发基准一致。将 `MyQuant-infra` 源码放在本仓的同级目录，然后在 MyQuant 根目录安装依赖：
 
 ```bash
 pip install -r requirements.txt

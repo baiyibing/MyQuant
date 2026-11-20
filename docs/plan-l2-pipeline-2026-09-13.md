@@ -1,5 +1,7 @@
 # L2 贯通：名单 → trade_decision → LEBS → MockQMT paper
 
+> **2026-11-16 退役状态说明**：1.3 的 LEBS 已于 2026-11-09 整体退役。下文任务书、LEBS 路径和 2026-11-03 回执保留为历史记录，不再是可执行的晋升链；不得据此恢复 `backtest.lebs` / csv-live。MyQuant 的完整 Qlib 研究定位以 [README](../README.md)为准，执行验收以 1.3 当前 SSOT 为准。旧 C/D 后续去留仍需按当前执行能力裁定，本次说明不关闭 QL16/P20，也不将其他策略验收当作旧 D 的替代证据。
+
 > 2026-11-03 状态回写（QL16 局部）：本页下文保留 2026-09-13 任务书。A 冒烟和 B 四维对账已分别随 1.3 [#1024](https://github.com/baiyibing/OSkhQuant1.3/pull/1024)、[#1025](https://github.com/baiyibing/OSkhQuant1.3/pull/1025) 合入；B 的名单 131/131 一致，其余维度保留原报告的差异归因及合法关门结论，不是规则完全一致。C 的晋升门数值、D 旧研究晋升线的保留或归档仍待裁定；本次只补本仓 E 的状态指针，不代表三仓 E 全闭合。当前 v653/turtle paper 验收不能替代旧 D，也不据此恢复 csv-live。固定 SHA、原域报告和边界见[证据回执](operations/evidence/ql16-ab-status-2026-11-03/README.md)；QL16/P20 保持开放。
 
 - 日期：2026-09-13
